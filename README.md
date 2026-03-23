@@ -8,7 +8,7 @@ CareerForge is a multi-tool AI career platform built with React and the Anthropi
 
 ## Live App
 
-🔗 **[careerforge.netlify.app](https://careerforge.netlify.app)**
+🔗 **[aicareerforge.netlify.app](https://careerforge.netlify.app)**
 
 ---
 
