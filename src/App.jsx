@@ -6,35 +6,39 @@ const PROFILE = {
   name: "Scott Henderson",
   title: "Enterprise Transformation Leader",
   focus: "VP Technology | Renewable Energy | Enterprise Applications",
-  background: `Senior transformation leader with 15+ years driving enterprise-scale change at grid-scale renewable energy companies and Fortune 500 technology organizations. VP of Technology at EDF Renewables and Cypress Creek Renewables with full P&L ownership — budget, revenue forecasting, margin management, and board/C-suite reporting. Earlier career as enterprise agile coach at Nike and Intel. Known for translating complex technology strategy into measurable P&L outcomes. Located in Bellingham, WA, open to remote roles.`,
+  background: `Senior transformation leader with 15+ years driving enterprise-scale change at grid-scale renewable energy companies and Fortune 500 technology organizations. VP of Technology at EDF Renewables and Cypress Creek Renewables with full P&L ownership — budget, revenue forecasting, margin management, and board/C-suite reporting. Earlier career as enterprise agile coach at Nike and Intel. Known for translating complex technology strategy into measurable P&L outcomes. Located in Bellingham, WA.`,
   proofPoints: [
     "$28M annualized EBITDA improvement at EDF Renewables through platform consolidation",
     "27% reduction in compliance-related fines at CCR via AI governance implementation",
     "$13M SaaS catalog identified through ledger mining → 15% OPEX reduction",
     "Full P&L ownership at both CCR and EDF — budget, forecasting, margin, board reporting",
     "Enterprise agile coach at Nike and Intel — transformation at scale",
-    "Built Nike OIA/Airbag platform from whiteboard to production — ~$600M revenue in first year",
   ],
-  // CONFIRMED facts. Gap analysis MUST cross-reference before declaring any gap.
-  // Never list something as a gap if it appears here.
-  confirmedSkills: [
-    "Lean Six Sigma Black Belt (LSSBB) — Intel internal certification",
-    "Lean Six Sigma Green Belt (LSSGB) — LinkedIn Learning certified",
-    "Lean Six Sigma Black Belt (LSSBB) — LinkedIn Learning certified",
-    "ERP implementation — led full NetSuite ERP implementation at CCR, on time and under budget",
-    "CRM — Salesforce and Sitetracker implementation at CCR",
-    "Platform implementations delivered on time/under budget: Oracle FCC, Blackline, NSPB/Planful, Snowflake (all at CCR)",
-    "IT product development — Nike OIA/Airbag platform, built whiteboard to production, ~$600M revenue Y1, still in use",
-    "OCM and factory adoption — post-deploy change management for Nike airbag platform",
-    "Process optimization using Lean/Six Sigma principles embedded across EDF and CCR transformation programs",
-    "Agile at scale — SAFe, Scrum, Kanban; enterprise agile coach at Nike and Intel",
-    "US Citizen — eligible for security clearance, no known impediments",
-    "Capital-intensive regulated industry: renewable energy (grid-scale), manufacturing (Nike/Intel)",
-    "Board and C-suite reporting — direct at both EDF and CCR",
-    "Full P&L ownership — multi-million dollar technology budgets at VP level",
-    "Vendor management — enterprise selection, contract negotiation, managed services",
-    "Data governance and compliance frameworks — AI governance at CCR",
-    "Team leadership — built/led teams of 15+ at CCR and EDF",
+  certifications: [
+    "Lean Six Sigma Black Belt — Intel internal certification program (VERIFIED — do not flag as a gap)",
+    "Lean Six Sigma Green Belt — LinkedIn Learning certification",
+    "Lean Six Sigma Black Belt — LinkedIn Learning certification",
+  ],
+  implementations: [
+    "NetSuite ERP — full end-to-end implementation at Cypress Creek Renewables, on time and under budget (VERIFIED ERP EXPERIENCE — do not flag as a gap)",
+    "Salesforce + Sitetracker — full implementation at CCR for project portfolio management",
+    "Oracle Financial Consolidation and Close (FCC) — full implementation at CCR",
+    "Blackline — financial close automation, full implementation at CCR",
+    "NSPB (NetSuite Planning and Budgeting) — full implementation at CCR",
+    "Snowflake — data platform implementation at CCR",
+    "All implementations delivered on time and under budget — hands-on implementation lead, not oversight",
+  ],
+  products: [
+    "Nike Airbag Inspection Platform — led full product lifecycle from whiteboard to production deployment. Generated ~$600M revenue in first year. Led OCM and global factory adoption. Platform still in active use. This is verified IT/digital product experience including build, deploy, change management, and adoption (VERIFIED PRODUCT EXPERIENCE — do not flag IT product experience as a gap)",
+  ],
+  industries: [
+    "Renewable energy (grid-scale solar, wind, storage) — EDF Renewables, Cypress Creek Renewables",
+    "Consumer products / manufacturing — Nike (global factory operations, airbag inspection platform)",
+    "Semiconductor / technology manufacturing — Intel",
+    "Highly regulated, capital-intensive, compliance-heavy industries across all roles",
+  ],
+  security: [
+    "US Citizen — no impediments to obtaining security clearance. Can commence process immediately upon offer.",
   ],
 };
 
@@ -129,7 +133,7 @@ const SEED_STORIES = [
   },
 ];
 
-const TABS = ["Library", "Analyze JD", "Resume", "Cover Letter", "Interview Prep"];
+const TABS = ["Library", "Analyze JD", "Resume", "Cover Letter", "Interview Prep", "Research"];
 
 // ── Storage ───────────────────────────────────────────────────────────────────
 
@@ -273,167 +277,161 @@ function ResultSection({ title, result, loading, error }) {
   );
 }
 
-// ── Analysis Modal ────────────────────────────────────────────────────────────
+// ── Gap Correction Modal ──────────────────────────────────────────────────────
 
-function parseAnalysis(text) {
-  // Extract fit score
-  const scoreMatch = text.match(/fit score[:\s]*([0-9.]+)\s*\/?\s*10/i) ||
-    text.match(/([0-9.]+)\s*\/\s*10/i) || text.match(/score[:\s]*([0-9.]+)/i);
-  const score = scoreMatch ? parseFloat(scoreMatch[1]) : null;
-
-  // Extract gaps section
-  const gapsMatch = text.match(/gaps?\s+to\s+address[\s\S]*?(?=\n#{1,3}|\n[A-Z]{3,}|\nKEYWORDS|$)/i) ||
-    text.match(/5\.\s*gaps?[\s\S]*?(?=\n6\.|\nKEYWORDS|$)/i);
-  const gapsRaw = gapsMatch ? gapsMatch[0] : "";
-
-  // Parse individual gaps from the gaps section
-  const gapLines = gapsRaw.split(/\n/).filter(l =>
-    l.trim() && !l.match(/^gaps?\s+to\s+address/i) && !l.match(/^5\.\s*gaps?/i)
-  );
-
-  const gaps = [];
-  let current = null;
-  for (const line of gapLines) {
-    const boldMatch = line.match(/^\*{1,2}([^*]+)\*{1,2}|^[-•]\s*\*{1,2}([^*]+)\*{1,2}|^\d+\.\s*\*{1,2}([^*]+)\*{1,2}/);
-    const headerMatch = line.match(/^\*{1,2}(No |Lack |Limited |Missing |Without )/i) ||
-      line.match(/^[-•]\s*(No |Lack |Limited |Missing |Without )/i);
-    if (boldMatch || headerMatch) {
-      if (current) gaps.push(current);
-      const title = (boldMatch?.[1] || boldMatch?.[2] || boldMatch?.[3] || line)
-        .replace(/\*+/g, "").replace(/^[-•\d.]\s*/, "").trim();
-      current = { title, detail: "" };
-    } else if (current && line.trim()) {
-      current.detail += (current.detail ? " " : "") + line.trim().replace(/\*+/g, "");
-    }
-  }
-  if (current) gaps.push(current);
-
-  return { score, gaps: gaps.filter(g => g.title.length > 2), fullText: text };
-}
-
-function AnalysisModal({ parsed, onProceed, onCorrectGaps, onNewJD, profileOverrides, onAddOverride }) {
-  const { score, gaps, fullText } = parsed;
-  const [correcting, setCorrecting] = useState(null); // gap index being corrected
-  const [correction, setCorrection] = useState("");
-
-  const scoreColor = score >= 8 ? "#7ab87a" : score >= 6 ? "#c9a84c" : "#c07070";
-
-  const handleSaveCorrection = (gap) => {
-    if (!correction.trim()) return;
-    onAddOverride({ gap: gap.title, correction: correction.trim(), timestamp: Date.now() });
-    setCorrecting(null);
-    setCorrection("");
-  };
-
+function AnalysisModal({ score, rationale, gaps, fullResult, onProceed, onCorrect, onNewJD }) {
   return (
     <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)",
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
       display: "flex", alignItems: "center", justifyContent: "center",
       zIndex: 1000, padding: "20px"
     }}>
       <div style={{
-        background: "#0f1020", border: "1px solid #2a2a4a", borderRadius: "10px",
-        maxWidth: "720px", width: "100%", maxHeight: "85vh", overflow: "auto",
-        padding: "32px", boxShadow: "0 20px 60px rgba(0,0,0,0.6)"
+        background: "#111228", border: "1px solid #2a2a3a", borderRadius: "12px",
+        width: "100%", maxWidth: "680px", maxHeight: "85vh", overflowY: "auto",
+        padding: "32px", boxShadow: "0 24px 80px rgba(0,0,0,0.6)"
       }}>
         {/* Score */}
-        <div style={{ display: "flex", alignItems: "baseline", gap: "16px", marginBottom: "24px" }}>
-          <div>
-            <div style={{ fontSize: "10px", letterSpacing: "2px", textTransform: "uppercase", color: "#4a4860", fontFamily: "system-ui, sans-serif", marginBottom: "4px" }}>Fit Score</div>
-            <div style={{ fontSize: "48px", fontWeight: "700", color: scoreColor, fontFamily: "system-ui, sans-serif", lineHeight: 1 }}>
-              {score ? `${score}/10` : "—"}
-            </div>
-          </div>
-          <div style={{ flex: 1, fontSize: "13px", color: "#7a7090", fontFamily: "system-ui, sans-serif", lineHeight: "1.6", paddingTop: "20px" }}>
-            {/* Extract rationale line */}
-            {fullText.match(/fit score[^.\n]*[.\n]/i)?.[0]?.replace(/fit score[:\s]*[0-9.]+\s*\/?\s*10\s*[-—]?\s*/i, "") || ""}
-          </div>
+        <div style={{ textAlign: "center", marginBottom: "28px" }}>
+          <div style={{
+            fontSize: "64px", fontWeight: "700", lineHeight: 1,
+            color: score >= 8 ? "#7adf8a" : score >= 6 ? "#c9a84c" : "#df7a7a",
+            fontFamily: "system-ui, sans-serif"
+          }}>{score}<span style={{ fontSize: "28px", color: "#3a3858" }}>/10</span></div>
+          <div style={{
+            fontSize: "13px", color: "#7a7090", fontFamily: "system-ui, sans-serif",
+            marginTop: "8px", lineHeight: "1.5", maxWidth: "480px", margin: "8px auto 0"
+          }}>{rationale}</div>
         </div>
 
         {/* Gaps */}
         {gaps.length > 0 && (
           <div style={{ marginBottom: "28px" }}>
-            <div style={{ fontSize: "10px", letterSpacing: "2px", textTransform: "uppercase", color: "#7a5050", fontFamily: "system-ui, sans-serif", fontWeight: "600", marginBottom: "14px" }}>
-              Gaps to Address ({gaps.length})
-            </div>
-            {gaps.map((gap, i) => {
-              const override = profileOverrides.find(o => o.gap === gap.title);
-              return (
-                <div key={i} style={{
-                  background: override ? "rgba(99,140,99,0.08)" : "rgba(180,80,80,0.07)",
-                  border: `1px solid ${override ? "rgba(99,140,99,0.2)" : "rgba(180,80,80,0.2)"}`,
-                  borderRadius: "6px", padding: "14px 16px", marginBottom: "10px"
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: "13px", fontWeight: "600", color: override ? "#7ab87a" : "#c08080", fontFamily: "system-ui, sans-serif", marginBottom: "4px" }}>
-                        {override ? "✓ " : ""}{gap.title}
-                      </div>
-                      {gap.detail && (
-                        <div style={{ fontSize: "12px", color: "#5a5070", fontFamily: "system-ui, sans-serif", lineHeight: "1.6" }}>
-                          {gap.detail.slice(0, 180)}{gap.detail.length > 180 ? "…" : ""}
-                        </div>
-                      )}
-                      {override && (
-                        <div style={{ fontSize: "12px", color: "#7a9a7a", fontFamily: "system-ui, sans-serif", marginTop: "6px", fontStyle: "italic" }}>
-                          Your note: {override.correction}
-                        </div>
-                      )}
-                    </div>
-                    {!override && correcting !== i && (
-                      <button onClick={() => { setCorrecting(i); setCorrection(""); }} style={{
-                        ...S.btnGhost, fontSize: "11px", padding: "4px 10px",
-                        color: "#8870a0", borderColor: "#3a2a4a", flexShrink: 0
-                      }}>I have this</button>
-                    )}
-                  </div>
-                  {correcting === i && (
-                    <div style={{ marginTop: "12px" }}>
-                      <div style={{ fontSize: "11px", color: "#5a5070", fontFamily: "system-ui, sans-serif", marginBottom: "6px" }}>
-                        Describe your experience — this will be saved to your profile and used in future analyses:
-                      </div>
-                      <textarea
-                        value={correction}
-                        onChange={e => setCorrection(e.target.value)}
-                        autoFocus
-                        placeholder="e.g. I have LSSBB through Intel's internal program and LinkedIn Learning…"
-                        rows={3}
-                        style={{ ...S.textarea, fontSize: "12px", marginBottom: "8px" }}
-                        onFocus={e => e.target.style.borderColor = "#7a5aaf"}
-                        onBlur={e => e.target.style.borderColor = "#2a2a3a"}
-                      />
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <button onClick={() => handleSaveCorrection(gap)} style={{ ...S.btn, padding: "6px 16px", fontSize: "12px", background: "#5a4aaf" }}>Save to Profile</button>
-                        <button onClick={() => setCorrecting(null)} style={{ ...S.btnGhost, padding: "6px 12px", fontSize: "12px" }}>Cancel</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            <div style={{
+              fontSize: "10px", letterSpacing: "2px", textTransform: "uppercase",
+              color: "#5858a0", fontFamily: "system-ui, sans-serif", fontWeight: "600", marginBottom: "12px"
+            }}>Gaps to Address ({gaps.length})</div>
+            {gaps.map((gap, i) => (
+              <div key={i} style={{
+                background: "rgba(255,255,255,0.02)", border: "1px solid #1e1e2e",
+                borderRadius: "6px", padding: "14px 16px", marginBottom: "8px"
+              }}>
+                <div style={{
+                  fontSize: "13px", fontWeight: "600", color: "#c0b0d8",
+                  fontFamily: "system-ui, sans-serif", marginBottom: "4px"
+                }}>{gap.title}</div>
+                <div style={{
+                  fontSize: "12px", color: "#5a5070", fontFamily: "system-ui, sans-serif", lineHeight: "1.6"
+                }}>{gap.assessment}</div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Full analysis (collapsed) */}
-        <details style={{ marginBottom: "28px" }}>
-          <summary style={{ fontSize: "11px", letterSpacing: "1px", textTransform: "uppercase", color: "#3a3858", fontFamily: "system-ui, sans-serif", cursor: "pointer", userSelect: "none" }}>
-            Full Analysis ▾
-          </summary>
-          <div style={{ ...S.resultBox, marginTop: "12px", fontSize: "13px" }}>{fullText}</div>
-        </details>
-
-        {/* Action buttons */}
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-          <button onClick={onProceed} style={{ ...S.btn, background: "#3a7a3a", flex: "1", minWidth: "140px" }}>
-            ✓ Proceed to Build
-          </button>
-          <button onClick={onCorrectGaps} style={{ ...S.btn, background: "#5a4aaf", flex: "1", minWidth: "140px" }}>
-            ✏️ Address Gaps
-          </button>
-          <button onClick={onNewJD} style={{ ...S.btnGhost, flex: "1", minWidth: "140px", textAlign: "center" }}>
-            ↺ New JD Analysis
-          </button>
+        {/* Actions */}
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <button onClick={onProceed} style={{
+            background: "#4a4abf", color: "#e0e0ff", border: "none",
+            borderRadius: "6px", padding: "12px 24px", fontSize: "13px",
+            fontFamily: "system-ui, sans-serif", fontWeight: "600", cursor: "pointer", flex: 1
+          }}>Proceed to Full Analysis →</button>
+          <button onClick={onCorrect} style={{
+            background: "rgba(201,168,76,0.12)", color: "#c9a84c",
+            border: "1px solid rgba(201,168,76,0.3)",
+            borderRadius: "6px", padding: "12px 20px", fontSize: "13px",
+            fontFamily: "system-ui, sans-serif", cursor: "pointer", flex: 1
+          }}>Correct a Gap</button>
+          <button onClick={onNewJD} style={{
+            background: "rgba(99,180,160,0.12)", color: "#6ab8a8",
+            border: "1px solid rgba(99,180,160,0.35)",
+            borderRadius: "6px", padding: "12px 20px", fontSize: "13px",
+            fontFamily: "system-ui, sans-serif", cursor: "pointer", flex: 1
+          }}>New JD Analysis</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function GapCorrectionPanel({ gaps, corrections, onSave, onDone }) {
+  const [local, setLocal] = useState(
+    gaps.map(g => ({ ...g, flagged: false, userCorrection: corrections[g.title] || "" }))
+  );
+
+  const toggle = (i) => setLocal(prev => prev.map((g, idx) => idx === i ? { ...g, flagged: !g.flagged } : g));
+  const update = (i, val) => setLocal(prev => prev.map((g, idx) => idx === i ? { ...g, userCorrection: val } : g));
+
+  const handleSave = () => {
+    const updated = {};
+    local.forEach(g => { if (g.flagged && g.userCorrection.trim()) updated[g.title] = g.userCorrection.trim(); });
+    onSave(updated);
+  };
+
+  return (
+    <div style={{ background: "#0d0e1a", border: "1px solid #2a2a3a", borderRadius: "8px", padding: "24px", marginBottom: "24px" }}>
+      <div style={{ fontSize: "14px", fontWeight: "600", color: "#c0b8d8", fontFamily: "system-ui, sans-serif", marginBottom: "4px" }}>
+        Correct the Gaps
+      </div>
+      <div style={{ fontSize: "12px", color: "#4a4860", fontFamily: "system-ui, sans-serif", marginBottom: "20px" }}>
+        Flag any gap the AI got wrong and provide your correction. Corrections are saved and used in all future analyses.
+      </div>
+
+      {local.map((gap, i) => (
+        <div key={i} style={{
+          border: `1px solid ${gap.flagged ? "rgba(201,168,76,0.4)" : "#1e1e2e"}`,
+          borderRadius: "6px", padding: "14px 16px", marginBottom: "10px",
+          background: gap.flagged ? "rgba(201,168,76,0.04)" : "rgba(255,255,255,0.01)"
+        }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+            <button onClick={() => toggle(i)} style={{
+              background: gap.flagged ? "#c9a84c" : "transparent",
+              border: `1px solid ${gap.flagged ? "#c9a84c" : "#3a3858"}`,
+              borderRadius: "3px", width: "18px", height: "18px", cursor: "pointer",
+              flexShrink: 0, marginTop: "2px", fontSize: "11px", color: "#0f1117",
+              display: "flex", alignItems: "center", justifyContent: "center"
+            }}>{gap.flagged ? "✓" : ""}</button>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: "13px", fontWeight: "600", color: "#c0b0d8", fontFamily: "system-ui, sans-serif", marginBottom: "3px" }}>
+                {gap.title}
+              </div>
+              <div style={{ fontSize: "12px", color: "#4a4060", fontFamily: "system-ui, sans-serif", lineHeight: "1.5" }}>
+                {gap.assessment}
+              </div>
+              {gap.flagged && (
+                <div style={{ marginTop: "10px" }}>
+                  <div style={{ fontSize: "10px", letterSpacing: "1.5px", textTransform: "uppercase", color: "#8a7040", fontFamily: "system-ui, sans-serif", marginBottom: "6px" }}>
+                    Your Correction
+                  </div>
+                  <textarea
+                    value={gap.userCorrection}
+                    onChange={e => update(i, e.target.value)}
+                    placeholder="e.g. I DO have LSSBB — Intel internal certification plus LinkedIn Learning GB and BB. This is not a gap."
+                    rows={3}
+                    style={{
+                      width: "100%", background: "#0a0b14", border: "1px solid #c9a84c",
+                      borderRadius: "4px", color: "#c0b8d8", fontFamily: "system-ui, sans-serif",
+                      fontSize: "13px", lineHeight: "1.6", padding: "10px",
+                      resize: "vertical", outline: "none", boxSizing: "border-box"
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+        <button onClick={handleSave} style={{
+          background: "#c9a84c", color: "#0f1117", border: "none",
+          borderRadius: "4px", padding: "10px 24px", fontSize: "13px",
+          fontFamily: "system-ui, sans-serif", fontWeight: "600", cursor: "pointer"
+        }}>Save Corrections</button>
+        <button onClick={onDone} style={{
+          background: "transparent", color: "#5a5070", border: "1px solid #2a2a3a",
+          borderRadius: "4px", padding: "10px 18px", fontSize: "13px",
+          fontFamily: "system-ui, sans-serif", cursor: "pointer"
+        }}>Done</button>
       </div>
     </div>
   );
@@ -441,111 +439,369 @@ function AnalysisModal({ parsed, onProceed, onCorrectGaps, onNewJD, profileOverr
 
 // ── Tab: Analyze JD ───────────────────────────────────────────────────────────
 
-function AnalyzeTab({ jd, setJd, stories, profileOverrides, onAddOverride, onProceedToBuild }) {
-  const [parsed, setParsed] = useState(null);
+function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onAnalysisComplete }) {
+  const [fullResult, setFullResult] = useState("");
+  const [parsedGaps, setParsedGaps] = useState([]);
+  const [parsedScore, setParsedScore] = useState(null);
+  const [parsedRationale, setParsedRationale] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showCorrections, setShowCorrections] = useState(false);
+  const [showFull, setShowFull] = useState(false);
+
+  const buildSystemPrompt = () => {
+    const correctionText = Object.entries(corrections).length > 0
+      ? `\n\nUSER CORRECTIONS FROM PREVIOUS ANALYSES (treat these as verified facts — do NOT re-flag as gaps):\n${Object.entries(corrections).map(([k, v]) => `- "${k}": ${v}`).join("\n")}`
+      : "";
+
+    return `You are a senior career strategist helping ${PROFILE.name}, ${PROFILE.title}.
+
+BACKGROUND: ${PROFILE.background}
+
+PROOF POINTS: ${PROFILE.proofPoints.join("; ")}
+
+CERTIFICATIONS (VERIFIED): ${PROFILE.certifications.join("; ")}
+
+ERP/PLATFORM IMPLEMENTATIONS (VERIFIED — hands-on implementation lead, not oversight): ${PROFILE.implementations.join("; ")}
+
+PRODUCT EXPERIENCE (VERIFIED): ${PROFILE.products.join("; ")}
+
+INDUSTRY EXPERIENCE: ${PROFILE.industries.join("; ")}
+
+SECURITY/CLEARANCE: ${PROFILE.security.join("; ")}
+
+CRITICAL INSTRUCTION: Before flagging ANY gap, check the verified facts above. If Scott has the skill, certification, or experience listed above, do NOT flag it as a gap. Only flag genuine, verified gaps.${correctionText}
+
+Analyze job descriptions and return a JSON object with this exact structure:
+{
+  "score": <number 1-10>,
+  "company": "<company name extracted from the JD>",
+  "rationale": "<one sentence explaining the score>",
+  "keyRequirements": ["<req1>", "<req2>", "<req3>", "<req4>", "<req5>"],
+  "strongestAngles": [{"angle": "<angle>", "why": "<why>"}],
+  "topStories": [{"story": "<story title>", "useFor": "<question type>"}],
+  "gaps": [{"title": "<gap name>", "assessment": "<honest 1-sentence assessment>", "framing": "<suggested framing>"}],
+  "keywords": ["<kw1>", "<kw2>"]
+}
+
+Return ONLY the JSON object. No markdown, no preamble.`;
+  };
 
   const run = async () => {
     if (!jd.trim()) return;
-    setLoading(true); setError(null); setParsed(null);
+    setLoading(true); setError(null); setFullResult(""); setShowFull(false); setShowModal(false);
     try {
-      const storyTitles = stories.map((s, i) =>
-        `${i + 1}. "${s.title}" — ${s.competencies.join(", ")}\n   Result: ${s.result}`
-      ).join("\n");
+      const storyTitles = stories.map((s, i) => `${i + 1}. "${s.title}" — ${s.competencies.join(", ")} | Result: ${s.result}`).join("\n");
+      const text = await callClaude(buildSystemPrompt(), `Stories:\n${storyTitles}\n\nJob Description:\n${jd}`, 3000);
 
-      const overrideContext = profileOverrides.length > 0
-        ? `\nUSER-CONFIRMED CORRECTIONS (treat as verified facts):\n${profileOverrides.map(o => `- ${o.gap}: ${o.correction}`).join("\n")}`
-        : "";
+      // Parse JSON
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Could not parse analysis response");
+      const parsed = JSON.parse(jsonMatch[0]);
 
-      const system = `You are a senior career strategist helping ${PROFILE.name}, ${PROFILE.title}.
-
-His background: ${PROFILE.background}
-
-His confirmed skills and experience — YOU MUST CHECK THIS LIST before identifying any gap.
-If a skill appears in this list, it is NOT a gap. Do not list it as one under any circumstances:
-${PROFILE.confirmedSkills.map(s => `• ${s}`).join("\n")}
-${overrideContext}
-
-His proof points:
-${PROFILE.proofPoints.map(p => `• ${p}`).join("\n")}
-
-His STAR story library:
-${storyTitles}
-
-Analyze the job description and provide EXACTLY this structure:
-
-FIT SCORE: [number]/10 — [one-line rationale]
-
-KEY REQUIREMENTS
-[5 most important requirements this role actually needs]
-
-SCOTT'S STRONGEST ANGLES
-[Top 3 proof points most relevant to this JD, and why]
-
-TOP 3 STORIES TO TELL
-[Which stories to lead with, and for which interview question type]
-
-GAPS TO ADDRESS
-[IMPORTANT: Only list genuine gaps — skills or experience NOT found in his confirmed skills list above.
-For each real gap: name it clearly, give honest assessment, suggest framing.
-If there are no real gaps, say "No significant gaps identified."]
-
-KEYWORDS TO INCLUDE
-[8-10 keywords from the JD to weave into resume and cover letter]
-
-Be direct and specific. Never hallucinate gaps that contradict his confirmed skills list.`;
-
-      const text = await callClaude(system, `Analyze this job description:\n\n${jd}`, 2500);
-      const result = parseAnalysis(text);
-      setParsed(result);
+      setParsedScore(parsed.score);
+      setParsedRationale(parsed.rationale);
+      setParsedGaps(parsed.gaps || []);
+      setFullResult(formatFullResult(parsed));
       setShowModal(true);
+      // Trigger research agent with extracted company
+      if (onAnalysisComplete && parsed.company) onAnalysisComplete(parsed.company);
     } catch (e) { setError(`Analysis failed: ${e.message}`); }
     finally { setLoading(false); }
   };
 
-  const handleNewJD = () => { setJd(""); setParsed(null); setShowModal(false); };
+  const formatFullResult = (p) => {
+    const lines = [];
+    lines.push(`FIT SCORE: ${p.score}/10\n${p.rationale}\n`);
+    lines.push(`KEY REQUIREMENTS:\n${p.keyRequirements?.map(r => `• ${r}`).join("\n") || ""}\n`);
+    lines.push(`STRONGEST ANGLES:\n${p.strongestAngles?.map(a => `• ${a.angle}\n  → ${a.why}`).join("\n") || ""}\n`);
+    lines.push(`TOP STORIES TO TELL:\n${p.topStories?.map(s => `• "${s.story}"\n  → Use for: ${s.useFor}`).join("\n") || ""}\n`);
+    if (p.gaps?.length > 0) {
+      lines.push(`GAPS TO ADDRESS:\n${p.gaps.map(g => `• ${g.title}\n  Assessment: ${g.assessment}\n  Framing: ${g.framing}`).join("\n\n")}\n`);
+    } else {
+      lines.push("GAPS: None identified.\n");
+    }
+    lines.push(`KEYWORDS TO INCLUDE:\n${p.keywords?.join(", ") || ""}`);
+    return lines.join("\n");
+  };
+
+  const handleSaveCorrections = (newCorrections) => {
+    onSaveCorrections({ ...corrections, ...newCorrections });
+    setShowCorrections(false);
+    setShowModal(false);
+  };
 
   return (
     <div>
-      {showModal && parsed && (
+      {showModal && (
         <AnalysisModal
-          parsed={parsed}
-          profileOverrides={profileOverrides}
-          onAddOverride={onAddOverride}
-          onProceed={() => { setShowModal(false); onProceedToBuild(); }}
-          onCorrectGaps={() => setShowModal(false)}
-          onNewJD={handleNewJD}
+          score={parsedScore}
+          rationale={parsedRationale}
+          gaps={parsedGaps}
+          fullResult={fullResult}
+          onProceed={() => { setShowModal(false); setShowFull(true); }}
+          onCorrect={() => { setShowModal(false); setShowCorrections(true); }}
+          onNewJD={() => { setShowModal(false); setJd(""); setFullResult(""); }}
         />
       )}
+
       <JDInput jd={jd} setJd={setJd} />
-      {profileOverrides.length > 0 && (
+
+      {Object.keys(corrections).length > 0 && (
         <div style={{
-          background: "rgba(99,140,99,0.08)", border: "1px solid rgba(99,140,99,0.2)",
+          background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.2)",
           borderRadius: "4px", padding: "10px 14px", marginBottom: "16px",
-          fontFamily: "system-ui, sans-serif", fontSize: "12px", color: "#7a9a7a"
+          fontFamily: "system-ui, sans-serif", fontSize: "12px", color: "#8a7040",
+          display: "flex", justifyContent: "space-between", alignItems: "center"
         }}>
-          ✓ {profileOverrides.length} profile correction{profileOverrides.length > 1 ? "s" : ""} active — AI will use these in analysis
+          <span>✓ {Object.keys(corrections).length} gap correction{Object.keys(corrections).length > 1 ? "s" : ""} active — AI will not re-flag these</span>
+          <button onClick={() => setShowCorrections(true)} style={{
+            background: "none", border: "none", color: "#c9a84c", cursor: "pointer", fontSize: "12px"
+          }}>View / edit</button>
         </div>
       )}
+
       <button onClick={run} disabled={!jd.trim() || loading} style={{
         ...S.btn, opacity: !jd.trim() || loading ? 0.5 : 1,
         display: "flex", alignItems: "center", gap: "8px", marginBottom: "24px"
       }}>
         {loading ? <><Spinner /> Analyzing…</> : "Analyze JD"}
       </button>
+
       {error && <div style={{ color: "#c06060", fontFamily: "system-ui, sans-serif", fontSize: "13px", marginBottom: "16px", wordBreak: "break-word" }}>{error}</div>}
-      {parsed && !showModal && (
-        <div>
-          <button onClick={() => setShowModal(true)} style={{ ...S.btn, background: "#3a5aaf", marginBottom: "16px" }}>
-            View Analysis Results
-          </button>
-          <ResultSection title="Full Analysis" result={parsed.fullText} loading={false} error={null} />
+
+      {showCorrections && parsedGaps.length > 0 && (
+        <GapCorrectionPanel
+          gaps={parsedGaps}
+          corrections={corrections}
+          onSave={handleSaveCorrections}
+          onDone={() => setShowCorrections(false)}
+        />
+      )}
+
+      {showFull && fullResult && (
+        <div style={S.section}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <div style={{ ...S.label, margin: 0 }}>Full Analysis</div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <CopyBtn text={fullResult} />
+              {parsedGaps.length > 0 && (
+                <button onClick={() => setShowCorrections(!showCorrections)} style={{
+                  ...S.btnGhost, fontSize: "11px", padding: "5px 12px", color: "#c9a84c", borderColor: "rgba(201,168,76,0.3)"
+                }}>Correct gaps</button>
+              )}
+            </div>
+          </div>
+          <div style={S.resultBox}>{fullResult}</div>
         </div>
       )}
     </div>
   );
+}
+
+// ── DOCX helpers (uses docx npm package) ─────────────────────────────────────
+
+async function downloadDocx(content, filename) {
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle } = await import("https://esm.sh/docx@8.5.0");
+
+  const lines = content.split("\n");
+  const children = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      children.push(new Paragraph({ text: "" }));
+      continue;
+    }
+    // Section headers (ALL CAPS lines or lines ending with :)
+    if (trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.includes("@")) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed, bold: true, size: 22, color: "2F2B8F" })],
+        spacing: { before: 240, after: 60 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "CCCCCC" } }
+      }));
+    } else if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed.replace(/^[•\-]\s*/, ""), size: 20 })],
+        bullet: { level: 0 },
+        spacing: { after: 40 }
+      }));
+    } else if (trimmed.startsWith("→") || trimmed.startsWith(">")) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed.replace(/^[→>]\s*/, ""), size: 20, italics: true, color: "555555" })],
+        spacing: { after: 40 }, indent: { left: 360 }
+      }));
+    } else {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed, size: 20 })],
+        spacing: { after: 60 }
+      }));
+    }
+  }
+
+  const doc = new Document({
+    sections: [{ properties: {}, children }],
+    styles: {
+      default: {
+        document: { run: { font: "Calibri", size: 20 } }
+      }
+    }
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadResumeDocx(resumeText, tailoringNotes, company) {
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, UnderlineType } = await import("https://esm.sh/docx@8.5.0");
+
+  const contactLine = "Bellingham, WA  |  scott@hendersonsolution.com  |  linkedin.com/in/mrscotthenderson  |  hendersonsolution.com";
+  const children = [
+    // Name
+    new Paragraph({
+      children: [new TextRun({ text: "SCOTT HENDERSON", bold: true, size: 32, color: "1a1a4a" })],
+      alignment: AlignmentType.CENTER, spacing: { after: 80 }
+    }),
+    // Contact
+    new Paragraph({
+      children: [new TextRun({ text: contactLine, size: 18, color: "555555" })],
+      alignment: AlignmentType.CENTER, spacing: { after: 200 }
+    }),
+    // Divider
+    new Paragraph({
+      border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: "2F2B8F" } },
+      spacing: { after: 160 }
+    }),
+    // Tailoring notes header
+    new Paragraph({
+      children: [new TextRun({ text: "TAILORING RECOMMENDATIONS FOR: " + (company || "THIS ROLE"), bold: true, size: 22, color: "2F2B8F" })],
+      spacing: { before: 120, after: 80 }
+    }),
+  ];
+
+  // Add tailoring notes as formatted paragraphs
+  const noteLines = tailoringNotes.split("\n");
+  for (const line of noteLines) {
+    const trimmed = line.trim();
+    if (!trimmed) { children.push(new Paragraph({ text: "", spacing: { after: 40 } })); continue; }
+    if (trimmed === trimmed.toUpperCase() && trimmed.length > 4 && !trimmed.includes("@")) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed, bold: true, size: 21, color: "2F2B8F" })],
+        spacing: { before: 180, after: 60 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "DDDDDD" } }
+      }));
+    } else if (trimmed.startsWith("•") || trimmed.startsWith("-")) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed.replace(/^[•\-]\s*/, ""), size: 20 })],
+        bullet: { level: 0 }, spacing: { after: 40 }
+      }));
+    } else {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed, size: 20 })],
+        spacing: { after: 60 }
+      }));
+    }
+  }
+
+  // Divider before base resume
+  children.push(new Paragraph({
+    border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: "2F2B8F" } },
+    spacing: { before: 240, after: 160 }
+  }));
+  children.push(new Paragraph({
+    children: [new TextRun({ text: "BASE RESUME (for reference)", bold: true, size: 20, color: "888888" })],
+    spacing: { after: 120 }
+  }));
+
+  for (const line of resumeText.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) { children.push(new Paragraph({ text: "", spacing: { after: 40 } })); continue; }
+    if (trimmed === trimmed.toUpperCase() && trimmed.length > 4 && !trimmed.includes("@") && !trimmed.includes("|")) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed, bold: true, size: 21, color: "333333" })],
+        spacing: { before: 160, after: 60 }
+      }));
+    } else if (trimmed.startsWith("-")) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed.replace(/^-\s*/, ""), size: 20 })],
+        bullet: { level: 0 }, spacing: { after: 40 }
+      }));
+    } else {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: trimmed, size: 20 })],
+        spacing: { after: 60 }
+      }));
+    }
+  }
+
+  const doc = new Document({
+    sections: [{ properties: {}, children }],
+    styles: { default: { document: { run: { font: "Calibri" } } } }
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Scott_Henderson_Resume_Tailored${company ? "_" + company.replace(/\s+/g, "_") : ""}.docx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadCoverLetterDocx(letterText, company, role) {
+  const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = await import("https://esm.sh/docx@8.5.0");
+
+  const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const children = [
+    new Paragraph({
+      children: [new TextRun({ text: "SCOTT HENDERSON", bold: true, size: 28, color: "1a1a4a" })],
+      spacing: { after: 60 }
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: "Bellingham, WA  |  scott@hendersonsolution.com  |  hendersonsolution.com", size: 18, color: "555555" })],
+      spacing: { after: 60 }
+    }),
+    new Paragraph({
+      border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "2F2B8F" } },
+      spacing: { after: 280 }
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: today, size: 20, color: "555555" })],
+      spacing: { after: 280 }
+    }),
+  ];
+
+  if (company || role) {
+    if (company) children.push(new Paragraph({ children: [new TextRun({ text: company, size: 20, bold: true })], spacing: { after: 40 } }));
+    if (role) children.push(new Paragraph({ children: [new TextRun({ text: role, size: 20, color: "555555" })], spacing: { after: 280 } }));
+  }
+
+  // Letter body
+  for (const line of letterText.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) { children.push(new Paragraph({ text: "", spacing: { after: 120 } })); continue; }
+    children.push(new Paragraph({
+      children: [new TextRun({ text: trimmed, size: 22 })],
+      spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED
+    }));
+  }
+
+  const doc = new Document({
+    sections: [{ properties: {}, children }],
+    styles: { default: { document: { run: { font: "Calibri" } } } }
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Scott_Henderson_CoverLetter${company ? "_" + company.replace(/\s+/g, "_") : ""}.docx`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Tab: Resume ───────────────────────────────────────────────────────────────
@@ -554,6 +810,7 @@ function ResumeTab({ jd, setJd }) {
   const [resume, setResume] = useState(RESUME_BASELINE);
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
   const [showResume, setShowResume] = useState(false);
 
@@ -564,6 +821,8 @@ function ResumeTab({ jd, setJd }) {
       const system = `You are a senior executive resume strategist helping ${PROFILE.name}, ${PROFILE.title}.
 His background: ${PROFILE.background}
 His proof points: ${PROFILE.proofPoints.join("; ")}
+His certifications: ${PROFILE.certifications.join("; ")}
+His implementations: ${PROFILE.implementations.join("; ")}
 
 Given his resume and a job description, provide:
 1. SUMMARY REWRITE — a tailored 3-sentence summary optimized for this specific role
@@ -579,10 +838,20 @@ Output should be immediately actionable — give the actual rewritten text, not 
     finally { setLoading(false); }
   };
 
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      // Extract company from JD first line or use generic
+      const companyMatch = jd.match(/(?:at|for|with|joining)\s+([A-Z][A-Za-z\s&,\.]+?)(?:\s+is|\s+are|\s+we|\.|,)/);
+      const company = companyMatch ? companyMatch[1].trim() : "";
+      await downloadResumeDocx(resume, result, company);
+    } catch (e) { setError(`Download failed: ${e.message}`); }
+    finally { setDownloading(false); }
+  };
+
   return (
     <div>
       <JDInput jd={jd} setJd={setJd} />
-
       <div style={{ marginBottom: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
           <label style={{ ...S.label, margin: 0 }}>Resume Baseline</label>
@@ -594,8 +863,7 @@ Output should be immediately actionable — give the actual rewritten text, not 
           <textarea value={resume} onChange={e => setResume(e.target.value)}
             rows={12} style={S.textarea}
             onFocus={e => e.target.style.borderColor = "#4a4abf"}
-            onBlur={e => e.target.style.borderColor = "#2a2a3a"}
-          />
+            onBlur={e => e.target.style.borderColor = "#2a2a3a"} />
         )}
       </div>
 
@@ -605,7 +873,27 @@ Output should be immediately actionable — give the actual rewritten text, not 
       }}>
         {loading ? <><Spinner /> Tailoring…</> : "Tailor Resume"}
       </button>
-      <ResultSection title="Resume Tailoring Recommendations" result={result} loading={loading} error={error} />
+
+      {error && <div style={{ color: "#c06060", fontFamily: "system-ui, sans-serif", fontSize: "13px", marginBottom: "16px" }}>{error}</div>}
+
+      {result && (
+        <div style={S.section}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <div style={{ ...S.label, margin: 0 }}>Resume Tailoring Recommendations</div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <CopyBtn text={result} />
+              <button onClick={handleDownload} disabled={downloading} style={{
+                ...S.btn, padding: "5px 14px", fontSize: "11px",
+                background: downloading ? "#2a2a3a" : "#3a5abf",
+                display: "flex", alignItems: "center", gap: "6px"
+              }}>
+                {downloading ? <><Spinner />…</> : "⬇ Download .docx"}
+              </button>
+            </div>
+          </div>
+          <div style={S.resultBox}>{result}</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -618,7 +906,30 @@ function CoverLetterTab({ jd, setJd }) {
   const [notes, setNotes] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
+  const [extracting, setExtracting] = useState(false);
+
+  // Auto-extract company + role from JD when it changes
+  useEffect(() => {
+    if (!jd.trim() || (company && role)) return;
+    const timer = setTimeout(async () => {
+      setExtracting(true);
+      try {
+        const text = await callClaude(
+          `Extract the company name and job title from a job description. Return ONLY a JSON object: {"company": "...", "role": "..."}. If not found, use empty string. No other text.`,
+          jd.slice(0, 1500), 200
+        );
+        const match = text.match(/\{[\s\S]*?\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          if (parsed.company && !company) setCompany(parsed.company);
+          if (parsed.role && !role) setRole(parsed.role);
+        }
+      } catch {} finally { setExtracting(false); }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [jd]);
 
   const run = async () => {
     if (!jd.trim()) return;
@@ -632,11 +943,12 @@ Voice guidelines:
 - Direct and confident, not sycophantic
 - Lead with business impact, not years of experience
 - Specific proof points over generic claims
-- One strong opening hook, not "I am writing to apply for…"
+- One strong opening hook — not "I am writing to apply for…"
 - 3 tight paragraphs maximum — executives don't write long cover letters
 - Close with forward momentum, not "I look forward to hearing from you"
+- Sign off: Scott Henderson
 
-Write a complete, ready-to-send cover letter. Do not add placeholders or commentary after — just the letter.`;
+Write a complete, ready-to-send cover letter. No placeholders or commentary — just the letter.`;
       const userMsg = `Company: ${company || "the company"}
 Role: ${role || "this position"}
 ${notes ? `Additional context: ${notes}` : ""}
@@ -649,13 +961,23 @@ ${jd}`;
     finally { setLoading(false); }
   };
 
+  const handleDownload = async () => {
+    setDownloading(true);
+    try { await downloadCoverLetterDocx(result, company, role); }
+    catch (e) { setError(`Download failed: ${e.message}`); }
+    finally { setDownloading(false); }
+  };
+
   return (
     <div>
       <JDInput jd={jd} setJd={setJd} />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "16px" }}>
         <div>
-          <label style={S.label}>Company Name</label>
+          <label style={S.label}>
+            Company Name
+            {extracting && <span style={{ color: "#4a4abf", marginLeft: "8px", letterSpacing: 0, textTransform: "none", fontSize: "11px" }}>extracting from JD…</span>}
+          </label>
           <input value={company} onChange={e => setCompany(e.target.value)}
             placeholder="e.g. Acme Corp" style={S.input}
             onFocus={e => e.target.style.borderColor = "#4a4abf"}
@@ -671,9 +993,9 @@ ${jd}`;
       </div>
 
       <div style={{ marginBottom: "20px" }}>
-        <label style={S.label}>Additional Context <span style={{ color: "#3a3858", textTransform: "none", letterSpacing: 0 }}>optional — anything specific to emphasize</span></label>
+        <label style={S.label}>Additional Context <span style={{ color: "#3a3858", textTransform: "none", letterSpacing: 0 }}>optional</span></label>
         <textarea value={notes} onChange={e => setNotes(e.target.value)}
-          placeholder="e.g. Referred by John Smith. They emphasize culture fit. I want to highlight the CCR governance work…"
+          placeholder="e.g. Referred by John Smith. Emphasize the CCR governance work. They care about culture fit…"
           rows={3} style={S.textarea}
           onFocus={e => e.target.style.borderColor = "#4a4abf"}
           onBlur={e => e.target.style.borderColor = "#2a2a3a"} />
@@ -685,7 +1007,27 @@ ${jd}`;
       }}>
         {loading ? <><Spinner /> Drafting…</> : "Draft Cover Letter"}
       </button>
-      <ResultSection title="Cover Letter Draft" result={result} loading={loading} error={error} />
+
+      {error && <div style={{ color: "#c06060", fontFamily: "system-ui, sans-serif", fontSize: "13px", marginBottom: "16px" }}>{error}</div>}
+
+      {result && (
+        <div style={S.section}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <div style={{ ...S.label, margin: 0 }}>Cover Letter Draft</div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <CopyBtn text={result} />
+              <button onClick={handleDownload} disabled={downloading} style={{
+                ...S.btn, padding: "5px 14px", fontSize: "11px",
+                background: downloading ? "#2a2a3a" : "#3a5abf",
+                display: "flex", alignItems: "center", gap: "6px"
+              }}>
+                {downloading ? <><Spinner />…</> : "⬇ Download .docx"}
+              </button>
+            </div>
+          </div>
+          <div style={S.resultBox}>{result}</div>
+        </div>
+      )}
     </div>
   );
 }
@@ -751,6 +1093,226 @@ Format clearly with the question, then the coaching note. Be specific to Scott's
         {loading ? <><Spinner /> Preparing…</> : `Prep for ${round} interview`}
       </button>
       <ResultSection title={`Interview Prep — ${round}`} result={result} loading={loading} error={error} />
+    </div>
+  );
+}
+
+// ── Tab: Research Agent ───────────────────────────────────────────────────────
+
+const RESEARCH_STEPS = [
+  { key: "overview",        label: "Company overview & structure",       query: (c) => `${c} company overview mission revenue employees structure 2024 2025` },
+  { key: "leadership",      label: "Leadership & org structure",          query: (c) => `${c} executive leadership team CEO CTO VP org structure 2024 2025` },
+  { key: "financials",      label: "Financial health & stability",        query: (c) => `${c} financial results revenue growth funding stability 2024 2025` },
+  { key: "transformation",  label: "Transformation & strategic initiatives", query: (c) => `${c} digital transformation technology strategy initiatives 2024 2025` },
+];
+
+const OPTIONAL_STEPS = [
+  { key: "news",    label: "＋ Recent News",      query: (c) => `${c} news announcements 2025` },
+  { key: "culture", label: "＋ Culture Signals",  query: (c) => `${c} company culture values employee reviews Glassdoor 2024 2025` },
+];
+
+async function runResearchSearch(company, query) {
+  const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || "";
+  if (!ANTHROPIC_API_KEY) throw new Error("API key not configured");
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1500,
+      tools: [{ type: "web_search_20250305", name: "web_search" }],
+      system: `You are a research analyst preparing a concise briefing about ${company} for a senior executive job candidate. 
+Search for the requested information and summarize in 3-5 clear, factual sentences. 
+Focus on what a candidate would need to know before an interview. Be specific — include numbers, names, and dates where available.
+Do not editorialize or speculate beyond what the search returns.`,
+      messages: [{ role: "user", content: query }]
+    })
+  });
+
+  let raw = "";
+  try {
+    raw = await response.text();
+    const data = JSON.parse(raw);
+    if (!response.ok || data.error) throw new Error(data.error?.message || `API ${response.status}`);
+    // Extract text blocks — web search responses may have multiple content blocks
+    const textBlocks = data.content?.filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+    return textBlocks || "No information found.";
+  } catch (e) {
+    throw new Error(e.message || `Parse failed: ${raw.slice(0, 200)}`);
+  }
+}
+
+function ResearchTab({ company, jd, triggered }) {
+  const [results, setResults] = useState({});
+  const [steps, setSteps] = useState({}); // "idle"|"loading"|"done"|"error"
+  const [hasRun, setHasRun] = useState(false);
+  const [overrideCompany, setOverrideCompany] = useState("");
+
+  const effectiveCompany = overrideCompany || company;
+
+  const runStep = async (step) => {
+    if (!effectiveCompany) return;
+    setSteps(p => ({ ...p, [step.key]: "loading" }));
+    try {
+      const result = await runResearchSearch(effectiveCompany, step.query(effectiveCompany));
+      setResults(p => ({ ...p, [step.key]: result }));
+      setSteps(p => ({ ...p, [step.key]: "done" }));
+    } catch (e) {
+      setResults(p => ({ ...p, [step.key]: `Search failed: ${e.message}` }));
+      setSteps(p => ({ ...p, [step.key]: "error" }));
+    }
+  };
+
+  const runAll = async (stepsToRun = RESEARCH_STEPS) => {
+    setHasRun(true);
+    for (const step of stepsToRun) {
+      await runStep(step);
+    }
+  };
+
+  // Auto-trigger when company becomes available from JD analysis
+  useEffect(() => {
+    if (triggered && effectiveCompany && !hasRun) {
+      runAll();
+    }
+  }, [triggered, effectiveCompany]);
+
+  const allCoreDone = RESEARCH_STEPS.every(s => steps[s.key] === "done" || steps[s.key] === "error");
+  const anyLoading = Object.values(steps).some(s => s === "loading");
+
+  const stepColor = (key) => {
+    if (steps[key] === "done") return "#7adf8a";
+    if (steps[key] === "loading") return "#c9a84c";
+    if (steps[key] === "error") return "#df7a7a";
+    return "#3a3858";
+  };
+
+  const stepIcon = (key) => {
+    if (steps[key] === "done") return "✓";
+    if (steps[key] === "loading") return "…";
+    if (steps[key] === "error") return "✗";
+    return "○";
+  };
+
+  return (
+    <div>
+      {/* Company override / trigger */}
+      <div style={{ marginBottom: "24px" }}>
+        <label style={S.label}>
+          Company
+          {company && !overrideCompany && (
+            <span style={{ color: "#4a4abf", marginLeft: "8px", letterSpacing: 0, textTransform: "none", fontSize: "11px" }}>
+              extracted from JD: {company}
+            </span>
+          )}
+        </label>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <input
+            value={overrideCompany}
+            onChange={e => setOverrideCompany(e.target.value)}
+            placeholder={company || "Enter company name…"}
+            style={{ ...S.input, flex: 1 }}
+            onFocus={e => e.target.style.borderColor = "#4a4abf"}
+            onBlur={e => e.target.style.borderColor = "#2a2a3a"}
+          />
+          <button
+            onClick={() => { setResults({}); setSteps({}); setHasRun(false); setTimeout(() => runAll(), 50); }}
+            disabled={!effectiveCompany || anyLoading}
+            style={{
+              ...S.btn, opacity: !effectiveCompany || anyLoading ? 0.5 : 1,
+              display: "flex", alignItems: "center", gap: "8px", whiteSpace: "nowrap"
+            }}
+          >
+            {anyLoading ? <><Spinner /> Researching…</> : hasRun ? "Re-run Research" : "Run Research"}
+          </button>
+        </div>
+      </div>
+
+      {/* Step progress */}
+      {hasRun && (
+        <div style={{ marginBottom: "24px" }}>
+          <div style={{ ...S.label, marginBottom: "10px" }}>Agent Steps</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            {RESEARCH_STEPS.map(step => (
+              <div key={step.key} style={{
+                display: "flex", alignItems: "center", gap: "10px",
+                fontFamily: "system-ui, sans-serif", fontSize: "12px"
+              }}>
+                <span style={{ color: stepColor(step.key), width: "16px", textAlign: "center", flexShrink: 0 }}>
+                  {steps[step.key] === "loading" ? <Spinner size={10} /> : stepIcon(step.key)}
+                </span>
+                <span style={{ color: steps[step.key] === "done" ? "#8888b8" : "#3a3858" }}>{step.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Results */}
+      {RESEARCH_STEPS.filter(s => results[s.key]).map(step => (
+        <div key={step.key} style={{ ...S.section, marginBottom: "16px" }}>
+          <div style={{ ...S.label, color: "#5858a0", marginBottom: "12px" }}>{step.label}</div>
+          <div style={{
+            fontSize: "14px", lineHeight: "1.8", color: "#b0a8c8",
+            fontFamily: "Georgia, serif",
+            color: steps[step.key] === "error" ? "#c06060" : "#b0a8c8"
+          }}>{results[step.key]}</div>
+        </div>
+      ))}
+
+      {/* Optional sections */}
+      {allCoreDone && (
+        <div style={{ marginTop: "8px" }}>
+          <div style={{ ...S.label, marginBottom: "10px" }}>Optional Research</div>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            {OPTIONAL_STEPS.map(step => (
+              <button
+                key={step.key}
+                onClick={() => runStep(step)}
+                disabled={steps[step.key] === "loading" || steps[step.key] === "done"}
+                style={{
+                  ...S.btnGhost,
+                  fontSize: "12px",
+                  background: steps[step.key] === "done" ? "rgba(99,140,255,0.1)" : "transparent",
+                  color: steps[step.key] === "done" ? "#8aacff" : steps[step.key] === "loading" ? "#c9a84c" : "#6ab8a8",
+                  borderColor: steps[step.key] === "done" ? "#4a6abf" : "rgba(99,180,160,0.4)",
+                  display: "flex", alignItems: "center", gap: "6px"
+                }}
+              >
+                {steps[step.key] === "loading" ? <><Spinner size={10} />Loading…</> : step.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Optional results */}
+          {OPTIONAL_STEPS.filter(s => results[s.key]).map(step => (
+            <div key={step.key} style={{ ...S.section, marginTop: "16px" }}>
+              <div style={{ ...S.label, color: "#5858a0", marginBottom: "12px" }}>{step.label.replace("＋ ", "")}</div>
+              <div style={{
+                fontSize: "14px", lineHeight: "1.8",
+                color: steps[step.key] === "error" ? "#c06060" : "#b0a8c8",
+                fontFamily: "Georgia, serif"
+              }}>{results[step.key]}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!hasRun && !effectiveCompany && (
+        <div style={{
+          padding: "48px", textAlign: "center", border: "1px dashed #1e1e2e",
+          borderRadius: "8px", color: "#3a3858", fontFamily: "system-ui, sans-serif", fontSize: "14px"
+        }}>
+          Run a JD analysis first — company will be extracted automatically.<br />
+          Or enter a company name above and click Run Research.
+        </div>
+      )}
     </div>
   );
 }
@@ -972,38 +1534,28 @@ function LibraryTab({ stories, setStories }) {
 export default function CareerForge() {
   const [activeTab, setActiveTab] = useState("Library");
   const [stories, setStories] = useState([]);
-  const [profileOverrides, setProfileOverrides] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [jd, setJd] = useState("");
+  const [corrections, setCorrections] = useState({});
+  const [researchCompany, setResearchCompany] = useState("");
+  const [researchTriggered, setResearchTriggered] = useState(false);
 
   useEffect(() => {
     Promise.all([
       storageGet("careerforge:scott:stories"),
       storageGet("careerforge:scott:jd"),
-      storageGet("careerforge:scott:overrides"),
-    ]).then(([s, j, o]) => {
+      storageGet("careerforge:scott:corrections"),
+    ]).then(([s, j, c]) => {
       setStories(s || SEED_STORIES);
       setJd(j || "");
-      setProfileOverrides(o || []);
+      setCorrections(c || {});
       setLoaded(true);
     });
   }, []);
 
   useEffect(() => { if (loaded) storageSet("careerforge:scott:stories", stories); }, [stories, loaded]);
   useEffect(() => { if (loaded) storageSet("careerforge:scott:jd", jd); }, [jd, loaded]);
-  useEffect(() => { if (loaded) storageSet("careerforge:scott:overrides", profileOverrides); }, [profileOverrides, loaded]);
-
-  const handleAddOverride = (override) => {
-    setProfileOverrides(prev => {
-      const existing = prev.findIndex(o => o.gap === override.gap);
-      if (existing >= 0) {
-        const updated = [...prev];
-        updated[existing] = override;
-        return updated;
-      }
-      return [...prev, override];
-    });
-  };
+  useEffect(() => { if (loaded) storageSet("careerforge:scott:corrections", corrections); }, [corrections, loaded]);
 
   const starredCount = stories.filter(s => s.starred).length;
 
@@ -1021,9 +1573,6 @@ export default function CareerForge() {
             </div>
             <div style={{ fontSize: "12px", color: "#3a3858", fontFamily: "system-ui, sans-serif", marginTop: "3px" }}>
               {PROFILE.name} · {PROFILE.title}
-              {profileOverrides.length > 0 && (
-                <span style={{ color: "#5a8a5a", marginLeft: "10px" }}>· {profileOverrides.length} profile correction{profileOverrides.length > 1 ? "s" : ""} active</span>
-              )}
             </div>
           </div>
           <div style={{ textAlign: "right", fontFamily: "system-ui, sans-serif" }}>
@@ -1054,28 +1603,14 @@ export default function CareerForge() {
         ) : (
           <>
             {activeTab === "Library" && <LibraryTab stories={stories} setStories={setStories} />}
-            {activeTab === "Analyze JD" && (
-              <AnalyzeTab
-                jd={jd} setJd={setJd} stories={stories}
-                profileOverrides={profileOverrides}
-                onAddOverride={handleAddOverride}
-                onProceedToBuild={() => setActiveTab("Resume")}
-              />
-            )}
+            {activeTab === "Analyze JD" && <AnalyzeTab jd={jd} setJd={setJd} stories={stories} corrections={corrections} onSaveCorrections={setCorrections} onAnalysisComplete={(company) => { setResearchCompany(company); setResearchTriggered(true); setActiveTab("Research"); }} />}
             {activeTab === "Resume" && <ResumeTab jd={jd} setJd={setJd} />}
             {activeTab === "Cover Letter" && <CoverLetterTab jd={jd} setJd={setJd} />}
             {activeTab === "Interview Prep" && <InterviewPrepTab jd={jd} setJd={setJd} stories={stories} />}
+            {activeTab === "Research" && <ResearchTab company={researchCompany} jd={jd} triggered={researchTriggered} />}
           </>
         )}
 
-        {/* Build log */}
-        <div style={{ marginTop: "48px", borderTop: "1px solid #1a1a2a", paddingTop: "20px", fontFamily: "system-ui, sans-serif", fontSize: "12px", color: "#2e2e40", lineHeight: "1.8" }}>
-          <div style={{ fontSize: "10px", letterSpacing: "1px", textTransform: "uppercase", color: "#3a3850", marginBottom: "6px", fontWeight: "600" }}>CareerForge · Build Log</div>
-          v1 · STAR story library with persistent storage — Scott Henderson profile<br />
-          v2 · Layer 2 AI tools — JD Analyzer, Resume Tailoring, Cover Letter, Interview Prep · shared JD state persisted across tabs<br />
-          v3a · Analysis modal with fit score + gap cards · gap correction flow → persistent profile overrides · enriched confirmed skills context to prevent gap hallucination<br />
-          <span style={{ color: "#242438" }}>Next: v3b — Company Research Agent (multi-step agentic workflow) · multi-user profiles (Joshua, Aaron)</span>
-        </div>
       </div>
     </div>
   );
