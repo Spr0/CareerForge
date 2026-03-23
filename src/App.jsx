@@ -4,123 +4,116 @@ import { useState, useEffect } from "react";
 // PROFILE
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PROFILE = {
-  name: "Scott Henderson",
-  title: "Enterprise Transformation Leader",
-  background: `Senior transformation leader with 15+ years driving enterprise-scale change at grid-scale renewable energy companies and Fortune 500 technology organizations. VP of Technology at EDF Renewables and Cypress Creek Renewables with full P&L ownership — budget, revenue forecasting, margin management, and board/C-suite reporting. Earlier career as enterprise agile coach at Nike and Intel.`,
-  proofPoints: [
-    "$28M annualized EBITDA improvement at EDF Renewables through platform consolidation",
-    "27% reduction in compliance-related fines at CCR via AI governance implementation",
-    "$13M SaaS catalog identified through ledger mining → 15% OPEX reduction",
-    "Full P&L ownership at both CCR and EDF — budget, forecasting, margin, board reporting",
-    "Enterprise agile coach at Nike and Intel — transformation at scale",
-  ],
-  certifications: [
-    "Lean Six Sigma Black Belt — Intel internal certification program (VERIFIED)",
-    "Lean Six Sigma Green Belt — LinkedIn Learning",
-    "Lean Six Sigma Black Belt — LinkedIn Learning",
-  ],
-  implementations: [
-    "NetSuite ERP — full end-to-end implementation at CCR, on time and under budget (VERIFIED)",
-    "Salesforce + Sitetracker — full implementation at CCR",
-    "Oracle Financial Consolidation and Close (FCC) — full implementation at CCR",
-    "Blackline — financial close automation, full implementation at CCR",
-    "NSPB (NetSuite Planning and Budgeting) — full implementation at CCR",
-    "Snowflake — data platform implementation at CCR",
-    "All implementations delivered on time and under budget — hands-on lead, not oversight",
-  ],
-  products: [
-    "Nike Airbag Inspection Platform — full product lifecycle from whiteboard to production. ~$600M revenue in first year. Led OCM and global factory adoption. Still in active use. (VERIFIED IT PRODUCT EXPERIENCE)",
-  ],
-  industries: [
-    "Renewable energy (grid-scale solar, wind, storage) — EDF Renewables, Cypress Creek Renewables",
-    "Consumer products / global manufacturing — Nike (factory ops, airbag inspection platform)",
-    "Semiconductor / technology manufacturing — Intel",
-    "Regulated, capital-intensive, compliance-heavy industries across all roles",
-  ],
-  security: ["US Citizen — no impediments to security clearance. Can commence process immediately upon offer."],
+// ─────────────────────────────────────────────────────────────────────────────
+// PROFILE SYSTEM — multi-user, upload-driven
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Seed profiles — contact info populated from resume upload, resume text from upload
+// Scott's profile has hardcoded AI context fields that don't come from a resume
+const SEED_PROFILES = {
+  scott: {
+    id: "scott",
+    displayName: "Scott Henderson",
+    title: "Enterprise Transformation Leader",
+    // Contact fields — populated from resume upload; these are fallbacks
+    name: "Scott Henderson",
+    phone: "",
+    email: "scott@hendersonsolution.com",
+    address: "Bellingham, WA",
+    linkedin: "linkedin.com/in/mrscotthenderson",
+    website: "hendersonsolution.com",
+    // Resume text — populated from upload
+    resumeText: "",
+    resumeUploaded: false,
+    // AI context — Scott-specific, not parsed from resume
+    background: `Senior transformation leader with 15+ years driving enterprise-scale change at grid-scale renewable energy companies and Fortune 500 technology organizations. VP of Technology at EDF Renewables and Cypress Creek Renewables with full P&L ownership — budget, revenue forecasting, margin management, and board/C-suite reporting. Earlier career as enterprise agile coach at Nike and Intel.`,
+    proofPoints: [
+      "$28M annualized EBITDA improvement at EDF Renewables through platform consolidation",
+      "27% reduction in compliance-related fines at CCR via AI governance implementation",
+      "$13M SaaS catalog identified through ledger mining → 15% OPEX reduction",
+      "Full P&L ownership at both CCR and EDF — budget, forecasting, margin, board reporting",
+      "Enterprise agile coach at Nike and Intel — transformation at scale",
+    ],
+    certifications: [
+      "Lean Six Sigma Black Belt — Intel internal certification program (VERIFIED)",
+      "Lean Six Sigma Green Belt — LinkedIn Learning",
+      "Lean Six Sigma Black Belt — LinkedIn Learning",
+    ],
+    implementations: [
+      "NetSuite ERP — full end-to-end implementation at CCR, on time and under budget (VERIFIED)",
+      "Salesforce + Sitetracker — full implementation at CCR",
+      "Oracle Financial Consolidation and Close (FCC) — full implementation at CCR",
+      "Blackline — financial close automation, full implementation at CCR",
+      "NSPB (NetSuite Planning and Budgeting) — full implementation at CCR",
+      "Snowflake — data platform implementation at CCR",
+      "All implementations delivered on time and under budget — hands-on lead, not oversight",
+    ],
+    products: [
+      "Nike Airbag Inspection Platform — full product lifecycle from whiteboard to production. ~$600M revenue in first year. Led OCM and global factory adoption. Still in active use. (VERIFIED IT PRODUCT EXPERIENCE)",
+    ],
+    industries: [
+      "Renewable energy (grid-scale solar, wind, storage) — EDF Renewables, Cypress Creek Renewables",
+      "Consumer products / global manufacturing — Nike (factory ops, airbag inspection platform)",
+      "Semiconductor / technology manufacturing — Intel",
+      "Regulated, capital-intensive, compliance-heavy industries across all roles",
+    ],
+    security: ["US Citizen — no impediments to security clearance. Can commence process immediately upon offer."],
+  },
+  joshua: {
+    id: "joshua",
+    displayName: "Joshua Henderson",
+    title: "QA / Manufacturing Inspections",
+    name: "Joshua Henderson",
+    phone: "", email: "", address: "", linkedin: "", website: "",
+    resumeText: "", resumeUploaded: false,
+    background: "QA and inspections professional in manufacturing settings.",
+    proofPoints: [], certifications: [], implementations: [], products: [], industries: [], security: [],
+  },
+  aaron: {
+    id: "aaron",
+    displayName: "Aaron Henderson",
+    title: "IT / Networking — MSP Help Desk",
+    name: "Aaron Henderson",
+    phone: "", email: "", address: "", linkedin: "", website: "",
+    resumeText: "", resumeUploaded: false,
+    background: "IT professional with help desk experience at an MSP, pursuing networking certifications.",
+    proofPoints: [], certifications: [], implementations: [], products: [], industries: [], security: [],
+  },
 };
 
-const RESUME_BASELINE = `SCOTT HENDERSON
-Bellingham, WA | scott@hendersonsolution.com | linkedin.com/in/mrscotthenderson | hendersonsolution.com
-
-SUMMARY
-Enterprise transformation leader with 15+ years driving technology-led change at grid-scale renewable energy companies and Fortune 500 organizations. Full P&L accountability at VP level — budget ownership, revenue forecasting, margin management, and board/C-suite reporting. Hands-on ERP implementation lead (NetSuite, Salesforce, Oracle FCC, Blackline, Snowflake) with all projects delivered on time and under budget.
-
-EXPERIENCE
-
-VP of Technology | EDF Renewables | 2021–2024
-- Led enterprise-scale platform consolidation delivering $28M annualized EBITDA improvement
-- Identified $13M SaaS catalog through ledger mining; rationalization delivered 15% OPEX reduction
-- Owned full technology P&L including budget, vendor contracts, and capital allocation
-- Reported directly to C-suite and board on technology strategy, risk, and performance
-
-Senior Director, Enterprise Applications | Cypress Creek Renewables | 2018–2021
-- Implemented NetSuite ERP, Salesforce/Sitetracker, Oracle FCC, Blackline, NSPB, and Snowflake — all on time and under budget
-- Designed and deployed AI governance framework reducing compliance-related fines by 27%
-- Led enterprise application portfolio across project development, asset management, and finance
-- Full P&L accountability; managed teams of 15+ across internal and vendor resources
-
-Enterprise Agile Coach | Nike | 2016–2018
-- Led full product lifecycle of Nike Airbag Inspection Platform from whiteboard to global deployment; ~$600M revenue in year one
-- Coached enterprise agile transformation; built internal coaching bench; led OCM and factory adoption
-
-Enterprise Agile Coach | Intel | 2014–2016
-- Led agile transformation engagements; Lean Six Sigma Black Belt (Intel internal certification)
-- Established scaled delivery frameworks and coaching practices
-
-CERTIFICATIONS
-Lean Six Sigma Black Belt — Intel | LSSGB + LSSBB — LinkedIn Learning
-
-SKILLS
-Enterprise transformation · ERP/platform implementation · P&L management · AI governance · Technology strategy · Vendor management · Agile at scale · Board-level communication`;
+const SEED_STORIES_BY_PROFILE = {
+  scott: [
+    { id: "story-001", title: "$28M EBITDA Improvement — EDF Renewables", company: "EDF Renewables", role: "VP Technology", competencies: ["Financial Impact","Transformation","Technical"], situation: "EDF Renewables had a fragmented technology landscape — redundant platforms, siloed data, no consolidated view of asset performance or cost.", task: "Identify and execute a platform consolidation strategy to reduce operational cost while improving data quality and board-level reporting.", action: "Led cross-functional audit of full tech stack, identified $13M in redundant SaaS spend via ledger mining, rationalized vendor portfolio, rearchitected core platforms. Built business case and presented to C-suite and board. Owned execution through go-live.", result: "$28M annualized EBITDA improvement. 15% OPEX reduction. Improved board reporting accuracy.", tags: ["P&L","platform consolidation","cost reduction","board reporting","enterprise architecture"], starred: true },
+    { id: "story-002", title: "27% Reduction in Compliance Fines — CCR AI Governance", company: "Cypress Creek Renewables", role: "Senior Director, Enterprise Applications", competencies: ["Governance","Technical","Financial Impact"], situation: "CCR faced escalating compliance fines due to inconsistent data governance and manual audit processes.", task: "Design and implement an AI-assisted governance framework to reduce compliance risk.", action: "Architected AI governance implementation covering automated compliance monitoring, audit trail generation, and exception flagging. Built stakeholder alignment. Managed vendor selection and implementation.", result: "27% reduction in compliance-related fines. Repeatable framework adopted across portfolio. ~40% reduction in manual audit burden.", tags: ["AI governance","compliance","risk reduction","regulatory","automation"], starred: true },
+    { id: "story-003", title: "$13M SaaS Catalog via Ledger Mining", company: "EDF Renewables", role: "VP Technology", competencies: ["Financial Impact","Vendor Management","Strategy"], situation: "No single owner had visibility into total SaaS spend across EDF's U.S. operations.", task: "Surface total SaaS exposure, identify redundancy, build a rationalization roadmap.", action: "Designed and executed ledger mining process with finance. Built vendor catalog, mapped redundancies, developed phased rationalization plan.", result: "$13M SaaS catalog identified. 15% OPEX reduction. Established ongoing SaaS governance.", tags: ["SaaS","spend analysis","vendor management","OPEX","ledger mining"], starred: false },
+    { id: "story-004", title: "Nike Airbag Inspection Platform", company: "Nike", role: "Enterprise Agile Coach", competencies: ["Transformation","Leadership","Technical"], situation: "Nike needed a digital inspection platform for airbag manufacturing across global factories.", task: "Lead product development from concept to global production deployment.", action: "Led full product lifecycle. Designed and led OCM program for global factory adoption across multiple sites.", result: "Platform deployed to production. ~$600M revenue in first year. Still in active use globally.", tags: ["product","OCM","factory","manufacturing","Nike","digital platform"], starred: false },
+  ],
+  joshua: [],
+  aaron: [],
+};
 
 const COMPETENCIES = ["Transformation","Financial Impact","Leadership","Technical","Agile/Delivery","Governance","Vendor Management","Strategy","Stakeholder"];
+const TABS = ["Library","Analyze JD","Resume","Cover Letter","Interview Prep","Research","Settings"];
 
-const SEED_STORIES = [
-  {
-    id: "story-001", title: "$28M EBITDA Improvement — EDF Renewables",
-    company: "EDF Renewables", role: "VP Technology",
-    competencies: ["Financial Impact","Transformation","Technical"],
-    situation: "EDF Renewables had a fragmented technology landscape — redundant platforms, siloed data, no consolidated view of asset performance or cost.",
-    task: "Identify and execute a platform consolidation strategy to reduce operational cost while improving data quality and board-level reporting.",
-    action: "Led cross-functional audit of full tech stack, identified $13M in redundant SaaS spend via ledger mining, rationalized vendor portfolio, rearchitected core platforms. Built business case and presented to C-suite and board. Owned execution through go-live.",
-    result: "$28M annualized EBITDA improvement. 15% OPEX reduction. Improved board reporting accuracy.",
-    tags: ["P&L","platform consolidation","cost reduction","board reporting","enterprise architecture"], starred: true,
-  },
-  {
-    id: "story-002", title: "27% Reduction in Compliance Fines — CCR AI Governance",
-    company: "Cypress Creek Renewables", role: "Senior Director, Enterprise Applications",
-    competencies: ["Governance","Technical","Financial Impact"],
-    situation: "CCR faced escalating compliance fines due to inconsistent data governance and manual audit processes across its renewable energy portfolio.",
-    task: "Design and implement an AI-assisted governance framework to reduce compliance risk and demonstrate measurable regulatory exposure reduction.",
-    action: "Architected AI governance implementation covering automated compliance monitoring, audit trail generation, and exception flagging. Built stakeholder alignment across legal, operations, and finance. Managed vendor selection and implementation.",
-    result: "27% reduction in compliance-related fines. Repeatable framework adopted across portfolio. ~40% reduction in manual audit burden.",
-    tags: ["AI governance","compliance","risk reduction","regulatory","automation"], starred: true,
-  },
-  {
-    id: "story-003", title: "$13M SaaS Catalog via Ledger Mining — EDF",
-    company: "EDF Renewables", role: "VP Technology",
-    competencies: ["Financial Impact","Vendor Management","Strategy"],
-    situation: "No single owner had visibility into total SaaS spend across EDF's U.S. operations. Contracts were distributed across business units with no consolidated catalog.",
-    task: "Surface total SaaS exposure, identify redundancy, build a rationalization roadmap.",
-    action: "Designed and executed ledger mining process with finance — extracted and categorized all SaaS spend from AP records. Built vendor catalog, mapped redundancies, developed phased rationalization plan.",
-    result: "$13M SaaS catalog identified. Rationalization plan delivered 15% OPEX reduction. Established ongoing SaaS governance.",
-    tags: ["SaaS","spend analysis","vendor management","OPEX","ledger mining"], starred: false,
-  },
-  {
-    id: "story-004", title: "Nike Airbag Inspection Platform — Full Product Lifecycle",
-    company: "Nike", role: "Enterprise Agile Coach",
-    competencies: ["Transformation","Leadership","Technical"],
-    situation: "Nike needed a digital inspection platform for airbag manufacturing across global factories — no existing system, starting from whiteboard.",
-    task: "Lead product development from concept to global production deployment and drive factory adoption.",
-    action: "Led full product lifecycle — requirements, build, test, deploy. Designed and led OCM program for global factory adoption across multiple sites. Operated at intersection of product, technology, operations, and change management.",
-    result: "Platform deployed to production. ~$600M revenue in first year. Still in active use globally.",
-    tags: ["product","OCM","factory","manufacturing","Nike","digital platform"], starred: false,
-  },
-];
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTACT EXTRACTION — parse resume text via AI into structured contact fields
+// ─────────────────────────────────────────────────────────────────────────────
 
-const TABS = ["Library","Analyze JD","Resume","Cover Letter","Interview Prep","Research"];
+async function extractContactFromResume(resumeText) {
+  const text = await callClaude(
+    `Extract contact information from a resume. Return ONLY a JSON object with these exact keys:
+{"name":"","phone":"","email":"","address":"","linkedin":"","website":"","title":""}
+For linkedin: extract just the path like "linkedin.com/in/username". For website: just the domain.
+For title: extract their most recent job title or professional headline.
+If a field is not found, use empty string. Return ONLY the JSON, no other text.`,
+    resumeText.slice(0, 3000),
+    400
+  );
+  const m = text.match(/\{[\s\S]*?\}/);
+  if (!m) throw new Error("Could not parse contact info from resume");
+  return JSON.parse(m[0]);
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SAFETY INFRASTRUCTURE
@@ -240,77 +233,205 @@ Scope is limited to public information about the company. Do not search for indi
 const TODAY = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 const AI_STAMP = `AI-assisted | Generated ${TODAY} | Verify before use`;
 
-async function downloadResumeDocx(resumeText, tailoringNotes, company) {
-  const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = await import("https://esm.sh/docx@8.5.0");
-  const children = [
-    new Paragraph({ children: [new TextRun({ text: "SCOTT HENDERSON", bold: true, size: 32, color: "1a1a4a" })], alignment: AlignmentType.CENTER, spacing: { after: 80 } }),
-    new Paragraph({ children: [new TextRun({ text: "Bellingham, WA  |  scott@hendersonsolution.com  |  linkedin.com/in/mrscotthenderson  |  hendersonsolution.com", size: 18, color: "555555" })], alignment: AlignmentType.CENTER, spacing: { after: 200 } }),
-    new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: "2F2B8F" } }, spacing: { after: 160 } }),
-  ];
-  if (tailoringNotes) {
-    children.push(new Paragraph({ children: [new TextRun({ text: `TAILORING — ${company || "THIS ROLE"}`, bold: true, size: 22, color: "2F2B8F" })], spacing: { before: 120, after: 80 } }));
-    for (const line of tailoringNotes.split("\n")) {
-      const t = line.trim();
-      if (!t) { children.push(new Paragraph({ text: "", spacing: { after: 40 } })); continue; }
-      if (t === t.toUpperCase() && t.length > 4 && !t.includes("@")) {
-        children.push(new Paragraph({ children: [new TextRun({ text: t, bold: true, size: 21, color: "2F2B8F" })], spacing: { before: 180, after: 60 }, border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "DDDDDD" } } }));
-      } else if (t.startsWith("-") || t.startsWith("•")) {
-        children.push(new Paragraph({ children: [new TextRun({ text: t.replace(/^[-•]\s*/, ""), size: 20 })], bullet: { level: 0 }, spacing: { after: 40 } }));
-      } else {
-        children.push(new Paragraph({ children: [new TextRun({ text: t, size: 20 })], spacing: { after: 60 } }));
-      }
-    }
-    children.push(new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "2F2B8F" } }, spacing: { before: 240, after: 160 } }));
-    children.push(new Paragraph({ children: [new TextRun({ text: "BASE RESUME", bold: true, size: 20, color: "888888" })], spacing: { after: 80 } }));
-  }
-  for (const line of resumeText.split("\n")) {
-    const t = line.trim();
-    if (!t) { children.push(new Paragraph({ text: "", spacing: { after: 40 } })); continue; }
-    if (t === t.toUpperCase() && t.length > 4 && !t.includes("@") && !t.includes("|")) {
-      children.push(new Paragraph({ children: [new TextRun({ text: t, bold: true, size: 21, color: "333333" })], spacing: { before: 160, after: 60 } }));
-    } else if (t.startsWith("-")) {
-      children.push(new Paragraph({ children: [new TextRun({ text: t.replace(/^-\s*/, ""), size: 20 })], bullet: { level: 0 }, spacing: { after: 40 } }));
+// Builds a clean ATS-ready final resume from base + tailoring recommendations
+async function buildFinalResumeText(baseResume, tailoringNotes, jd) {
+  const system = `You are an expert resume writer. You will be given:
+1. A base resume
+2. Tailoring recommendations for a specific role
+3. The job description
+
+Produce a FINAL, SUBMISSION-READY resume that incorporates the recommendations. Output ONLY the clean resume text — no commentary, no "why this works" explanations, no strategy notes, no markdown headers, no section labels like "REVISED:" or "CURRENT:".
+
+Format rules:
+- Name on first line in ALL CAPS
+- Contact line second: City, ST  |  phone  |  email  |  linkedin  |  website
+- Section headers in ALL CAPS (SUMMARY, EXPERIENCE, CERTIFICATIONS, SKILLS)
+- Job entries: Title | Company | Years (on one line)
+- Bullet points starting with a dash (-)
+- Em dashes (—) for separators within bullets
+- No tables, no markdown, no asterisks, no pound signs
+- Clean plain text that will render properly in Word
+
+The output should read as a polished, human-written executive resume ready to submit to an ATS and a hiring manager.`;
+
+  return callClaude(system,
+    `Base Resume:\n${baseResume}\n\nTailoring Recommendations:\n${tailoringNotes}\n\nJob Description:\n${jd}`,
+    3000
+  );
+}
+
+async function downloadResumeDocx(finalResumeText, company, profile) {
+  const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, UnderlineType } = await import("https://esm.sh/docx@8.5.0");
+
+  const children = [];
+  const lines = finalResumeText.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t) { children.push(new Paragraph({ text: "", spacing: { after: 60 } })); continue; }
+
+    // Name — first non-empty line, ALL CAPS
+    if (i === 0 || (children.length === 0)) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: t, bold: true, size: 32, color: "1a1a4a", font: "Calibri" })],
+        alignment: AlignmentType.CENTER, spacing: { after: 80 }
+      }));
+
+    // Contact line — contains | and email
+    } else if (t.includes("|") && t.includes("@") && children.length <= 2) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: t, size: 19, color: "444444", font: "Calibri" })],
+        alignment: AlignmentType.CENTER, spacing: { after: 160 }
+      }));
+      // Accent rule below contact
+      children.push(new Paragraph({
+        border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: "2F2B8F" } },
+        spacing: { after: 180 }
+      }));
+
+    // Section headers — ALL CAPS, no special chars, standalone line
+    } else if (t === t.toUpperCase() && t.length > 2 && t.length < 40 && !t.includes("|") && !t.includes("@") && !t.includes("—")) {
+      children.push(new Paragraph({
+        children: [new TextRun({ text: t, bold: true, size: 22, color: "1a1a4a", font: "Calibri" })],
+        spacing: { before: 240, after: 80 },
+        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "2F2B8F" } }
+      }));
+
+    // Job title lines — contain | separator (Title | Company | Years)
+    } else if (t.includes("|") && !t.includes("@") && t.split("|").length >= 2 && t.split("|").length <= 4) {
+      const parts = t.split("|").map(p => p.trim());
+      children.push(new Paragraph({
+        children: [
+          new TextRun({ text: parts[0], bold: true, size: 21, color: "111111", font: "Calibri" }),
+          new TextRun({ text: "  |  ", size: 21, color: "888888", font: "Calibri" }),
+          new TextRun({ text: parts.slice(1).join("  |  "), size: 21, color: "444444", font: "Calibri" }),
+        ],
+        spacing: { before: 180, after: 60 }
+      }));
+
+    // Bullet points
+    } else if (t.startsWith("-") || t.startsWith("•")) {
+      const bulletText = t.replace(/^[-•]\s*/, "");
+      // Handle em dashes within bullet text
+      children.push(new Paragraph({
+        children: [new TextRun({ text: bulletText, size: 20, color: "111111", font: "Calibri" })],
+        bullet: { level: 0 },
+        spacing: { after: 60 }
+      }));
+
+    // Regular paragraph text
     } else {
-      children.push(new Paragraph({ children: [new TextRun({ text: t, size: 20 })], spacing: { after: 60 } }));
+      children.push(new Paragraph({
+        children: [new TextRun({ text: t, size: 20, color: "111111", font: "Calibri" })],
+        spacing: { after: 80 }
+      }));
     }
   }
-  // AI stamp footer
-  children.push(new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 4, color: "EEEEEE" } }, spacing: { before: 400 } }));
-  children.push(new Paragraph({ children: [new TextRun({ text: AI_STAMP, size: 16, color: "AAAAAA", italics: true })], alignment: AlignmentType.CENTER }));
 
-  const doc = new Document({ sections: [{ properties: {}, children }], styles: { default: { document: { run: { font: "Calibri" } } } } });
+  // AI stamp
+  children.push(new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 4, color: "EEEEEE" } }, spacing: { before: 480 } }));
+  children.push(new Paragraph({
+    children: [new TextRun({ text: AI_STAMP, size: 16, color: "AAAAAA", italics: true, font: "Calibri" })],
+    alignment: AlignmentType.CENTER
+  }));
+
+  const doc = new Document({
+    sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }],
+    styles: { default: { document: { run: { font: "Calibri", size: 20 } } } }
+  });
   const blob = await Packer.toBlob(doc);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = `Scott_Henderson_Resume${company ? "_" + company.replace(/\s+/g,"_") : ""}.docx`; a.click();
+  a.href = url;
+  a.download = `Scott_Henderson_Resume${company ? "_" + company.replace(/\s+/g,"_") : ""}.docx`;
+  a.click();
   URL.revokeObjectURL(url);
 }
 
-async function downloadCoverLetterDocx(letterText, company, role) {
+async function downloadCoverLetterDocx(letterText, company, role, profile) {
   const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = await import("https://esm.sh/docx@8.5.0");
-  const children = [
-    new Paragraph({ children: [new TextRun({ text: "SCOTT HENDERSON", bold: true, size: 28, color: "1a1a4a" })], spacing: { after: 60 } }),
-    new Paragraph({ children: [new TextRun({ text: "Bellingham, WA  |  scott@hendersonsolution.com  |  hendersonsolution.com", size: 18, color: "555555" })], spacing: { after: 60 } }),
-    new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "2F2B8F" } }, spacing: { after: 280 } }),
-    new Paragraph({ children: [new TextRun({ text: TODAY, size: 20, color: "555555" })], spacing: { after: 280 } }),
-  ];
-  if (company) children.push(new Paragraph({ children: [new TextRun({ text: company, size: 20, bold: true })], spacing: { after: 40 } }));
-  if (role) children.push(new Paragraph({ children: [new TextRun({ text: role, size: 20, color: "555555" })], spacing: { after: 280 } }));
-  for (const line of letterText.split("\n")) {
-    const t = line.trim();
-    if (!t) { children.push(new Paragraph({ text: "", spacing: { after: 120 } })); continue; }
-    children.push(new Paragraph({ children: [new TextRun({ text: t, size: 22 })], spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED }));
-  }
-  children.push(new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 4, color: "EEEEEE" } }, spacing: { before: 400 } }));
-  children.push(new Paragraph({ children: [new TextRun({ text: AI_STAMP, size: 16, color: "AAAAAA", italics: true })], alignment: AlignmentType.CENTER }));
 
-  const doc = new Document({ sections: [{ properties: {}, children }], styles: { default: { document: { run: { font: "Calibri" } } } } });
+  // Strip any AI-generated contact blocks from the letter body
+  // (remove lines that look like "[Phone]", "[Email]", or duplicate contact info)
+  const cleanedLines = letterText.split("\n").filter(line => {
+    const t = line.trim();
+    if (!t) return true;
+    if (t.match(/^\[.*\]$/) || t.match(/^\[.*\]\s*\|/)) return false; // [Phone] | [Email] etc
+    if (t === profile.email || t === profile.phone) return false;
+    if (t.toLowerCase().includes("scott henderson") && t.length < 30) return false; // standalone name line
+    return true;
+  });
+  const cleanLetter = cleanedLines.join("\n");
+
+  const contactLine = `${profile.address}  |  ${profile.phone}  |  ${profile.email}  |  ${profile.website}`;
+
+  const children = [
+    // Letterhead name
+    new Paragraph({
+      children: [new TextRun({ text: profile.name.toUpperCase(), bold: true, size: 30, color: "1a1a4a", font: "Calibri" })],
+      spacing: { after: 60 }
+    }),
+    // Full contact line with phone
+    new Paragraph({
+      children: [new TextRun({ text: contactLine, size: 18, color: "555555", font: "Calibri" })],
+      spacing: { after: 80 }
+    }),
+    // Accent rule
+    new Paragraph({
+      border: { bottom: { style: BorderStyle.SINGLE, size: 10, color: "2F2B8F" } },
+      spacing: { after: 320 }
+    }),
+    // Date
+    new Paragraph({
+      children: [new TextRun({ text: TODAY, size: 20, color: "555555", font: "Calibri" })],
+      spacing: { after: 320 }
+    }),
+  ];
+
+  // Addressee block
+  if (company) children.push(new Paragraph({ children: [new TextRun({ text: company, size: 20, bold: true, font: "Calibri" })], spacing: { after: 40 } }));
+  if (role) children.push(new Paragraph({ children: [new TextRun({ text: role, size: 20, color: "444444", font: "Calibri" })], spacing: { after: 320 } }));
+
+  // Letter body — skip blank lines at start
+  let bodyStarted = false;
+  for (const line of cleanLetter.split("\n")) {
+    const t = line.trim();
+    if (!t && !bodyStarted) continue;
+    bodyStarted = true;
+    if (!t) { children.push(new Paragraph({ text: "", spacing: { after: 140 } })); continue; }
+    children.push(new Paragraph({
+      children: [new TextRun({ text: t, size: 22, color: "111111", font: "Calibri" })],
+      spacing: { after: 80 },
+      alignment: AlignmentType.JUSTIFIED
+    }));
+  }
+
+  // Closing signature block
+  children.push(new Paragraph({ text: "", spacing: { after: 160 } }));
+  children.push(new Paragraph({ children: [new TextRun({ text: profile.name, size: 22, bold: true, font: "Calibri" })], spacing: { after: 40 } }));
+  children.push(new Paragraph({ children: [new TextRun({ text: profile.phone, size: 20, color: "555555", font: "Calibri" })], spacing: { after: 40 } }));
+  children.push(new Paragraph({ children: [new TextRun({ text: profile.email, size: 20, color: "555555", font: "Calibri" })], spacing: { after: 40 } }));
+
+  // AI stamp
+  children.push(new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 4, color: "EEEEEE" } }, spacing: { before: 480 } }));
+  children.push(new Paragraph({
+    children: [new TextRun({ text: AI_STAMP, size: 16, color: "AAAAAA", italics: true, font: "Calibri" })],
+    alignment: AlignmentType.CENTER
+  }));
+
+  const doc = new Document({
+    sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 1080, right: 1080 } } }, children }],
+    styles: { default: { document: { run: { font: "Calibri" } } } }
+  });
   const blob = await Packer.toBlob(doc);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url; a.download = `Scott_Henderson_CoverLetter${company ? "_" + company.replace(/\s+/g,"_") : ""}.docx`; a.click();
+  a.href = url;
+  a.download = `Scott_Henderson_CoverLetter${company ? "_" + company.replace(/\s+/g,"_") : ""}.docx`;
+  a.click();
   URL.revokeObjectURL(url);
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SHARED UI
@@ -473,19 +594,19 @@ function GapCorrectionPanel({ gaps, corrections, onSave, onDone }) {
 // ANALYZE JD TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildAnalysisSystem(corrections) {
+function buildAnalysisSystem(corrections, profile) {
   const correctionText = Object.keys(corrections).length > 0
     ? `\n\nUSER CORRECTIONS — treat as verified facts, do NOT re-flag:\n${Object.entries(corrections).map(([k,v]) => `- "${k}": ${v}`).join("\n")}`
     : "";
-  return `You are a senior career strategist for ${PROFILE.name}, ${PROFILE.title}.
+  return `You are a senior career strategist for ${profile.name}, ${profile.title}.
 
-BACKGROUND: ${PROFILE.background}
-PROOF POINTS: ${PROFILE.proofPoints.join("; ")}
-CERTIFICATIONS (VERIFIED): ${PROFILE.certifications.join("; ")}
-IMPLEMENTATIONS (VERIFIED, hands-on lead): ${PROFILE.implementations.join("; ")}
-PRODUCT EXPERIENCE (VERIFIED): ${PROFILE.products.join("; ")}
-INDUSTRIES: ${PROFILE.industries.join("; ")}
-SECURITY: ${PROFILE.security.join("; ")}
+BACKGROUND: ${profile.background}
+PROOF POINTS: ${profile.proofPoints.join("; ")}
+CERTIFICATIONS (VERIFIED): ${profile.certifications.join("; ")}
+IMPLEMENTATIONS (VERIFIED, hands-on lead): ${profile.implementations.join("; ")}
+PRODUCT EXPERIENCE (VERIFIED): ${profile.products.join("; ")}
+INDUSTRIES: ${profile.industries.join("; ")}
+SECURITY: ${profile.security.join("; ")}
 
 CRITICAL: Before flagging any gap, check verified facts above. Only flag genuine verified gaps.${correctionText}
 
@@ -502,7 +623,7 @@ Return ONLY a JSON object:
 }`;
 }
 
-function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuildResume, onResumeOnly, onNewJD }) {
+function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuildResume, onResumeOnly, onNewJD, profile }) {
   const [parsedScore, setParsedScore] = useState(null);
   const [parsedRationale, setParsedRationale] = useState("");
   const [parsedGaps, setParsedGaps] = useState([]);
@@ -520,7 +641,7 @@ function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuil
     setLoading(true); setError(null); setShowFull(false); setShowModal(false);
     try {
       const storyList = stories.map((s,i) => `${i+1}. "${s.title}" — ${s.competencies.join(", ")} | Result: ${s.result}`).join("\n");
-      const text = await callClaude(buildAnalysisSystem(corrections), `Stories:\n${storyList}\n\nJob Description:\n${jd}`, 3000);
+      const text = await callClaude(buildAnalysisSystem(corrections, profile), `Stories:\n${storyList}\n\nJob Description:\n${jd}`, 3000);
       const m = text.match(/\{[\s\S]*\}/);
       if (!m) throw new Error("Could not parse analysis response");
       const p = JSON.parse(m[0]);
@@ -585,8 +706,8 @@ function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuil
 // RESUME TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ResumeTab({ jd, setJd, resumeOnly, onDownloaded }) {
-  const [resume, setResume] = useState(RESUME_BASELINE);
+function ResumeTab({ jd, setJd, resumeOnly, onDownloaded, profile }) {
+  const [resume, setResume] = useState(profile.resumeText || "");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -598,11 +719,11 @@ function ResumeTab({ jd, setJd, resumeOnly, onDownloaded }) {
     if (!jd.trim()) return;
     setLoading(true); setError(null); setResult("");
     try {
-      const system = `You are a senior executive resume strategist for ${PROFILE.name}, ${PROFILE.title}.
-Background: ${PROFILE.background}
-Certifications: ${PROFILE.certifications.join("; ")}
-Implementations: ${PROFILE.implementations.join("; ")}
-Proof points: ${PROFILE.proofPoints.join("; ")}
+      const system = `You are a senior executive resume strategist for ${profile.name}, ${profile.title}.
+Background: ${profile.background}
+Certifications: ${profile.certifications.join("; ")}
+Implementations: ${profile.implementations.join("; ")}
+Proof points: ${profile.proofPoints.join("; ")}
 
 Output:
 1. SUMMARY REWRITE — tailored 3-sentence summary for this role
@@ -622,7 +743,10 @@ Give actual rewritten text, not just advice.`;
     setDownloading(true);
     try {
       const m = jd.match(/(?:at|for|with|joining)\s+([A-Z][A-Za-z\s&,.]+?)(?:\s+is|\s+are|\s+we|\.|,)/);
-      await downloadResumeDocx(resume, result, m ? m[1].trim() : "");
+      const company = m ? m[1].trim() : "";
+      // Build clean final resume from base + tailoring notes via second AI call
+      const finalText = await buildFinalResumeText(resume, result, jd);
+      await downloadResumeDocx(finalText, company, profile);
       if (onDownloaded) onDownloaded();
     } catch (e) { setError(`Download failed: ${e.message}`); }
     finally { setDownloading(false); }
@@ -650,17 +774,17 @@ Give actual rewritten text, not just advice.`;
       {result && (
         <div style={S.section}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-            <div style={{ ...S.label, margin: 0 }}>Resume Tailoring</div>
+            <div style={{ ...S.label, margin: 0 }}>Resume Tailoring Strategy</div>
             <div style={{ display: "flex", gap: "8px" }}>
               <CopyBtn text={result} />
               <button onClick={handleDownload} disabled={downloading} style={{ ...S.btn, padding: "5px 14px", fontSize: "11px", background: downloading?"#2a2a3a":"#3a5abf", display: "flex", alignItems: "center", gap: "6px" }}>
-                {downloading?<><Spinner />…</>:"⬇ Download .docx"}
+                {downloading?<><Spinner />Building resume…</>:"⬇ Build Final Resume .docx"}
               </button>
             </div>
           </div>
           <div style={S.resultBox}>{result}</div>
           <div style={{ marginTop: "12px", fontSize: "11px", color: "#3a3848", fontFamily: "system-ui, sans-serif", fontStyle: "italic" }}>
-            Download includes AI attribution stamp. Review all suggestions before sending.
+            The strategy above is for your review. Download runs a second AI pass to produce a clean, submission-ready resume incorporating these recommendations.
           </div>
         </div>
       )}
@@ -672,7 +796,7 @@ Give actual rewritten text, not just advice.`;
 // COVER LETTER TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CoverLetterTab({ jd, setJd, onDownloaded }) {
+function CoverLetterTab({ jd, setJd, onDownloaded, profile }) {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [notes, setNotes] = useState("");
@@ -703,14 +827,20 @@ function CoverLetterTab({ jd, setJd, onDownloaded }) {
     if (!jd.trim()) return;
     setLoading(true); setError(null); setResult("");
     try {
-      const system = `You are writing a cover letter for ${PROFILE.name}, ${PROFILE.title}.
-Background: ${PROFILE.background}
-Proof points: ${PROFILE.proofPoints.join("; ")}
+      const system = `You are writing a cover letter for ${profile.name}, ${profile.title}.
+Background: ${profile.background}
+Proof points: ${profile.proofPoints.join("; ")}
 Voice: Direct, confident, not sycophantic. Lead with business impact. Specific proof points over generic claims.
 One strong opening hook — not "I am writing to apply for…"
-3 tight paragraphs maximum. Close with forward momentum, not "I look forward to hearing from you."
-Sign off: Scott Henderson
-Write a complete ready-to-send letter. No placeholders or commentary.`;
+3 tight paragraphs maximum. Close with forward momentum.
+
+CRITICAL FORMATTING RULES:
+- Do NOT include any contact information, addresses, phone numbers, or email addresses
+- Do NOT include a name line, letterhead, or header — the document template handles this
+- Do NOT include a salutation line (Dear Hiring Manager etc) unless you know the name
+- Do NOT include a closing signature block — the template adds this
+- Output ONLY the body paragraphs of the letter, nothing else
+- No placeholders like [Phone] or [Email]`;
       const text = await callClaude(system, `Company: ${company||"the company"}\nRole: ${role||"this position"}\n${notes?`Context: ${notes}\n`:""}\nJD:\n${jd}`, 1500);
       setResult(text);
     } catch (e) { setError(`Failed: ${e.message}`); }
@@ -719,7 +849,7 @@ Write a complete ready-to-send letter. No placeholders or commentary.`;
 
   const handleDownload = async () => {
     setDownloading(true);
-    try { await downloadCoverLetterDocx(result, company, role); if (onDownloaded) onDownloaded(); }
+    try { await downloadCoverLetterDocx(result, company, role, profile); if (onDownloaded) onDownloaded(); }
     catch (e) { setError(`Download failed: ${e.message}`); }
     finally { setDownloading(false); }
   };
@@ -770,7 +900,7 @@ Write a complete ready-to-send letter. No placeholders or commentary.`;
 // INTERVIEW PREP TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-function InterviewPrepTab({ jd, setJd, stories }) {
+function InterviewPrepTab({ jd, setJd, stories, profile }) {
   const [round, setRound] = useState("screening");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
@@ -782,9 +912,9 @@ function InterviewPrepTab({ jd, setJd, stories }) {
     setLoading(true); setError(null); setResult("");
     try {
       const storyCtx = stories.map(s => `"${s.title}": ${s.result}`).join("\n");
-      const system = `You are an executive interview coach preparing ${PROFILE.name} for a ${round} interview.
-Background: ${PROFILE.background}
-Proof points: ${PROFILE.proofPoints.join("; ")}
+      const system = `You are an executive interview coach preparing ${profile.name} for a ${round} interview.
+Background: ${profile.background}
+Proof points: ${profile.proofPoints.join("; ")}
 Stories: ${storyCtx}
 
 Generate:
@@ -1098,19 +1228,278 @@ function LibraryTab({ stories, setStories }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PROFILE SELECTOR
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ProfileSelector({ profiles, activeId, onSelect, onAdd }) {
+  const colors = { scott: "#4a4abf", joshua: "#3a8a6a", aaron: "#8a4abf" };
+  return (
+    <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+      {Object.values(profiles).map(p => {
+        const isActive = p.id === activeId;
+        const color = colors[p.id] || "#5a5870";
+        return (
+          <button key={p.id} onClick={() => onSelect(p.id)} style={{
+            background: isActive ? `${color}22` : "transparent",
+            border: `1px solid ${isActive ? color : "#2a2a3a"}`,
+            borderRadius: "20px", padding: "5px 14px",
+            fontSize: "12px", fontFamily: "system-ui, sans-serif",
+            cursor: "pointer",
+            color: isActive ? "#c8c0e8" : "#5a5870",
+            display: "flex", alignItems: "center", gap: "6px"
+          }}>
+            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: isActive ? color : "#3a3858", flexShrink: 0 }} />
+            {p.displayName}
+            {!p.resumeUploaded && <span style={{ fontSize: "9px", color: "#6a5040" }}>no resume</span>}
+          </button>
+        );
+      })}
+      <button onClick={onAdd} style={{ background: "transparent", border: "1px dashed #2a2a3a", borderRadius: "20px", padding: "5px 14px", fontSize: "12px", fontFamily: "system-ui, sans-serif", cursor: "pointer", color: "#3a3858" }}>
+        + Add Profile
+      </button>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RESUME UPLOAD GATE
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ResumeUploadGate({ profile, onComplete, onSkip }) {
+  const [text, setText] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [error, setError] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const processFile = async (file) => {
+    setFileName(file.name); setError(null);
+    try {
+      if (file.name.endsWith(".docx") || file.type.includes("wordprocessing")) {
+        const { default: mammoth } = await import("https://esm.sh/mammoth@1.7.0");
+        const buf = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer: buf });
+        setText(result.value);
+      } else if (file.type === "application/pdf") {
+        setError("PDF upload: paste the resume text below as a fallback for now.");
+      } else {
+        const t = await file.text();
+        setText(t);
+      }
+    } catch (e) { setError(`Read failed: ${e.message}`); }
+  };
+
+  const handleDrop = (e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) processFile(f); };
+  const handleFile = (e) => { const f = e.target.files[0]; if (f) processFile(f); };
+
+  const handleContinue = async () => {
+    if (!text.trim()) return;
+    setExtracting(true); setError(null);
+    try {
+      const contact = await extractContactFromResume(text);
+      onComplete({
+        ...profile,
+        name: contact.name || profile.name,
+        phone: contact.phone || profile.phone,
+        email: contact.email || profile.email,
+        address: contact.address || profile.address,
+        linkedin: contact.linkedin || profile.linkedin,
+        website: contact.website || profile.website,
+        title: contact.title || profile.title,
+        resumeText: text,
+        resumeUploaded: true,
+      });
+    } catch (e) { setError(`Extraction failed: ${e.message}`); setExtracting(false); }
+  };
+
+  return (
+    <div style={{ maxWidth: "600px" }}>
+      <div style={{ fontSize: "18px", fontWeight: "600", color: "#c8c0e8", fontFamily: "system-ui, sans-serif", marginBottom: "6px" }}>
+        Set up {profile.displayName}'s profile
+      </div>
+      <div style={{ fontSize: "13px", color: "#5a5070", fontFamily: "system-ui, sans-serif", lineHeight: "1.6", marginBottom: "28px" }}>
+        Upload or paste your resume. CareerForge will extract your contact info and use your resume as the baseline for tailoring. Your data stays in your browser.
+      </div>
+
+      {/* Drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => document.getElementById(`upload-${profile.id}`).click()}
+        style={{
+          border: `1.5px dashed ${dragOver ? "#4a4abf" : "#2e2e42"}`,
+          borderRadius: "6px", padding: "24px", textAlign: "center",
+          marginBottom: "16px", cursor: "pointer",
+          background: dragOver ? "rgba(74,74,191,0.05)" : "rgba(255,255,255,0.02)",
+          transition: "all 0.2s"
+        }}
+      >
+        <input id={`upload-${profile.id}`} type="file" accept=".docx,.txt" style={{ display: "none" }} onChange={handleFile} />
+        <div style={{ fontSize: "24px", marginBottom: "8px" }}>📄</div>
+        {fileName
+          ? <div style={{ color: "#4a4abf", fontFamily: "system-ui, sans-serif", fontSize: "14px" }}>✓ {fileName}</div>
+          : <div style={{ color: "#5a5070", fontFamily: "system-ui, sans-serif", fontSize: "13px" }}>Drop DOCX here, or click to browse<br /><span style={{ fontSize: "11px", color: "#3a3848" }}>or paste text below</span></div>
+        }
+      </div>
+
+      <textarea
+        value={text}
+        onChange={e => { setText(e.target.value); setFileName(""); }}
+        placeholder="Paste resume text here…"
+        rows={8}
+        style={{ ...S.textarea, marginBottom: "16px" }}
+        onFocus={e => e.target.style.borderColor = "#4a4abf"}
+        onBlur={e => e.target.style.borderColor = "#2a2a3a"}
+      />
+
+      {error && <div style={{ color: "#c06060", fontFamily: "system-ui, sans-serif", fontSize: "13px", marginBottom: "16px" }}>{error}</div>}
+
+      <div style={{ display: "flex", gap: "10px" }}>
+        <button onClick={handleContinue} disabled={!text.trim() || extracting} style={{ ...S.btn, opacity: !text.trim() || extracting ? 0.5 : 1, display: "flex", alignItems: "center", gap: "8px" }}>
+          {extracting ? <><Spinner />Extracting contact info…</> : "Set Up Profile"}
+        </button>
+        <button onClick={onSkip} style={{ ...S.btnGhost, color: "#5a5070" }}>
+          Skip for now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SETTINGS TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+function SettingsTab({ profile, onUpdateProfile, saveJD, setSaveJD, onDeleteProfile, isOnlyProfile }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ ...profile });
+  const [reupload, setReupload] = useState(false);
+
+  const field = (key, label) => (
+    <div style={{ marginBottom: "16px" }}>
+      <label style={S.label}>{label}</label>
+      <input value={form[key] || ""} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} style={S.input}
+        onFocus={e => e.target.style.borderColor = "#4a4abf"} onBlur={e => e.target.style.borderColor = "#2a2a3a"} />
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Contact info */}
+      <div style={{ ...S.section, marginBottom: "24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+          <div style={{ ...S.label, margin: 0 }}>Contact Information</div>
+          <button onClick={() => { setEditing(!editing); setForm({ ...profile }); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px" }}>
+            {editing ? "Cancel" : "Edit"}
+          </button>
+        </div>
+
+        {editing ? (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div>{field("name", "Full Name")}</div>
+              <div>{field("phone", "Phone")}</div>
+              <div>{field("email", "Email")}</div>
+              <div>{field("address", "City, State")}</div>
+              <div>{field("linkedin", "LinkedIn URL")}</div>
+              <div>{field("website", "Website")}</div>
+            </div>
+            {field("title", "Professional Title")}
+            <button onClick={() => { onUpdateProfile(form); setEditing(false); }} style={S.btn}>Save Changes</button>
+          </>
+        ) : (
+          <div style={{ fontFamily: "system-ui, sans-serif", fontSize: "13px", color: "#7a7090", lineHeight: "2" }}>
+            {[["Name", profile.name], ["Phone", profile.phone || "—"], ["Email", profile.email || "—"], ["Address", profile.address || "—"], ["LinkedIn", profile.linkedin || "—"], ["Website", profile.website || "—"]].map(([l, v]) => (
+              <div key={l} style={{ display: "flex", gap: "16px" }}>
+                <span style={{ color: "#4a4860", width: "80px", flexShrink: 0 }}>{l}</span>
+                <span style={{ color: v === "—" ? "#2a2a38" : "#a0a0b8" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Resume */}
+      <div style={{ ...S.section, marginBottom: "24px" }}>
+        <div style={{ ...S.label, marginBottom: "12px" }}>Resume Baseline</div>
+        {profile.resumeUploaded ? (
+          <>
+            <div style={{ fontSize: "12px", color: "#5a9a7a", fontFamily: "system-ui, sans-serif", marginBottom: "12px" }}>
+              ✓ Resume uploaded — {profile.resumeText?.length?.toLocaleString()} characters
+            </div>
+            <button onClick={() => setReupload(!reupload)} style={{ ...S.btnGhost, fontSize: "12px", padding: "6px 14px", marginBottom: reupload ? "16px" : 0 }}>
+              {reupload ? "Cancel re-upload" : "Re-upload resume"}
+            </button>
+          </>
+        ) : (
+          <div style={{ fontSize: "12px", color: "#8a6040", fontFamily: "system-ui, sans-serif", marginBottom: "16px" }}>
+            ⚠ No resume uploaded — contact info will use defaults and tailoring will use a generic baseline.
+          </div>
+        )}
+        {(!profile.resumeUploaded || reupload) && (
+          <ResumeUploadGate
+            profile={profile}
+            onComplete={updated => { onUpdateProfile(updated); setReupload(false); }}
+            onSkip={() => setReupload(false)}
+          />
+        )}
+      </div>
+
+      {/* Preferences */}
+      <div style={{ ...S.section, marginBottom: "24px" }}>
+        <div style={{ ...S.label, marginBottom: "16px" }}>Preferences</div>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", fontFamily: "system-ui, sans-serif", fontSize: "13px", color: "#7a7090" }}>
+          <button onClick={() => setSaveJD(!saveJD)} style={{ background: saveJD ? "rgba(74,74,191,0.2)" : "rgba(255,255,255,0.03)", border: `1px solid ${saveJD ? "#4a4abf" : "#2a2a3a"}`, borderRadius: "4px", padding: "6px 14px", fontSize: "12px", fontFamily: "system-ui, sans-serif", cursor: "pointer", color: saveJD ? "#8aacff" : "#5a5870" }}>
+            {saveJD ? "💾 JD saved across sessions" : "💾 JD not saved"}
+          </button>
+          <span style={{ fontSize: "12px", color: "#3a3858" }}>Toggle to control whether your JD persists between sessions</span>
+        </div>
+      </div>
+
+      {/* Danger zone */}
+      {!isOnlyProfile && (
+        <div style={{ ...S.section, border: "1px solid #3a1a1a" }}>
+          <div style={{ ...S.label, color: "#6a3a3a", marginBottom: "12px" }}>Danger Zone</div>
+          <button onClick={() => { if (window.confirm(`Delete ${profile.displayName}'s profile? This cannot be undone.`)) onDeleteProfile(profile.id); }}
+            style={{ background: "rgba(180,60,60,0.1)", border: "1px solid #6a2a2a", color: "#c06060", borderRadius: "4px", padding: "8px 16px", fontSize: "12px", fontFamily: "system-ui, sans-serif", cursor: "pointer" }}>
+            Delete {profile.displayName}'s Profile
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN APP
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function CareerForge() {
   const [activeTab, setActiveTab] = useState("Library");
-  const [stories, setStories] = useState([]);
   const [loaded, setLoaded] = useState(false);
-  const [jd, setJd] = useState("");
-  const [corrections, setCorrections] = useState({});
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [saveJD, setSaveJD] = useState(true);
-  const [researchCompany, setResearchCompany] = useState("");
-  const [researchTriggered, setResearchTriggered] = useState(false);
+
+  // Multi-profile state
+  const [profiles, setProfiles] = useState(SEED_PROFILES);
+  const [activeProfileId, setActiveProfileId] = useState("scott");
+  const [showUploadGate, setShowUploadGate] = useState(false);
+
+  // Per-profile data (keyed by profile id)
+  const [allStories, setAllStories] = useState({});
+  const [allCorrections, setAllCorrections] = useState({});
+  const [allJDs, setAllJDs] = useState({});
+
+  // Derived — active profile data
+  const profile = profiles[activeProfileId] || profiles.scott;
+  const stories = allStories[activeProfileId] || [];
+  const corrections = allCorrections[activeProfileId] || {};
+  const jd = allJDs[activeProfileId] || "";
+
+  const setStories = (val) => setAllStories(p => ({ ...p, [activeProfileId]: typeof val === "function" ? val(p[activeProfileId] || []) : val }));
+  const setCorrections = (val) => setAllCorrections(p => ({ ...p, [activeProfileId]: typeof val === "function" ? val(p[activeProfileId] || {}) : val }));
+  const setJd = (val) => setAllJDs(p => ({ ...p, [activeProfileId]: typeof val === "function" ? val(p[activeProfileId] || "") : val }));
 
   // Flow gates
   const [proceeded, setProceeded] = useState(false);
@@ -1122,38 +1511,99 @@ export default function CareerForge() {
   const sessionCost = useSessionCost();
   const apiLocked = useApiLock();
 
+  // Load all data on mount
   useEffect(() => {
     if (sessionStorage.getItem("cf:privacy")) setPrivacyAccepted(true);
     Promise.all([
-      storageGet("careerforge:scott:stories"),
-      storageGet("careerforge:scott:jd"),
-      storageGet("careerforge:scott:corrections"),
-      storageGet("careerforge:scott:saveJD"),
-    ]).then(([s, j, c, sj]) => {
-      setStories(s || SEED_STORIES);
+      storageGet("careerforge:profiles"),
+      storageGet("careerforge:activeProfile"),
+      storageGet("careerforge:allStories"),
+      storageGet("careerforge:allCorrections"),
+      storageGet("careerforge:allJDs"),
+      storageGet("careerforge:saveJD"),
+    ]).then(([p, ap, s, c, j, sj]) => {
+      if (p) setProfiles(p);
+      if (ap) setActiveProfileId(ap);
+      if (s) setAllStories(s); else setAllStories({ scott: SEED_STORIES_BY_PROFILE.scott, joshua: [], aaron: [] });
+      if (c) setAllCorrections(c);
+      if (j) setAllJDs(j);
       const pref = sj !== null ? sj : true;
       setSaveJD(pref);
-      if (pref) setJd(j || "");
-      setCorrections(c || {});
       setLoaded(true);
     });
   }, []);
 
-  useEffect(() => { if (loaded) storageSet("careerforge:scott:stories", stories); }, [stories, loaded]);
-  useEffect(() => { if (loaded && saveJD) storageSet("careerforge:scott:jd", jd); else if (loaded && !saveJD) storageSet("careerforge:scott:jd", ""); }, [jd, loaded, saveJD]);
-  useEffect(() => { if (loaded) storageSet("careerforge:scott:corrections", corrections); }, [corrections, loaded]);
-  useEffect(() => { if (loaded) storageSet("careerforge:scott:saveJD", saveJD); }, [saveJD, loaded]);
+  // Persist on change
+  useEffect(() => { if (loaded) storageSet("careerforge:profiles", profiles); }, [profiles, loaded]);
+  useEffect(() => { if (loaded) storageSet("careerforge:activeProfile", activeProfileId); }, [activeProfileId, loaded]);
+  useEffect(() => { if (loaded) storageSet("careerforge:allStories", allStories); }, [allStories, loaded]);
+  useEffect(() => { if (loaded) storageSet("careerforge:allCorrections", allCorrections); }, [allCorrections, loaded]);
+  useEffect(() => { if (loaded) storageSet("careerforge:saveJD", saveJD); }, [saveJD, loaded]);
+  useEffect(() => {
+    if (loaded) {
+      if (saveJD) storageSet("careerforge:allJDs", allJDs);
+    }
+  }, [allJDs, loaded, saveJD]);
+
+  // Show upload gate for new profile with no resume
+  useEffect(() => {
+    if (loaded && profile && !profile.resumeUploaded) {
+      setShowUploadGate(true);
+    } else {
+      setShowUploadGate(false);
+    }
+  }, [activeProfileId, loaded]);
+
+  // Reset flow gates on profile switch
+  useEffect(() => {
+    setProceeded(false); setResumeOnly(false);
+    setResumeDownloaded(false); setCoverDownloaded(false);
+  }, [activeProfileId]);
 
   // Auto-navigate on gate changes
   useEffect(() => { if (resumeDownloaded && !coverDownloaded && !resumeOnly) setActiveTab("Cover Letter"); }, [resumeDownloaded]);
-  useEffect(() => { if (materialsComplete) { setResearchTriggered(true); } }, [materialsComplete]);
+  useEffect(() => { if (materialsComplete) { /* research tab unlocks */ } }, [materialsComplete]);
 
   const handleNewJD = () => {
     setJd(""); setProceeded(false); setResumeOnly(false);
     setResumeDownloaded(false); setCoverDownloaded(false);
-    setResearchTriggered(false); setResearchCompany("");
     setActiveTab("Analyze JD");
   };
+
+  const handleProfileSwitch = (id) => {
+    setActiveProfileId(id);
+    setActiveTab("Library");
+  };
+
+  const handleAddProfile = () => {
+    const id = `user_${Date.now()}`;
+    const newProfile = {
+      id, displayName: "New Profile", title: "", name: "", phone: "", email: "",
+      address: "", linkedin: "", website: "", resumeText: "", resumeUploaded: false,
+      background: "", proofPoints: [], certifications: [], implementations: [],
+      products: [], industries: [], security: [],
+    };
+    setProfiles(p => ({ ...p, [id]: newProfile }));
+    setAllStories(s => ({ ...s, [id]: [] }));
+    setActiveProfileId(id);
+    setShowUploadGate(true);
+    setActiveTab("Library");
+  };
+
+  const handleUpdateProfile = (updated) => {
+    setProfiles(p => ({ ...p, [updated.id]: updated }));
+    setShowUploadGate(!updated.resumeUploaded);
+  };
+
+  const handleDeleteProfile = (id) => {
+    const remaining = { ...profiles };
+    delete remaining[id];
+    setProfiles(remaining);
+    setActiveProfileId(Object.keys(remaining)[0]);
+  };
+
+  const [researchCompany, setResearchCompany] = useState("");
+  const [researchTriggered, setResearchTriggered] = useState(false);
 
   const tabConfig = [
     { name: "Library",        unlocked: true },
@@ -1162,6 +1612,7 @@ export default function CareerForge() {
     { name: "Cover Letter",   unlocked: resumeDownloaded && !resumeOnly },
     { name: "Interview Prep", unlocked: materialsComplete },
     { name: "Research",       unlocked: materialsComplete },
+    { name: "Settings",       unlocked: true },
   ];
 
   const starredCount = stories.filter(s => s.starred).length;
@@ -1178,44 +1629,45 @@ export default function CareerForge() {
               <span style={{ fontSize: "22px", fontWeight: "700", color: "#c8c0e8", letterSpacing: "-0.5px" }}>CareerForge</span>
               <span style={{ fontSize: "10px", letterSpacing: "3px", color: "#4a4abf", textTransform: "uppercase", fontFamily: "system-ui, sans-serif", fontWeight: "600" }}>Job Search Intelligence</span>
             </div>
-            <div style={{ fontSize: "12px", color: "#3a3858", fontFamily: "system-ui, sans-serif", marginTop: "3px" }}>
-              {PROFILE.name} · {PROFILE.title}
+            <div style={{ marginTop: "10px" }}>
+              <ProfileSelector
+                profiles={profiles}
+                activeId={activeProfileId}
+                onSelect={handleProfileSwitch}
+                onAdd={handleAddProfile}
+              />
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "16px", fontFamily: "system-ui, sans-serif" }}>
-            {/* Session cost */}
-            {sessionCost > 0 && (
-              <div style={{ fontSize: "11px", color: "#3a3858", textAlign: "right" }}>
-                <span style={{ color: "#4a4860" }}>~${sessionCost.toFixed(4)}</span> session
-              </div>
-            )}
-
-            {/* JD save toggle */}
-            <button onClick={() => setSaveJD(!saveJD)} title={saveJD?"JD is being saved across sessions — click to disable":"JD is not being saved"} style={{ background: "transparent", border: `1px solid ${saveJD?"#2a2a4a":"#2a2a2a"}`, borderRadius: "4px", padding: "4px 10px", fontSize: "11px", color: saveJD?"#5858a0":"#3a3848", cursor: "pointer", fontFamily: "system-ui, sans-serif" }}>
-              {saveJD?"💾 JD saving on":"💾 JD saving off"}
-            </button>
-
-            {/* API lock indicator */}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", fontFamily: "system-ui, sans-serif" }}>
+            {sessionCost > 0 && <span style={{ fontSize: "11px", color: "#4a4860" }}>~${sessionCost.toFixed(4)} session</span>}
             {apiLocked && <div style={{ fontSize: "11px", color: "#c9a84c", display: "flex", alignItems: "center", gap: "6px" }}><Spinner size={10} />AI running…</div>}
-
             {(proceeded || resumeOnly) && (
-              <button onClick={handleNewJD} style={{ background: "transparent", border: "1px solid #2a2a3a", color: "#4a4860", borderRadius: "4px", padding: "5px 12px", fontSize: "11px", fontFamily: "system-ui, sans-serif", cursor: "pointer" }}>↺ New Application</button>
+              <button onClick={handleNewJD} style={{ background: "transparent", border: "1px solid #2a2a3a", color: "#4a4860", borderRadius: "4px", padding: "5px 12px", fontSize: "11px", cursor: "pointer" }}>↺ New Application</button>
             )}
-            <span style={{ fontSize: "12px", color: "#3a3858" }}>{stories.length} stories · {starredCount} starred</span>
+            <span style={{ fontSize: "11px", color: "#3a3858" }}>{stories.length} stories · {starredCount} ⭐</span>
           </div>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: "flex", gap: "4px", marginTop: "20px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "4px", marginTop: "16px", flexWrap: "wrap" }}>
           {tabConfig.map(({ name, unlocked }) => {
             const isActive = activeTab === name;
-            const done = (name==="Resume"&&resumeDownloaded)||(name==="Cover Letter"&&coverDownloaded);
+            const done = (name === "Resume" && resumeDownloaded) || (name === "Cover Letter" && coverDownloaded);
             return (
-              <button key={name} onClick={() => unlocked && setActiveTab(name)} style={{ background: isActive?"rgba(99,140,255,0.15)":"transparent", color: isActive?"#8aacff":unlocked?"#4a4860":"#2a2840", border: `1px solid ${isActive?"#4a6abf":"transparent"}`, borderBottom: isActive?"1px solid #0a0b14":"1px solid transparent", borderRadius: "4px 4px 0 0", padding: "8px 16px", fontSize: "13px", fontFamily: "system-ui, sans-serif", cursor: unlocked?"pointer":"default", marginBottom: isActive?"-1px":"0", display: "flex", alignItems: "center", gap: "5px" }}>
+              <button key={name} onClick={() => unlocked && setActiveTab(name)} style={{
+                background: isActive ? "rgba(99,140,255,0.15)" : "transparent",
+                color: isActive ? "#8aacff" : unlocked ? "#4a4860" : "#2a2840",
+                border: `1px solid ${isActive ? "#4a6abf" : "transparent"}`,
+                borderBottom: isActive ? "1px solid #0a0b14" : "1px solid transparent",
+                borderRadius: "4px 4px 0 0", padding: "7px 14px", fontSize: "12px",
+                fontFamily: "system-ui, sans-serif", cursor: unlocked ? "pointer" : "default",
+                marginBottom: isActive ? "-1px" : "0", display: "flex", alignItems: "center", gap: "4px"
+              }}>
                 {name}
-                {!unlocked && <span style={{ fontSize: "10px", opacity: 0.4 }}>🔒</span>}
-                {done && <span style={{ fontSize: "10px", color: "#7adf8a" }}>✓</span>}
+                {!unlocked && name !== "Settings" && <span style={{ fontSize: "9px", opacity: 0.4 }}>🔒</span>}
+                {done && <span style={{ fontSize: "9px", color: "#7adf8a" }}>✓</span>}
+                {name === "Settings" && <span style={{ fontSize: "10px", opacity: 0.5 }}>⚙</span>}
               </button>
             );
           })}
@@ -1226,29 +1678,53 @@ export default function CareerForge() {
       <div style={{ padding: "32px 40px", maxWidth: "900px" }}>
         {!loaded ? (
           <div style={{ color: "#3a3858", fontFamily: "system-ui, sans-serif", display: "flex", alignItems: "center", gap: "10px" }}><Spinner />Loading…</div>
+        ) : showUploadGate && activeTab !== "Settings" ? (
+          <ResumeUploadGate
+            profile={profile}
+            onComplete={handleUpdateProfile}
+            onSkip={() => setShowUploadGate(false)}
+          />
         ) : (
           <>
+            {/* No-resume warning banner */}
+            {!profile.resumeUploaded && !showUploadGate && (activeTab === "Resume" || activeTab === "Cover Letter") && (
+              <div style={{ background: "rgba(180,120,40,0.1)", border: "1px solid rgba(180,120,40,0.3)", borderRadius: "6px", padding: "12px 16px", marginBottom: "20px", fontFamily: "system-ui, sans-serif", fontSize: "13px", color: "#b08040", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>⚠ No resume uploaded — outputs will use a generic baseline and may not have your contact info.</span>
+                <button onClick={() => setShowUploadGate(true)} style={{ background: "none", border: "none", color: "#c9a84c", cursor: "pointer", fontSize: "12px", textDecoration: "underline" }}>Upload now</button>
+              </div>
+            )}
+
             {activeTab === "Library" && <LibraryTab stories={stories} setStories={setStories} />}
             {activeTab === "Analyze JD" && (
               <AnalyzeTab
-                jd={jd} setJd={setJd} stories={stories}
+                jd={jd} setJd={setJd} stories={stories} profile={profile}
                 corrections={corrections} onSaveCorrections={setCorrections}
-                onBuildResume={company => { setResearchCompany(company); setProceeded(true); setActiveTab("Resume"); }}
+                onBuildResume={company => { setResearchCompany(company); setResearchTriggered(true); setProceeded(true); setActiveTab("Resume"); }}
                 onResumeOnly={company => { setResearchCompany(company); setResumeOnly(true); setActiveTab("Resume"); }}
                 onNewJD={handleNewJD}
               />
             )}
             {activeTab === "Resume" && (proceeded || resumeOnly) && (
-              <ResumeTab jd={jd} setJd={setJd} resumeOnly={resumeOnly} onDownloaded={() => setResumeDownloaded(true)} />
+              <ResumeTab jd={jd} setJd={setJd} resumeOnly={resumeOnly} onDownloaded={() => setResumeDownloaded(true)} profile={profile} />
             )}
             {activeTab === "Cover Letter" && resumeDownloaded && !resumeOnly && (
-              <CoverLetterTab jd={jd} setJd={setJd} onDownloaded={() => setCoverDownloaded(true)} />
+              <CoverLetterTab jd={jd} setJd={setJd} onDownloaded={() => setCoverDownloaded(true)} profile={profile} />
             )}
             {activeTab === "Interview Prep" && materialsComplete && (
-              <InterviewPrepTab jd={jd} setJd={setJd} stories={stories} />
+              <InterviewPrepTab jd={jd} setJd={setJd} stories={stories} profile={profile} />
             )}
             {activeTab === "Research" && materialsComplete && (
               <ResearchTab company={researchCompany} triggered={researchTriggered} />
+            )}
+            {activeTab === "Settings" && (
+              <SettingsTab
+                profile={profile}
+                onUpdateProfile={handleUpdateProfile}
+                saveJD={saveJD}
+                setSaveJD={setSaveJD}
+                onDeleteProfile={handleDeleteProfile}
+                isOnlyProfile={Object.keys(profiles).length === 1}
+              />
             )}
           </>
         )}
