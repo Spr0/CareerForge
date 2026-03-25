@@ -552,22 +552,86 @@ function JDInput({ jd, setJd }) {
 // PRIVACY GATE
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PrivacyGate({ onAccept }) {
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH — Netlify Identity
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useNetlifyAuth() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const netlifyIdentity = window.netlifyIdentity;
+    if (!netlifyIdentity) { setAuthLoading(false); return; }
+
+    netlifyIdentity.on("init", u => { setUser(u); setAuthLoading(false); });
+    netlifyIdentity.on("login", u => { setUser(u); netlifyIdentity.close(); });
+    netlifyIdentity.on("logout", () => setUser(null));
+    netlifyIdentity.init();
+
+    return () => {
+      netlifyIdentity.off("login");
+      netlifyIdentity.off("logout");
+    };
+  }, []);
+
+  const login = () => window.netlifyIdentity?.open("login");
+  const logout = () => window.netlifyIdentity?.logout();
+
+  return { user, authLoading, login, logout };
+}
+
+function LoginGate({ onLogin }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = () => {
+    setLoading(true);
+    window.netlifyIdentity?.open("login");
+    window.netlifyIdentity?.on("login", () => { setLoading(false); onLogin(); });
+  };
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: "20px" }}>
-      <div style={{ background: "#181a2e", border: "1px solid #2a2a3a", borderRadius: "12px", width: "100%", maxWidth: "540px", padding: "36px", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }}>
-        <div style={{ fontSize: "10px", letterSpacing: "3px", textTransform: "uppercase", color: "#4a4abf", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600", marginBottom: "12px" }}>Before You Begin</div>
-        <div style={{ fontSize: "22px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "20px", letterSpacing: "-0.5px" }}>CareerForge</div>
-        <div style={{ fontSize: "13px", color: "#a8a0c8", fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: "1.8", marginBottom: "24px", whiteSpace: "pre-line" }}>{PRIVACY_NOTICE}</div>
-        <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid #1e1e2e", borderRadius: "6px", padding: "12px 16px", marginBottom: "24px", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "12px", color: "#8880b8", lineHeight: "1.6" }}>
-          Job descriptions are stored in your browser's local storage for session continuity. You can disable this after signing in.{" "}
-          <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#5a5abf", textDecoration: "none" }}>Anthropic Privacy Policy →</a>
+    <div style={{ minHeight: "100vh", background: "#0f1117", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+      <div style={{ width: "100%", maxWidth: "420px" }}>
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <div style={{ fontSize: "32px", fontWeight: "800", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "-1px", marginBottom: "8px" }}>
+            CareerForge
+          </div>
+          <div style={{ fontSize: "13px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "2px", textTransform: "uppercase" }}>
+            Job Search Intelligence
+          </div>
         </div>
-        <button onClick={onAccept} style={{ ...S.btn, width: "100%", padding: "14px", fontSize: "14px" }}>I understand — continue to CareerForge</button>
+
+        {/* Card */}
+        <div style={{ background: "#181a2e", border: "1px solid #2e3050", borderRadius: "16px", padding: "40px", boxShadow: "0 24px 80px rgba(0,0,0,0.5)" }}>
+          <div style={{ fontSize: "20px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "8px" }}>
+            Sign in to continue
+          </div>
+          <div style={{ fontSize: "14px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: "1.6", marginBottom: "32px" }}>
+            Your profile, stories, and documents are private to your account.
+          </div>
+
+          {/* Google sign-in */}
+          <button onClick={handleLogin} disabled={loading} style={{ width: "100%", background: "#ffffff", color: "#1a1a2e", border: "none", borderRadius: "8px", padding: "13px 20px", fontSize: "15px", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginBottom: "12px", opacity: loading ? 0.7 : 1 }}>
+            <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+            {loading ? "Opening…" : "Continue with Google"}
+          </button>
+
+          <button onClick={handleLogin} disabled={loading} style={{ width: "100%", background: "transparent", color: "#a8a0c8", border: "1px solid #2e3050", borderRadius: "8px", padding: "13px 20px", fontSize: "15px", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "500", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+            ✉ Continue with email
+          </button>
+
+          <div style={{ marginTop: "24px", fontSize: "12px", color: "#4a4868", fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: "1.6", textAlign: "center" }}>
+            Your data stays in your browser. AI processing uses the Anthropic API.{" "}
+            <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#5a5abf", textDecoration: "none" }}>Privacy policy →</a>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ANALYSIS MODAL (decision gate)
@@ -1760,164 +1824,68 @@ Let's start with **Situation**. What was going on in the organization — what w
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PROFILE SELECTOR
-// ─────────────────────────────────────────────────────────────────────────────
-
-function ProfileSelector({ profiles, activeId, onSelect, onAdd }) {
-  const colors = { scott: "#4a4abf", joshua: "#3a8a6a", aaron: "#8a4abf" };
-  return (
-    <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-      {Object.values(profiles).map(p => {
-        const isActive = p.id === activeId;
-        const color = colors[p.id] || "#5a5870";
-        return (
-          <button key={p.id} onClick={() => onSelect(p.id)} style={{
-            background: isActive ? `${color}22` : "transparent",
-            border: `1px solid ${isActive ? color : "#3a3d5c"}`,
-            borderRadius: "20px", padding: "5px 14px",
-            fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif",
-            cursor: "pointer",
-            color: isActive ? "#e8e4f8" : "#5a5870",
-            display: "flex", alignItems: "center", gap: "6px"
-          }}>
-            <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: isActive ? color : "#6860a0", flexShrink: 0 }} />
-            {p.displayName}
-            {!p.resumeUploaded && <span style={{ fontSize: "9px", color: "#6a5040" }}>no resume</span>}
-          </button>
-        );
-      })}
-      <button onClick={onAdd} style={{ background: "transparent", border: "1px dashed #2a2a3a", borderRadius: "20px", padding: "5px 14px", fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer", color: "#6860a0" }}>
-        + Add Profile
-      </button>
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RESUME UPLOAD GATE
+// PROFILE TAB — contact editing, resume, Gmail/Drive connect, corrections
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ResumeUploadGate({ profile, onComplete, onSkip }) {
-  const [text, setText] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [extracting, setExtracting] = useState(false);
-  const [error, setError] = useState(null);
-  const [dragOver, setDragOver] = useState(false);
-
-  const processFile = async (file) => {
-    setFileName(file.name); setError(null);
-    try {
-      if (file.name.endsWith(".docx") || file.type.includes("wordprocessing")) {
-        const { default: mammoth } = await import("https://esm.sh/mammoth@1.7.0");
-        const buf = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer: buf });
-        setText(result.value);
-      } else if (file.type === "application/pdf") {
-        setError("PDF upload: paste the resume text below as a fallback for now.");
-      } else {
-        const t = await file.text();
-        setText(t);
-      }
-    } catch (e) { setError(`Read failed: ${e.message}`); }
-  };
-
-  const handleDrop = (e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) processFile(f); };
-  const handleFile = (e) => { const f = e.target.files[0]; if (f) processFile(f); };
-
-  const handleContinue = async () => {
-    if (!text.trim()) return;
-    setExtracting(true); setError(null);
-    try {
-      const contact = await extractContactFromResume(text);
-      onComplete({
-        ...profile,
-        name: contact.name || profile.name,
-        phone: contact.phone || profile.phone,
-        email: contact.email || profile.email,
-        address: contact.address || profile.address,
-        linkedin: contact.linkedin || profile.linkedin,
-        website: contact.website || profile.website,
-        title: contact.title || profile.title,
-        resumeText: text,
-        resumeUploaded: true,
-      });
-    } catch (e) { setError(`Extraction failed: ${e.message}`); setExtracting(false); }
-  };
-
-  return (
-    <div style={{ maxWidth: "600px" }}>
-      <div style={{ fontSize: "18px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "6px" }}>
-        Set up {profile.displayName}'s profile
-      </div>
-      <div style={{ fontSize: "13px", color: "#9890b8", fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: "1.6", marginBottom: "28px" }}>
-        Upload or paste your resume. CareerForge will extract your contact info and use your resume as the baseline for tailoring. Your data stays in your browser.
-      </div>
-
-      {/* Drop zone */}
-      <div
-        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        onClick={() => document.getElementById(`upload-${profile.id}`).click()}
-        style={{
-          border: `1.5px dashed ${dragOver ? "#4a4abf" : "#2e2e42"}`,
-          borderRadius: "6px", padding: "24px", textAlign: "center",
-          marginBottom: "16px", cursor: "pointer",
-          background: dragOver ? "rgba(74,74,191,0.05)" : "rgba(255,255,255,0.02)",
-          transition: "all 0.2s"
-        }}
-      >
-        <input id={`upload-${profile.id}`} type="file" accept=".docx,.txt" style={{ display: "none" }} onChange={handleFile} />
-        <div style={{ fontSize: "24px", marginBottom: "8px" }}>📄</div>
-        {fileName
-          ? <div style={{ color: "#4a4abf", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "14px" }}>✓ {fileName}</div>
-          : <div style={{ color: "#9890b8", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px" }}>Drop DOCX here, or click to browse<br /><span style={{ fontSize: "11px", color: "#6060a0" }}>or paste text below</span></div>
-        }
-      </div>
-
-      <textarea
-        value={text}
-        onChange={e => { setText(e.target.value); setFileName(""); }}
-        placeholder="Paste resume text here…"
-        rows={8}
-        style={{ ...S.textarea, marginBottom: "16px" }}
-        onFocus={e => e.target.style.borderColor = "#4a4abf"}
-        onBlur={e => e.target.style.borderColor = "#3a3d5c"}
-      />
-
-      {error && <div style={{ color: "#c06060", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px", marginBottom: "16px" }}>{error}</div>}
-
-      <div style={{ display: "flex", gap: "10px" }}>
-        <button onClick={handleContinue} disabled={!text.trim() || extracting} style={{ ...S.btn, opacity: !text.trim() || extracting ? 0.5 : 1, display: "flex", alignItems: "center", gap: "8px" }}>
-          {extracting ? <><Spinner />Extracting contact info…</> : "Set Up Profile"}
-        </button>
-        <button onClick={onSkip} style={{ ...S.btnGhost, color: "#9890b8" }}>
-          Skip for now
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SETTINGS TAB
-// ─────────────────────────────────────────────────────────────────────────────
-
-function SettingsTab({ profile, onUpdateProfile, saveJD, setSaveJD, onDeleteProfile, isOnlyProfile, corrections, onUpdateCorrections }) {
+function ProfileTab({ profile, onUpdateProfile, saveJD, setSaveJD, corrections, onUpdateCorrections, user, logout, stories, starredCount }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...profile });
   const [reupload, setReupload] = useState(false);
+  const [driveConnected, setDriveConnected] = useState(
+    !!localStorage.getItem("cf:google_token:drive")
+  );
+  const [gmailConnected, setGmailConnected] = useState(
+    !!localStorage.getItem("cf:google_token:gmail")
+  );
 
   const field = (key, label) => (
-    <div style={{ marginBottom: "16px" }}>
+    <div style={{ marginBottom: "14px" }}>
       <label style={S.label}>{label}</label>
-      <input value={form[key] || ""} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))} style={S.input}
-        onFocus={e => e.target.style.borderColor = "#4a4abf"} onBlur={e => e.target.style.borderColor = "#3a3d5c"} />
+      <input value={form[key] || ""} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+        style={S.input}
+        onFocus={e => e.target.style.borderColor = "#4f6ef7"}
+        onBlur={e => e.target.style.borderColor = "#3a3d5c"} />
     </div>
   );
 
+  const connectGoogle = (scopeKey, scope, onConnected) => {
+    if (!window.google?.accounts?.oauth2) {
+      alert("Google services not loaded. Make sure VITE_GOOGLE_CLIENT_ID is set in Netlify environment variables.");
+      return;
+    }
+    const client = window.google.accounts.oauth2.initTokenClient({
+      client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "",
+      scope,
+      callback: (response) => {
+        if (response.access_token) {
+          localStorage.setItem(`cf:google_token:${scopeKey}`, response.access_token);
+          onConnected(true);
+        }
+      }
+    });
+    client.requestAccessToken();
+  };
+
   return (
     <div>
+      {/* Account summary */}
+      <div style={{ ...S.section, marginBottom: "24px", display: "flex", alignItems: "center", gap: "16px" }}>
+        {user?.user_metadata?.avatar_url && (
+          <img src={user.user_metadata.avatar_url} alt="" style={{ width: "52px", height: "52px", borderRadius: "50%", border: "2px solid #3a3d5c", flexShrink: 0 }} />
+        )}
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: "17px", fontWeight: "600", color: "#e8e4f8", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>{profile.name || profile.displayName}</div>
+          <div style={{ fontSize: "13px", color: "#6860a0", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginTop: "2px" }}>{user?.email}</div>
+          <div style={{ fontSize: "12px", color: "#4a4868", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginTop: "4px" }}>
+            {stories.length} stories · {starredCount} starred
+            {profile.resumeUploaded && <span style={{ color: "#4ade80", marginLeft: "12px" }}>✓ Resume uploaded</span>}
+          </div>
+        </div>
+        <button onClick={logout} style={{ ...S.btnGhost, fontSize: "12px", padding: "6px 14px", color: "#f87171", borderColor: "#6a2a2a" }}>Sign out</button>
+      </div>
+
       {/* Contact info */}
       <div style={{ ...S.section, marginBottom: "24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
@@ -1926,7 +1894,6 @@ function SettingsTab({ profile, onUpdateProfile, saveJD, setSaveJD, onDeleteProf
             {editing ? "Cancel" : "Edit"}
           </button>
         </div>
-
         {editing ? (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -1941,11 +1908,11 @@ function SettingsTab({ profile, onUpdateProfile, saveJD, setSaveJD, onDeleteProf
             <button onClick={() => { onUpdateProfile(form); setEditing(false); }} style={S.btn}>Save Changes</button>
           </>
         ) : (
-          <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px", color: "#7a7090", lineHeight: "2" }}>
-            {[["Name", profile.name], ["Phone", profile.phone || "—"], ["Email", profile.email || "—"], ["Address", profile.address || "—"], ["LinkedIn", profile.linkedin || "—"], ["Website", profile.website || "—"]].map(([l, v]) => (
+          <div style={{ fontFamily: "\'DM Sans\', system-ui, sans-serif", fontSize: "13px", lineHeight: "2" }}>
+            {[["Name", profile.name], ["Phone", profile.phone], ["Email", profile.email], ["Address", profile.address], ["LinkedIn", profile.linkedin], ["Website", profile.website]].map(([l, v]) => (
               <div key={l} style={{ display: "flex", gap: "16px" }}>
-                <span style={{ color: "#8880b8", width: "80px", flexShrink: 0 }}>{l}</span>
-                <span style={{ color: v === "—" ? "#2a2a38" : "#a0a0b8" }}>{v}</span>
+                <span style={{ color: "#6860a0", width: "80px", flexShrink: 0 }}>{l}</span>
+                <span style={{ color: v ? "#c8c4e8" : "#3a3848" }}>{v || "—"}</span>
               </div>
             ))}
           </div>
@@ -1956,210 +1923,188 @@ function SettingsTab({ profile, onUpdateProfile, saveJD, setSaveJD, onDeleteProf
       <div style={{ ...S.section, marginBottom: "24px" }}>
         <div style={{ ...S.label, marginBottom: "12px" }}>Resume Baseline</div>
         {profile.resumeUploaded ? (
-          <>
-            <div style={{ fontSize: "12px", color: "#5a9a7a", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "12px" }}>
-              ✓ Resume uploaded — {profile.resumeText?.length?.toLocaleString()} characters
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: reupload ? "16px" : 0 }}>
+            <div>
+              <div style={{ fontSize: "13px", color: "#4ade80", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginBottom: "4px" }}>✓ Resume uploaded</div>
+              <div style={{ fontSize: "12px", color: "#6860a0", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>{(profile.resumeText?.length || 0).toLocaleString()} characters · used as baseline for all tailoring</div>
             </div>
-            <button onClick={() => setReupload(!reupload)} style={{ ...S.btnGhost, fontSize: "12px", padding: "6px 14px", marginBottom: reupload ? "16px" : 0 }}>
-              {reupload ? "Cancel re-upload" : "Re-upload resume"}
+            <button onClick={() => setReupload(!reupload)} style={{ ...S.btnGhost, fontSize: "12px", padding: "6px 14px" }}>
+              {reupload ? "Cancel" : "Replace"}
             </button>
-          </>
+          </div>
         ) : (
-          <div style={{ fontSize: "12px", color: "#8a6040", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "16px" }}>
-            ⚠ No resume uploaded — contact info will use defaults and tailoring will use a generic baseline.
+          <div style={{ fontSize: "13px", color: "#fb923c", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginBottom: "16px" }}>
+            ⚠ No resume uploaded — tailoring outputs will use a generic baseline and may be missing your contact info.
           </div>
         )}
         {(!profile.resumeUploaded || reupload) && (
-          <ResumeUploadGate
-            profile={profile}
-            onComplete={updated => { onUpdateProfile(updated); setReupload(false); }}
-            onSkip={() => setReupload(false)}
-          />
+          <div style={{ marginTop: "16px" }}>
+            <ResumeUploadGate profile={profile} onComplete={p => { onUpdateProfile(p); setReupload(false); }} onSkip={() => setReupload(false)} />
+          </div>
+        )}
+      </div>
+
+      {/* Google integrations */}
+      <div style={{ ...S.section, marginBottom: "24px" }}>
+        <div style={{ ...S.label, marginBottom: "16px" }}>Integrations</div>
+
+        {[
+          {
+            key: "drive", icon: "📁", name: "Google Drive",
+            desc: driveConnected ? "✓ Connected — save resumes and cover letters directly to Drive" : "Save DOCX outputs directly to your Google Drive",
+            scope: "https://www.googleapis.com/auth/drive.file",
+            connected: driveConnected, setConnected: setDriveConnected
+          },
+          {
+            key: "gmail", icon: "✉️", name: "Gmail",
+            desc: gmailConnected ? "✓ Connected — recruiter thread detection enabled" : "Detect recruiter emails, draft follow-ups, flag stale threads",
+            scope: "https://www.googleapis.com/auth/gmail.readonly",
+            connected: gmailConnected, setConnected: setGmailConnected
+          }
+        ].map(({ key, icon, name, desc, scope, connected, setConnected }) => (
+          <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", background: "#1e2240", borderRadius: "8px", marginBottom: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <span style={{ fontSize: "22px" }}>{icon}</span>
+              <div>
+                <div style={{ fontSize: "14px", fontWeight: "600", color: "#e8e4f8", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>{name}</div>
+                <div style={{ fontSize: "12px", color: connected ? "#4ade80" : "#6860a0", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>{desc}</div>
+              </div>
+            </div>
+            <button
+              onClick={() => !connected && connectGoogle(key, scope, setConnected)}
+              style={{ ...S.btn, padding: "7px 16px", fontSize: "12px", background: connected ? "#1a3a1a" : "#4f6ef7", cursor: connected ? "default" : "pointer" }}>
+              {connected ? "Connected ✓" : "Connect"}
+            </button>
+          </div>
+        ))}
+
+        {!import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+          <div style={{ marginTop: "10px", fontSize: "12px", color: "#8a6040", fontFamily: "\'DM Sans\', system-ui, sans-serif", padding: "10px 14px", background: "rgba(251,191,36,0.06)", borderRadius: "6px", border: "1px solid rgba(251,191,36,0.2)" }}>
+            ⚠ Add <code>VITE_GOOGLE_CLIENT_ID</code> to Netlify environment variables to enable Drive and Gmail.
+          </div>
         )}
       </div>
 
       {/* Preferences */}
       <div style={{ ...S.section, marginBottom: "24px" }}>
-        <div style={{ ...S.label, marginBottom: "16px" }}>Preferences</div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px", color: "#7a7090" }}>
-          <button onClick={() => setSaveJD(!saveJD)} style={{ background: saveJD ? "rgba(74,74,191,0.2)" : "rgba(255,255,255,0.03)", border: `1px solid ${saveJD ? "#4a4abf" : "#3a3d5c"}`, borderRadius: "4px", padding: "6px 14px", fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer", color: saveJD ? "#8aacff" : "#5a5870" }}>
+        <div style={{ ...S.label, marginBottom: "14px" }}>Preferences</div>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <button onClick={() => setSaveJD(!saveJD)} style={{ background: saveJD ? "rgba(79,110,247,0.2)" : "rgba(255,255,255,0.03)", border: `1px solid ${saveJD ? "#4f6ef7" : "#3a3d5c"}`, borderRadius: "6px", padding: "7px 14px", fontSize: "13px", fontFamily: "\'DM Sans\', system-ui, sans-serif", cursor: "pointer", color: saveJD ? "#8aacff" : "#6860a0" }}>
             {saveJD ? "💾 JD saved across sessions" : "💾 JD not saved"}
           </button>
-          <span style={{ fontSize: "12px", color: "#6860a0" }}>Toggle to control whether your JD persists between sessions</span>
+          <span style={{ fontSize: "12px", color: "#4a4868", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>Toggle to control whether your JD persists between visits</span>
         </div>
       </div>
 
-      {/* Saved corrections */}
+      {/* Corrections */}
       {Object.keys(corrections).length > 0 && (
         <div style={{ ...S.section, marginBottom: "24px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-            <div style={{ ...S.label, margin: 0 }}>Saved Profile Corrections ({Object.keys(corrections).length})</div>
-            <button onClick={() => { if (window.confirm("Clear all corrections?")) onUpdateCorrections({}); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px", color: "#6a3a3a", borderColor: "#2e1e1e" }}>Clear all</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+            <div style={{ ...S.label, margin: 0 }}>Saved Corrections ({Object.keys(corrections).length})</div>
+            <button onClick={() => { if (window.confirm("Clear all corrections?")) onUpdateCorrections({}); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px", color: "#f87171", borderColor: "#6a2a2a" }}>Clear all</button>
           </div>
-          <div style={{ fontSize: "12px", color: "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "12px", lineHeight: "1.5" }}>
-            These corrections are injected into every JD analysis and override AI-generated gap assessments.
+          <div style={{ fontSize: "12px", color: "#6860a0", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginBottom: "12px" }}>
+            These are injected into every JD analysis — these gaps will never be flagged again.
           </div>
           {Object.entries(corrections).map(([title, correction]) => (
-            <div key={title} style={{ background: "rgba(201,168,76,0.04)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: "4px", padding: "12px 14px", marginBottom: "8px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: "12px", fontWeight: "600", color: "#c0b0a0", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "4px" }}>{title}</div>
-                  <div style={{ fontSize: "11px", color: "#7a6a50", fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: "1.5" }}>{correction}</div>
-                </div>
-                <button onClick={() => { const updated = { ...corrections }; delete updated[title]; onUpdateCorrections(updated); }} style={{ background: "none", border: "none", color: "#6a3a3a", cursor: "pointer", fontSize: "14px", flexShrink: 0 }}>✕</button>
+            <div key={title} style={{ background: "rgba(251,191,36,0.04)", border: "1px solid rgba(251,191,36,0.15)", borderRadius: "6px", padding: "10px 14px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+              <div>
+                <div style={{ fontSize: "12px", fontWeight: "600", color: "#c8b890", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginBottom: "3px" }}>{title}</div>
+                <div style={{ fontSize: "11px", color: "#7a6a50", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>{correction}</div>
               </div>
+              <button onClick={() => { const u = { ...corrections }; delete u[title]; onUpdateCorrections(u); }} style={{ background: "none", border: "none", color: "#6a3a3a", cursor: "pointer", fontSize: "14px" }}>✕</button>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Danger zone */}
-      {!isOnlyProfile && (
-        <div style={{ ...S.section, border: "1px solid #3a1a1a" }}>
-          <div style={{ ...S.label, color: "#6a3a3a", marginBottom: "12px" }}>Danger Zone</div>
-          <button onClick={() => { if (window.confirm(`Delete ${profile.displayName}'s profile? This cannot be undone.`)) onDeleteProfile(profile.id); }}
-            style={{ background: "rgba(180,60,60,0.1)", border: "1px solid #6a2a2a", color: "#c06060", borderRadius: "4px", padding: "8px 16px", fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer" }}>
-            Delete {profile.displayName}'s Profile
-          </button>
         </div>
       )}
     </div>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN APP
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function CareerForge() {
-  const [activeTab, setActiveTab] = useState("Library");
+  const { user, authLoading, login, logout } = useNetlifyAuth();
+  const [activeTab, setActiveTab] = useState("My Stories");
   const [loaded, setLoaded] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [saveJD, setSaveJD] = useState(true);
 
-  // Multi-profile state
-  const [profiles, setProfiles] = useState(SEED_PROFILES);
-  const [activeProfileId, setActiveProfileId] = useState("scott");
+  // Storage key scoped to logged-in user so data is private
+  const userKey = user?.email ? `cf:${user.email}` : "cf:local";
+
+  // Single profile per login — no multi-profile switcher needed with auth
+  const [profile, setProfile] = useState(SEED_PROFILES.scott);
+  const [stories, setStories] = useState([]);
+  const [corrections, setCorrections] = useState({});
+  const [jd, setJd] = useState("");
   const [showUploadGate, setShowUploadGate] = useState(false);
-
-  // Per-profile data (keyed by profile id)
-  const [allStories, setAllStories] = useState({});
-  const [allCorrections, setAllCorrections] = useState({});
-  const [allJDs, setAllJDs] = useState({});
-
-  // Derived — active profile data
-  const profile = profiles[activeProfileId] || profiles.scott;
-  const stories = allStories[activeProfileId] || [];
-  const corrections = allCorrections[activeProfileId] || {};
-  const jd = allJDs[activeProfileId] || "";
-
-  const setStories = (val) => setAllStories(p => ({ ...p, [activeProfileId]: typeof val === "function" ? val(p[activeProfileId] || []) : val }));
-  const setCorrections = (val) => setAllCorrections(p => ({ ...p, [activeProfileId]: typeof val === "function" ? val(p[activeProfileId] || {}) : val }));
-  const setJd = (val) => setAllJDs(p => ({ ...p, [activeProfileId]: typeof val === "function" ? val(p[activeProfileId] || "") : val }));
 
   // Flow gates
   const [proceeded, setProceeded] = useState(false);
   const [resumeOnly, setResumeOnly] = useState(false);
   const [resumeDownloaded, setResumeDownloaded] = useState(false);
   const [coverDownloaded, setCoverDownloaded] = useState(false);
+  const [researchCompany, setResearchCompany] = useState("");
+  const [researchTriggered, setResearchTriggered] = useState(false);
 
   const materialsComplete = resumeDownloaded && (coverDownloaded || resumeOnly);
   const sessionCost = useSessionCost();
   const apiLocked = useApiLock();
 
-  // Load all data on mount — localStorage is synchronous
+  // Load data when user is known
   useEffect(() => {
-    if (sessionStorage.getItem("cf:privacy")) setPrivacyAccepted(true);
+    if (authLoading) return;
+    if (!user) { setLoaded(false); return; }
 
-    const p  = storageGet("careerforge:profiles");
-    const ap = storageGet("careerforge:activeProfile");
-    const s  = storageGet("careerforge:allStories");
-    const c  = storageGet("careerforge:allCorrections");
-    const j  = storageGet("careerforge:allJDs");
-    const sj = storageGet("careerforge:saveJD");
+    const p  = storageGet(`${userKey}:profile`);
+    const s  = storageGet(`${userKey}:stories`);
+    const c  = storageGet(`${userKey}:corrections`);
+    const j  = storageGet(`${userKey}:jd`);
+    const sj = storageGet(`${userKey}:saveJD`);
 
-    if (p)  setProfiles(p);
-    if (ap) setActiveProfileId(ap);
-    if (s)  setAllStories(s);
-    else    setAllStories({ scott: SEED_STORIES_BY_PROFILE.scott, joshua: [], aaron: [] });
-    if (c)  setAllCorrections(c);
-    if (j)  setAllJDs(j);
-    const pref = sj !== null ? sj : true;
-    setSaveJD(pref);
+    if (p) setProfile(p);
+    else {
+      // First login — seed with user's name from Google
+      const seeded = {
+        ...SEED_PROFILES.scott,
+        name: user.user_metadata?.full_name || user.email.split("@")[0],
+        email: user.email,
+        displayName: user.user_metadata?.full_name || user.email,
+      };
+      setProfile(seeded);
+    }
+    if (s) setStories(s);
+    else setStories(SEED_STORIES_BY_PROFILE.scott);
+    if (c) setCorrections(c);
+    if (j && (sj !== false)) setJd(j);
+    setSaveJD(sj !== null ? sj : true);
     setLoaded(true);
-  }, []);
+
+    // Show upload gate if no resume yet
+    if (!p?.resumeUploaded) setShowUploadGate(true);
+  }, [user, authLoading]);
 
   // Persist on change
-  useEffect(() => { if (loaded) storageSet("careerforge:profiles", profiles); }, [profiles, loaded]);
-  useEffect(() => { if (loaded) storageSet("careerforge:activeProfile", activeProfileId); }, [activeProfileId, loaded]);
-  useEffect(() => { if (loaded) storageSet("careerforge:allStories", allStories); }, [allStories, loaded]);
-  useEffect(() => { if (loaded) storageSet("careerforge:allCorrections", allCorrections); }, [allCorrections, loaded]);
-  useEffect(() => { if (loaded) storageSet("careerforge:saveJD", saveJD); }, [saveJD, loaded]);
+  useEffect(() => { if (loaded && user) storageSet(`${userKey}:profile`, profile); }, [profile, loaded]);
+  useEffect(() => { if (loaded && user) storageSet(`${userKey}:stories`, stories); }, [stories, loaded]);
+  useEffect(() => { if (loaded && user) storageSet(`${userKey}:corrections`, corrections); }, [corrections, loaded]);
+  useEffect(() => { if (loaded && user) storageSet(`${userKey}:saveJD`, saveJD); }, [saveJD, loaded]);
   useEffect(() => {
-    if (loaded) {
-      if (saveJD) storageSet("careerforge:allJDs", allJDs);
-    }
-  }, [allJDs, loaded, saveJD]);
+    if (loaded && user && saveJD) storageSet(`${userKey}:jd`, jd);
+  }, [jd, loaded, saveJD]);
 
-  // Show upload gate for new profile with no resume
-  useEffect(() => {
-    if (loaded && profile && !profile.resumeUploaded) {
-      setShowUploadGate(true);
-    } else {
-      setShowUploadGate(false);
-    }
-  }, [activeProfileId, loaded]);
-
-  // Reset flow gates on profile switch
-  useEffect(() => {
-    setProceeded(false); setResumeOnly(false);
-    setResumeDownloaded(false); setCoverDownloaded(false);
-  }, [activeProfileId]);
-
-  // Auto-navigate on gate changes
   useEffect(() => { if (resumeDownloaded && !coverDownloaded && !resumeOnly) setActiveTab("Cover Letter"); }, [resumeDownloaded]);
-  useEffect(() => { if (materialsComplete) { /* research tab unlocks */ } }, [materialsComplete]);
 
   const handleNewJD = () => {
     setJd(""); setProceeded(false); setResumeOnly(false);
     setResumeDownloaded(false); setCoverDownloaded(false);
+    setResearchTriggered(false); setResearchCompany("");
     setActiveTab("Analyze JD");
   };
 
-  const handleProfileSwitch = (id) => {
-    setActiveProfileId(id);
-    setActiveTab("Library");
-  };
-
-  const handleAddProfile = () => {
-    const id = `user_${Date.now()}`;
-    const newProfile = {
-      id, displayName: "New Profile", title: "", name: "", phone: "", email: "",
-      address: "", linkedin: "", website: "", resumeText: "", resumeUploaded: false,
-      background: "", proofPoints: [], certifications: [], implementations: [],
-      products: [], industries: [], security: [],
-    };
-    setProfiles(p => ({ ...p, [id]: newProfile }));
-    setAllStories(s => ({ ...s, [id]: [] }));
-    setActiveProfileId(id);
-    setShowUploadGate(true);
-    setActiveTab("Library");
-  };
-
   const handleUpdateProfile = (updated) => {
-    setProfiles(p => ({ ...p, [updated.id]: updated }));
-    setShowUploadGate(!updated.resumeUploaded);
+    setProfile(updated);
+    if (updated.resumeUploaded) setShowUploadGate(false);
   };
-
-  const handleDeleteProfile = (id) => {
-    const remaining = { ...profiles };
-    delete remaining[id];
-    setProfiles(remaining);
-    setActiveProfileId(Object.keys(remaining)[0]);
-  };
-
-  const [researchCompany, setResearchCompany] = useState("");
-  const [researchTriggered, setResearchTriggered] = useState(false);
 
   const tabConfig = [
     { name: "Analyze JD",     status: "ready" },
@@ -2168,40 +2113,51 @@ export default function CareerForge() {
     { name: "My Stories",     status: "ready" },
     { name: "Interview Prep", status: materialsComplete ? "active" : "suggested" },
     { name: "Research",       status: materialsComplete ? "active" : "suggested" },
-    { name: "Settings",       status: "ready" },
+    { name: "Profile",        status: "ready" },
   ];
 
   const starredCount = stories.filter(s => s.starred).length;
 
+  // ── Show login gate if not authenticated ──────────────────────────────
+  if (authLoading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#0f1117", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", display: "flex", alignItems: "center", gap: "12px" }}>
+          <Spinner size={20} /> Loading…
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return <LoginGate onLogin={() => {}} />;
+
   return (
     <div style={{ minHeight: "100vh", background: "#0f1117", color: "#e8e4f8", fontFamily: "Georgia, 'Times New Roman', serif", display: "flex", flexDirection: "column" }}>
-      {!privacyAccepted && <PrivacyGate onAccept={() => { sessionStorage.setItem("cf:privacy","1"); setPrivacyAccepted(true); }} />}
 
       {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, #131528 0%, #181a30 100%)", borderBottom: "1px solid #2e3050", padding: "20px 40px" }}>
+      <div style={{ background: "linear-gradient(135deg, #131528 0%, #181a30 100%)", borderBottom: "1px solid #2e3050", padding: "16px 40px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
           <div>
             <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
-              <span style={{ fontSize: "22px", fontWeight: "700", color: "#e8e4f8", letterSpacing: "-0.5px" }}>CareerForge</span>
-              <span style={{ fontSize: "10px", letterSpacing: "3px", color: "#4a4abf", textTransform: "uppercase", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600" }}>Job Search Intelligence</span>
-            </div>
-            <div style={{ marginTop: "10px" }}>
-              <ProfileSelector
-                profiles={profiles}
-                activeId={activeProfileId}
-                onSelect={handleProfileSwitch}
-                onAdd={handleAddProfile}
-              />
+              <span style={{ fontSize: "20px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "-0.5px" }}>CareerForge</span>
+              <span style={{ fontSize: "10px", letterSpacing: "3px", color: "#4f6ef7", textTransform: "uppercase", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600" }}>Job Search Intelligence</span>
             </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "12px", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
             {sessionCost > 0 && <span style={{ fontSize: "11px", color: "#8880b8" }}>~${sessionCost.toFixed(4)} session</span>}
-            {apiLocked && <div style={{ fontSize: "11px", color: "#c9a84c", display: "flex", alignItems: "center", gap: "6px" }}><Spinner size={10} />AI running…</div>}
+            {apiLocked && <div style={{ fontSize: "11px", color: "#fbbf24", display: "flex", alignItems: "center", gap: "6px" }}><Spinner size={10} />AI running…</div>}
             {(proceeded || resumeOnly) && (
-              <button onClick={handleNewJD} style={{ background: "transparent", border: "1px solid #2a2a3a", color: "#8880b8", borderRadius: "4px", padding: "5px 12px", fontSize: "11px", cursor: "pointer" }}>↺ New Application</button>
+              <button onClick={handleNewJD} style={{ background: "transparent", border: "1px solid #3a3d5c", color: "#8880b8", borderRadius: "4px", padding: "5px 12px", fontSize: "11px", cursor: "pointer" }}>↺ New Application</button>
             )}
-            <span style={{ fontSize: "11px", color: "#6860a0" }}>{stories.length} stories · {starredCount} ⭐</span>
+            {/* User avatar + sign out */}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {user.user_metadata?.avatar_url && (
+                <img src={user.user_metadata.avatar_url} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", border: "1px solid #3a3d5c" }} />
+              )}
+              <span style={{ fontSize: "12px", color: "#6860a0" }}>{user.email}</span>
+              <button onClick={logout} style={{ background: "transparent", border: "1px solid #3a3d5c", color: "#6860a0", borderRadius: "4px", padding: "4px 10px", fontSize: "11px", cursor: "pointer" }}>Sign out</button>
+            </div>
           </div>
         </div>
 
@@ -2212,23 +2168,18 @@ export default function CareerForge() {
             const done = (name === "Resume" && resumeDownloaded) || (name === "Cover Letter" && coverDownloaded);
             return (
               <button key={name} onClick={() => setActiveTab(name)} style={{
-                background: isActive ? "rgba(120,160,255,0.18)" : "transparent",
+                background: isActive ? "rgba(79,110,247,0.18)" : "transparent",
                 color: isActive ? "#c8d8ff" : status === "suggested" ? "#5a5878" : "#a8a0c8",
-                border: `1px solid ${isActive ? "#6080df" : "transparent"}`,
+                border: `1px solid ${isActive ? "#4f6ef7" : "transparent"}`,
                 borderBottom: isActive ? "1px solid #0f1117" : "1px solid transparent",
                 borderRadius: "4px 4px 0 0", padding: "7px 14px", fontSize: "12px",
                 fontFamily: "'DM Sans', system-ui, sans-serif",
-                cursor: "pointer",
-                marginBottom: isActive ? "-1px" : "0",
+                cursor: "pointer", marginBottom: isActive ? "-1px" : "0",
                 display: "flex", alignItems: "center", gap: "4px",
-                transition: "color 0.15s"
               }}>
                 {name}
-                {done && <span style={{ fontSize: "9px", color: "#6adf9a" }}>✓</span>}
-                {status === "suggested" && !done && name !== "Library" && name !== "Settings" && (
-                  <span style={{ fontSize: "9px", color: "#4a4868", marginLeft: "1px" }}>·</span>
-                )}
-                {name === "Settings" && <span style={{ fontSize: "10px", opacity: 0.5 }}>⚙</span>}
+                {done && <span style={{ fontSize: "9px", color: "#4ade80" }}>✓</span>}
+                {name === "Profile" && <span style={{ fontSize: "10px", opacity: 0.5 }}>⚙</span>}
               </button>
             );
           })}
@@ -2241,36 +2192,27 @@ export default function CareerForge() {
           <div style={{ color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", display: "flex", alignItems: "center", gap: "10px" }}><Spinner />Loading…</div>
         ) : (
           <>
-            {/* Upload gate — shown inline at top, never blocks navigation */}
-            {showUploadGate && activeTab !== "Settings" && (
+            {/* Upload gate inline */}
+            {showUploadGate && activeTab !== "Profile" && (
               <div style={{ marginBottom: "28px" }}>
-                <div style={{ background: "rgba(79,110,247,0.08)", border: "1px solid rgba(79,110,247,0.3)", borderRadius: "10px", padding: "20px 24px", marginBottom: "0" }}>
+                <div style={{ background: "rgba(79,110,247,0.08)", border: "1px solid rgba(79,110,247,0.3)", borderRadius: "10px", padding: "20px 24px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
-                    <div style={{ fontSize: "15px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-                      Set up {profile.displayName}'s profile
-                    </div>
-                    <button onClick={() => setShowUploadGate(false)} style={{ background: "none", border: "none", color: "#6860a0", cursor: "pointer", fontSize: "18px", lineHeight: 1 }}>✕</button>
+                    <div style={{ fontSize: "15px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>Upload your resume to get started</div>
+                    <button onClick={() => setShowUploadGate(false)} style={{ background: "none", border: "none", color: "#6860a0", cursor: "pointer", fontSize: "18px" }}>✕</button>
                   </div>
-                  <ResumeUploadGate
-                    profile={profile}
-                    onComplete={handleUpdateProfile}
-                    onSkip={() => setShowUploadGate(false)}
-                  />
+                  <ResumeUploadGate profile={profile} onComplete={handleUpdateProfile} onSkip={() => setShowUploadGate(false)} />
                 </div>
               </div>
             )}
 
-            {/* No-resume warning banner on Resume/Cover Letter if skipped */}
+            {/* No-resume warning */}
             {!profile.resumeUploaded && !showUploadGate && (activeTab === "Resume" || activeTab === "Cover Letter") && (
-              <div style={{ background: "rgba(180,120,40,0.1)", border: "1px solid rgba(180,120,40,0.3)", borderRadius: "6px", padding: "12px 16px", marginBottom: "20px", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px", color: "#c89040", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>⚠ No resume uploaded — outputs will use a generic baseline and may not include your contact info.</span>
-                <button onClick={() => setShowUploadGate(true)} style={{ background: "none", border: "none", color: "#fbbf24", cursor: "pointer", fontSize: "12px", textDecoration: "underline", whiteSpace: "nowrap" }}>Upload now</button>
+              <div style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: "6px", padding: "12px 16px", marginBottom: "20px", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px", color: "#fbbf24", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>⚠ No resume uploaded — outputs will use a generic baseline.</span>
+                <button onClick={() => setShowUploadGate(true)} style={{ background: "none", border: "none", color: "#fbbf24", cursor: "pointer", fontSize: "12px", textDecoration: "underline" }}>Upload now</button>
               </div>
             )}
 
-            {activeTab === "My Stories" && (
-              <MyStoriesTab profile={profile} stories={stories} setStories={setStories} />
-            )}
             {activeTab === "Analyze JD" && (
               <AnalyzeTab
                 jd={jd} setJd={setJd} stories={stories} profile={profile}
@@ -2286,22 +2228,27 @@ export default function CareerForge() {
             {activeTab === "Cover Letter" && (
               <CoverLetterTab jd={jd} setJd={setJd} onDownloaded={() => setCoverDownloaded(true)} profile={profile} />
             )}
+            {activeTab === "My Stories" && (
+              <MyStoriesTab profile={profile} stories={stories} setStories={setStories} />
+            )}
             {activeTab === "Interview Prep" && (
               <InterviewPrepTab jd={jd} setJd={setJd} stories={stories} profile={profile} />
             )}
             {activeTab === "Research" && (
               <ResearchTab company={researchCompany} triggered={researchTriggered} />
             )}
-            {activeTab === "Settings" && (
-              <SettingsTab
+            {activeTab === "Profile" && (
+              <ProfileTab
                 profile={profile}
                 onUpdateProfile={handleUpdateProfile}
                 saveJD={saveJD}
                 setSaveJD={setSaveJD}
-                onDeleteProfile={handleDeleteProfile}
-                isOnlyProfile={Object.keys(profiles).length === 1}
                 corrections={corrections}
                 onUpdateCorrections={setCorrections}
+                user={user}
+                logout={logout}
+                stories={stories}
+                starredCount={starredCount}
               />
             )}
           </>
@@ -2310,3 +2257,4 @@ export default function CareerForge() {
     </div>
   );
 }
+
