@@ -1843,6 +1843,109 @@ Let's start with **Situation**. What was going on in the organization — what w
 // PROFILE TAB — contact editing, resume, Gmail/Drive connect, corrections
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+function ResumeUploadGate({ profile, onComplete, onSkip }) {
+  const [text, setText] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [error, setError] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const processFile = async (file) => {
+    setFileName(file.name); setError(null);
+    try {
+      if (file.name.endsWith(".docx") || file.type.includes("wordprocessing")) {
+        const { default: mammoth } = await import("https://esm.sh/mammoth@1.7.0");
+        const buf = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer: buf });
+        setText(result.value);
+      } else if (file.type === "application/pdf") {
+        setError("PDF upload: paste the resume text below as a fallback for now.");
+      } else {
+        const t = await file.text();
+        setText(t);
+      }
+    } catch (e) { setError(`Read failed: ${e.message}`); }
+  };
+
+  const handleDrop = (e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) processFile(f); };
+  const handleFile = (e) => { const f = e.target.files[0]; if (f) processFile(f); };
+
+  const handleContinue = async () => {
+    if (!text.trim()) return;
+    setExtracting(true); setError(null);
+    try {
+      const contact = await extractContactFromResume(text);
+      onComplete({
+        ...profile,
+        name: contact.name || profile.name,
+        phone: contact.phone || profile.phone,
+        email: contact.email || profile.email,
+        address: contact.address || profile.address,
+        linkedin: contact.linkedin || profile.linkedin,
+        website: contact.website || profile.website,
+        title: contact.title || profile.title,
+        resumeText: text,
+        resumeUploaded: true,
+      });
+    } catch (e) { setError(`Extraction failed: ${e.message}`); setExtracting(false); }
+  };
+
+  return (
+    <div style={{ maxWidth: "600px" }}>
+      <div style={{ fontSize: "18px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "6px" }}>
+        Set up {profile.displayName}'s profile
+      </div>
+      <div style={{ fontSize: "13px", color: "#9890b8", fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: "1.6", marginBottom: "28px" }}>
+        Upload or paste your resume. CareerForge will extract your contact info and use your resume as the baseline for tailoring. Your data stays in your browser.
+      </div>
+
+      {/* Drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => document.getElementById(`upload-${profile.id}`).click()}
+        style={{
+          border: `1.5px dashed ${dragOver ? "#4a4abf" : "#2e2e42"}`,
+          borderRadius: "6px", padding: "24px", textAlign: "center",
+          marginBottom: "16px", cursor: "pointer",
+          background: dragOver ? "rgba(74,74,191,0.05)" : "rgba(255,255,255,0.02)",
+          transition: "all 0.2s"
+        }}
+      >
+        <input id={`upload-${profile.id}`} type="file" accept=".docx,.txt" style={{ display: "none" }} onChange={handleFile} />
+        <div style={{ fontSize: "24px", marginBottom: "8px" }}>📄</div>
+        {fileName
+          ? <div style={{ color: "#4a4abf", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "14px" }}>✓ {fileName}</div>
+          : <div style={{ color: "#9890b8", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px" }}>Drop DOCX here, or click to browse<br /><span style={{ fontSize: "11px", color: "#6060a0" }}>or paste text below</span></div>
+        }
+      </div>
+
+      <textarea
+        value={text}
+        onChange={e => { setText(e.target.value); setFileName(""); }}
+        placeholder="Paste resume text here…"
+        rows={8}
+        style={{ ...S.textarea, marginBottom: "16px" }}
+        onFocus={e => e.target.style.borderColor = "#4a4abf"}
+        onBlur={e => e.target.style.borderColor = "#3a3d5c"}
+      />
+
+      {error && <div style={{ color: "#c06060", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px", marginBottom: "16px" }}>{error}</div>}
+
+      <div style={{ display: "flex", gap: "10px" }}>
+        <button onClick={handleContinue} disabled={!text.trim() || extracting} style={{ ...S.btn, opacity: !text.trim() || extracting ? 0.5 : 1, display: "flex", alignItems: "center", gap: "8px" }}>
+          {extracting ? <><Spinner />Extracting contact info…</> : "Set Up Profile"}
+        </button>
+        <button onClick={onSkip} style={{ ...S.btnGhost, color: "#9890b8" }}>
+          Skip for now
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ProfileTab({ profile, onUpdateProfile, saveJD, setSaveJD, corrections, onUpdateCorrections, user, logout, stories, starredCount }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...profile });
