@@ -687,12 +687,29 @@ function JobSearchTab({ profile, onAnalyzeJD }) {
   const [customQuery, setCustomQuery] = useState("");
   const [days, setDays] = useState(3);
   const [running, setRunning] = useState(false);
-  const runningRef = useRef(false); // hard guard against double-fire
+  const runningRef = useRef(false);
   const [status, setStatus] = useState("");
+  const [elapsed, setElapsed] = useState(0);
   const [jobs, setJobs] = useState([]);
   const [error, setError] = useState(null);
   const [generatingQueries, setGeneratingQueries] = useState(false);
+  const [abortController, setAbortController] = useState(null);
   const apiLocked = useApiLock();
+
+  // Elapsed timer
+  useEffect(() => {
+    if (!running) { setElapsed(0); return; }
+    const start = Date.now();
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [running]);
+
+  const cancelSearch = () => {
+    runningRef.current = false;
+    setRunning(false);
+    setStatus("Cancelled");
+    setElapsed(0);
+  };
 
   const generateQueries = async () => {
     setGeneratingQueries(true);
@@ -737,7 +754,10 @@ Return ONLY a JSON array of strings.`,
         // Poll for completion
         let datasetId = initDatasetId;
         for (let attempt = 0; attempt < 30; attempt++) {
+          if (!runningRef.current) break; // cancelled
+          setStatus(`Waiting for results… (${(attempt + 1) * 4}s)`);
           await new Promise(r => setTimeout(r, 4000));
+          if (!runningRef.current) break; // cancelled during wait
           const pollRes = await fetch(`/.netlify/functions/fetchJobs?runId=${runId}`);
           const pollText = await pollRes.text();
           if (!pollRes.ok || pollText.startsWith("<")) break;
@@ -823,12 +843,27 @@ Return ONLY a JSON array of strings.`,
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "28px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "28px", flexWrap: "wrap" }}>
         <button onClick={runSearch} disabled={running || apiLocked}
           style={{ ...S.btn, opacity: running || apiLocked ? 0.6 : 1, display: "flex", alignItems: "center", gap: "8px" }}>
-          {running ? <><Spinner />Running…</> : "🔍 Search Jobs"}
+          {running ? <><Spinner />Searching…</> : "🔍 Search Jobs"}
         </button>
-        {status && <div style={{ fontSize: "13px", color: error ? "#f87171" : "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif", display: "flex", alignItems: "center", gap: "6px" }}>{running && <Spinner size={12} />}{status}</div>}
+        {running && (
+          <button onClick={cancelSearch}
+            style={{ ...S.btnGhost, fontSize: "12px", padding: "6px 14px", color: "#f87171", borderColor: "#6a2a2a" }}>
+            ✕ Cancel
+          </button>
+        )}
+        {running && elapsed > 0 && (
+          <div style={{ fontSize: "12px", color: "#4a4868", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+            {elapsed}s — scraper running, typically 1–3 min
+          </div>
+        )}
+        {status && !running && (
+          <div style={{ fontSize: "13px", color: error ? "#f87171" : "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+            {status}
+          </div>
+        )}
       </div>
 
       {error && <div style={{ color: "#f87171", fontSize: "13px", padding: "10px 14px", background: "rgba(248,113,113,0.08)", borderRadius: "6px", border: "1px solid rgba(248,113,113,0.2)", marginBottom: "16px" }}>{error}</div>}
