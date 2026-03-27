@@ -702,12 +702,7 @@ function JobResultCard({ job, onAnalyze }) {
               {url && <a href={url} target="_blank" rel="noopener noreferrer" style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px", textDecoration: "none" }}>Apply ↗</a>}
               <button
                 onClick={async () => {
-                  // If we already have a substantial JD, use it directly
-                  if (jdText && jdText.length > 400) {
-                    onAnalyze(jdText, title, company, job.fitScore, job.fitReason);
-                    return;
-                  }
-                  // Otherwise fetch full JD via Apify
+                  // Always fetch full JD — snippet is never enough for gap analysis
                   if (!url) { onAnalyze(jdText, title, company, job.fitScore, job.fitReason); return; }
                   setFetchingJD(true);
                   try {
@@ -1025,10 +1020,24 @@ Return ONLY a JSON array of strings.`,
 
 
 function JDInput({ jd, setJd }) {
+  // Strip HTML tags for clean display in textarea
+  const cleanJd = jd ? jd.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s{2,}/g, ' ').trim() : '';
+  // If value looks like raw HTML (has tags), show clean version
+  const displayValue = jd !== cleanJd ? cleanJd : jd;
+  // Sync cleaned value back on first render if HTML detected
+  if (jd && jd !== cleanJd && jd.includes('<')) {
+    setTimeout(() => setJd(cleanJd), 0);
+  }
   return (
     <div style={{ marginBottom: "24px" }}>
       <label style={S.label}>Job Description</label>
-      <textarea value={jd} onChange={e => setJd(e.target.value)} placeholder="Paste the full job description here…" rows={6} style={S.textarea} onFocus={e => e.target.style.borderColor = "#4a4abf"} onBlur={e => e.target.style.borderColor = "#3a3d5c"} />
+      {!cleanJd ? (
+        <div style={{ ...S.textarea, display: "flex", alignItems: "center", justifyContent: "center", height: "120px", color: "#4a4868", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px", fontStyle: "italic", background: "#1e2240", borderRadius: "6px", border: "1px solid #3a3d5c" }}>
+          Fetching full job description…
+        </div>
+      ) : (
+        <textarea value={displayValue} onChange={e => setJd(e.target.value)} rows={8} style={S.textarea} onFocus={e => e.target.style.borderColor = "#4a4abf"} onBlur={e => e.target.style.borderColor = "#3a3d5c"} />
+      )}
     </div>
   );
 }
@@ -1203,31 +1212,39 @@ function GapCorrectionPanel({ gaps, corrections, onSave, onDone }) {
 // ANALYZE JD TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildAnalysisSystem(corrections, profile) {
+function buildAnalysisSystem(corrections, profile, stories) {
   const correctionText = Object.keys(corrections).length > 0
     ? `\n\nUSER CORRECTIONS — treat as verified facts, do NOT re-flag:\n${Object.entries(corrections).map(([k,v]) => `- "${k}": ${v}`).join("\n")}`
     : "";
-  return `You are a senior career strategist for ${profile.name}, ${profile.title}.
 
-BACKGROUND: ${profile.background}
-PROOF POINTS: ${profile.proofPoints.join("; ")}
-CERTIFICATIONS (VERIFIED): ${profile.certifications.join("; ")}
-IMPLEMENTATIONS (VERIFIED, hands-on lead): ${profile.implementations.join("; ")}
-PRODUCT EXPERIENCE (VERIFIED): ${profile.products.join("; ")}
-INDUSTRIES: ${profile.industries.join("; ")}
-SECURITY: ${profile.security.join("; ")}
+  const resumeText = (profile.resumeText || "").slice(0, 1200);
+  const hasStories = stories && stories.length > 0;
 
-CRITICAL: Before flagging any gap, check verified facts above. Only flag genuine verified gaps.${correctionText}
+  const profileContext = hasStories
+    ? `RESUME BASELINE:\n${resumeText}`
+    : `RESUME (no interview stories added yet — evaluate from resume only):\n${resumeText}`;
 
-Return ONLY a JSON object:
+  return `You are a senior career strategist evaluating fit for ${profile.name || "this candidate"}.
+
+${profileContext}${correctionText}
+
+EVALUATION PHILOSOPHY:
+You are assessing the whole person — their career arc, demonstrated impact, and transferable experience — not just keyword matching.
+A 10/10 is reserved for near-perfect alignment across role requirements, domain, scope, and certifications. It should be rare but genuinely achievable.
+A 9/10 means exceptional fit with only the most minor gaps — the kind a strong cover letter resolves.
+Score honestly. If the JD lacks hard requirements or is vague, score generously on fit.
+Only flag gaps that are explicitly required in the JD and clearly absent from the candidate's background.
+CRITICAL: Before flagging any gap, check the resume above. Only flag genuine verified gaps.
+
+Return ONLY a valid JSON object — no markdown, no backticks, no commentary:
 {
   "score": <1-10>,
   "company": "<company name from JD>",
-  "rationale": "<one sentence>",
+  "rationale": "<one energizing sentence that leads with the candidate's strongest angle for this role>",
   "keyRequirements": ["<req>","<req>","<req>","<req>","<req>"],
-  "strongestAngles": [{"angle":"<angle>","why":"<why>"}],
-  "topStories": [{"story":"<title>","useFor":"<question type>"}],
-  "gaps": [{"title":"<gap>","assessment":"<honest 1-sentence>","framing":"<suggested framing>"}],
+  "strongestAngles": [{"angle":"<angle>","why":"<1 sentence why this matters for THIS role>"}],
+  "topStories": [{"story":"<story title or resume achievement>","useFor":"<interview question type>"}],
+  "gaps": [{"title":"<gap>","assessment":"<honest 1-sentence>","framing":"<how to address it confidently>"}],
   "keywords": ["<kw>"]
 }`;
 }
@@ -1249,8 +1266,12 @@ function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuil
 
   const runWithCorrections = async (activeCorrections) => {
     if (!jd.trim()) return;
-    const storyList = stories.map((s,i) => `${i+1}. "${s.title}" — ${s.competencies.join(", ")} | Result: ${s.result}`).join("\n");
-    const text = await callClaude(buildAnalysisSystem(activeCorrections, profile), `Stories:\n${storyList}\n\nJob Description:\n${jd}`, 3000);
+    const hasStories = stories && stories.length > 0;
+    const storyList = hasStories
+      ? stories.map((s,i) => `${i+1}. "${s.title}" — ${s.competencies.join(", ")} | Result: ${s.result}`).join("\n")
+      : "";
+    const userCtx = hasStories ? `INTERVIEW STORIES:\n${storyList}\n\n` : "";
+    const text = await callClaude(buildAnalysisSystem(activeCorrections, profile, stories), `${userCtx}Job Description:\n${jd}`, 3000);
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) throw new Error("Could not parse analysis response");
     const p = JSON.parse(m[0]);
@@ -1350,8 +1371,13 @@ function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuil
           <button onClick={() => setShowCorrections(true)} style={{ background: "none", border: "none", color: "#c9a84c", cursor: "pointer", fontSize: "12px" }}>View / edit</button>
         </div>
       )}
+      {stories.length === 0 && jd.trim() && (
+        <div style={{ background: "rgba(79,110,247,0.08)", border: "1px solid rgba(79,110,247,0.2)", borderRadius: "6px", padding: "10px 14px", marginBottom: "14px", fontSize: "13px", color: "#8aacff", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+          💡 You're more than your resume — add interview stories in the Stories tab for a deeper, more accurate match. Gap analysis will run on your resume for now.
+        </div>
+      )}
       <button onClick={run} disabled={!jd.trim() || loading || reScoring || apiLocked} style={{ ...S.btn, opacity: !jd.trim() || loading || reScoring || apiLocked ? 0.5 : 1, display: "flex", alignItems: "center", gap: "8px", marginBottom: "24px" }}>
-        {loading ? <><Spinner /> Analyzing…</> : reScoring ? <><Spinner /> Re-scoring…</> : "Analyze JD"}
+        {loading ? <><Spinner /> Analyzing…</> : reScoring ? <><Spinner /> Re-scoring…</> : "Run Gap Analysis"}
       </button>
       {error && <div style={{ color: "#c06060", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px", marginBottom: "16px", wordBreak: "break-word" }}>{error}</div>}
       {showCorrections && parsedGaps.length > 0 && <GapCorrectionPanel gaps={parsedGaps} corrections={corrections} onSave={handleSaveCorrections} onDone={() => setShowCorrections(false)} />}
@@ -1969,7 +1995,16 @@ function MyStoriesTab({ profile, stories, setStories }) {
       const text = await callClaude(STORY_EXTRACT_SYSTEM(profile), profile.resumeText, 3000);
       const m = text.match(/\[[\s\S]*\]/);
       if (!m) throw new Error("Could not parse stories from resume");
-      const parsed = JSON.parse(m[0]);
+      // Robust JSON parse — handle control characters that break JSON.parse
+      let parsed;
+      try {
+        parsed = JSON.parse(m[0]);
+      } catch {
+        // Sanitize: replace unescaped control characters inside strings
+        const sanitized = m[0].replace(/[ -]/g, ' ');
+        try { parsed = JSON.parse(sanitized); }
+        catch { throw new Error("Resume extraction returned malformed JSON — try again"); }
+      }
       const withIds = parsed.map(s => ({ ...s, id: generateId(), starred: false, tags: s.tags||[] }));
       setExtracted(withIds);
       setSelectedIds(new Set(withIds.map(s => s.id)));
