@@ -1,145 +1,46 @@
-import { useState, useEffect } from "react";
+// CareerForge v19 — Full rebuild
+// Architecture: Board-first, role workspace, Drive integration, mobile-ready
+import { useState, useEffect, useRef, useCallback } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PROFILE
+// CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PROFILE SYSTEM — multi-user, upload-driven
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Seed profiles — contact info populated from resume upload, resume text from upload
-// Scott's profile has hardcoded AI context fields that don't come from a resume
-const SEED_PROFILES = {
-  scott: {
-    id: "scott",
-    displayName: "Scott Henderson",
-    title: "Enterprise Transformation Leader",
-    // Contact fields — populated from resume upload; these are fallbacks
-    name: "Scott Henderson",
-    phone: "520-490-4797",
-    email: "scott23henderson@gmail.com",
-    address: "Bellingham, WA",
-    linkedin: "LinkedIn.com/in/mrscotthenderson",
-    website: "hendersonsolution.com",
-    // Resume text — populated from upload
-    resumeText: "",
-    resumeUploaded: false,
-    // AI context — Scott-specific, not parsed from resume
-    background: `Senior transformation leader with 15+ years driving enterprise-scale change at grid-scale renewable energy companies and Fortune 500 technology organizations. VP of Technology at EDF Renewables and Cypress Creek Renewables with full P&L ownership — budget, revenue forecasting, margin management, and board/C-suite reporting. Earlier career as enterprise agile coach at Nike and Intel.`,
-    proofPoints: [
-      "$28M annualized EBITDA improvement at EDF Renewables through platform consolidation",
-      "27% reduction in compliance-related fines at CCR via AI governance implementation",
-      "$13M SaaS catalog identified through ledger mining → 15% OPEX reduction",
-      "Full P&L ownership at both CCR and EDF — budget, forecasting, margin, board reporting",
-      "Enterprise agile coach at Nike and Intel — transformation at scale",
-    ],
-    certifications: [
-      "PMP — Project Management Professional (VERIFIED)",
-      "SAFe SPC — SAFe Program Consultant (VERIFIED)",
-      "CSM — Certified Scrum Master (VERIFIED)",
-      "CSPO — Certified Scrum Product Owner (VERIFIED)",
-      "PMI-ACP — PMI Agile Certified Practitioner (VERIFIED)",
-      "Lean Six Sigma Black Belt — Intel internal + LinkedIn Learning (VERIFIED — do not flag as gap)",
-      "ITIL v4 Foundation (VERIFIED)",
-      "Certified Chief AI Officer — 2025 (VERIFIED)",
-    ],
-    implementations: [
-      "NetSuite ERP — full end-to-end implementation at CCR, on time and under budget (VERIFIED)",
-      "Salesforce + Sitetracker — full implementation at CCR",
-      "Oracle Financial Consolidation and Close (FCC) — full implementation at CCR",
-      "Blackline — financial close automation, full implementation at CCR",
-      "NSPB (NetSuite Planning and Budgeting) — full implementation at CCR",
-      "Snowflake — data platform implementation at CCR",
-      "All implementations delivered on time and under budget — hands-on lead, not oversight",
-    ],
-    products: [
-      "Nike B2B Supply Chain Platform (OIA — Oregon International Airfreight) — full product lifecycle from whiteboard to production. B2B platform for factories to order airbags and manage supply chain. ~$600M revenue impact in first year. Led OCM and global factory adoption. Still in active use. (VERIFIED PRODUCT/PLATFORM EXPERIENCE — not inspection, ordering and supply chain)",
-    ],
-    industries: [
-      "Renewable energy (grid-scale solar, wind, storage) — EDF Renewables, Cypress Creek Renewables",
-      "Consumer products / global manufacturing — Nike (factory ops, airbag inspection platform)",
-      "Semiconductor / technology manufacturing — Intel",
-      "Regulated, capital-intensive, compliance-heavy industries across all roles",
-    ],
-    security: ["US Citizen — no impediments to security clearance. Can commence process immediately upon offer."],
-  },
-  joshua: {
-    id: "joshua",
-    displayName: "Joshua Henderson",
-    title: "QA / Manufacturing Inspections",
-    name: "Joshua Henderson",
-    phone: "", email: "", address: "", linkedin: "", website: "",
-    resumeText: "", resumeUploaded: false,
-    background: "QA and inspections professional in manufacturing settings.",
-    proofPoints: [], certifications: [], implementations: [], products: [], industries: [], security: [],
-  },
-  aaron: {
-    id: "aaron",
-    displayName: "Aaron Henderson",
-    title: "IT / Networking — MSP Help Desk",
-    name: "Aaron Henderson",
-    phone: "", email: "", address: "", linkedin: "", website: "",
-    resumeText: "", resumeUploaded: false,
-    background: "IT professional with help desk experience at an MSP, pursuing networking certifications.",
-    proofPoints: [], certifications: [], implementations: [], products: [], industries: [], security: [],
-  },
-};
-
-const SEED_STORIES_BY_PROFILE = {
-  scott: [
-    { id: "story-001", title: "$28M EBITDA Improvement — EDF Renewables", company: "EDF Renewables", role: "VP Technology", competencies: ["Financial Impact","Transformation","Technical"], situation: "EDF Renewables had a fragmented technology landscape — redundant platforms, siloed data, no consolidated view of asset performance or cost.", task: "Identify and execute a platform consolidation strategy to reduce operational cost while improving data quality and board-level reporting.", action: "Led cross-functional audit of full tech stack, identified $13M in redundant SaaS spend via ledger mining, rationalized vendor portfolio, rearchitected core platforms. Built business case and presented to C-suite and board. Owned execution through go-live.", result: "$28M annualized EBITDA improvement. 15% OPEX reduction. Improved board reporting accuracy.", tags: ["P&L","platform consolidation","cost reduction","board reporting","enterprise architecture"], starred: true },
-    { id: "story-002", title: "27% Reduction in Compliance Fines — CCR AI Governance", company: "Cypress Creek Renewables", role: "Senior Director, Enterprise Applications", competencies: ["Governance","Technical","Financial Impact"], situation: "CCR faced escalating compliance fines due to inconsistent data governance and manual audit processes.", task: "Design and implement an AI-assisted governance framework to reduce compliance risk.", action: "Architected AI governance implementation covering automated compliance monitoring, audit trail generation, and exception flagging. Built stakeholder alignment. Managed vendor selection and implementation.", result: "27% reduction in compliance-related fines. Repeatable framework adopted across portfolio. ~40% reduction in manual audit burden.", tags: ["AI governance","compliance","risk reduction","regulatory","automation"], starred: true },
-    { id: "story-003", title: "$13M SaaS Catalog via Ledger Mining", company: "EDF Renewables", role: "VP Technology", competencies: ["Financial Impact","Vendor Management","Strategy"], situation: "No single owner had visibility into total SaaS spend across EDF's U.S. operations.", task: "Surface total SaaS exposure, identify redundancy, build a rationalization roadmap.", action: "Designed and executed ledger mining process with finance. Built vendor catalog, mapped redundancies, developed phased rationalization plan.", result: "$13M SaaS catalog identified. 15% OPEX reduction. Established ongoing SaaS governance.", tags: ["SaaS","spend analysis","vendor management","OPEX","ledger mining"], starred: false },
-    { id: "story-004", title: "Nike OIA Supply Chain Platform — Full Product Lifecycle", company: "Nike / Percipio", role: "Program Manager & Scrum Master", competencies: ["Transformation","Leadership","Technical"], situation: "Nike needed a B2B supply chain platform for OIA (Oregon International Airfreight) to enable factories to order airbags and manage supply chain — starting from whiteboard.", task: "Lead product development from concept to global production deployment and drive factory adoption.", action: "Led full product lifecycle as program PM and Scrum Master across distributed teams. Managed sprint cadence, backlog health, dependency tracking from MVP through production scale. Designed and led OCM for global factory adoption.", result: "Platform deployed to production. ~$600M revenue impact in first year. Still in active use globally.", tags: ["product","supply chain","B2B","OIA","Nike","OCM"], starred: false },
-  ],
-  joshua: [],
-  aaron: [],
-};
 
 const COMPETENCIES = ["Transformation","Financial Impact","Leadership","Technical","Agile/Delivery","Governance","Vendor Management","Strategy","Stakeholder"];
-const TABS = ["Analyze JD","Resume","Cover Letter","My Stories","Interview Prep","Research","Settings"];
+
+const STAGES = ["Radar","Applied","Screening","Interview","Offer","Pass"];
+
+const STAGE_COLORS = {
+  Radar:     { bg: "rgba(99,140,255,0.12)",  border: "#4f6ef7", text: "#8aacff" },
+  Applied:   { bg: "rgba(251,191,36,0.10)",  border: "#d97706", text: "#fbbf24" },
+  Screening: { bg: "rgba(168,85,247,0.10)",  border: "#9333ea", text: "#c084fc" },
+  Interview: { bg: "rgba(34,197,94,0.10)",   border: "#16a34a", text: "#4ade80" },
+  Offer:     { bg: "rgba(20,184,166,0.10)",  border: "#0d9488", text: "#2dd4bf" },
+  Pass:      { bg: "rgba(100,116,139,0.10)", border: "#475569", text: "#94a3b8" },
+};
+
+const TODAY = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+const DEFAULT_PROFILE = {
+  name: "", displayName: "", email: "", phone: "",
+  address: "Bellingham, WA", linkedin: "", website: "",
+  title: "", background: "", resumeText: "", resumeUploaded: false,
+};
+
+const DEFAULT_QUERIES = [
+  "VP Digital Transformation remote",
+  "Director Enterprise PMO remote",
+  "Senior Director Technology Transformation",
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CONTACT EXTRACTION — parse resume text via AI into structured contact fields
+// GLOBAL STATE — session cost + API lock
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function extractContactFromResume(resumeText) {
-  const text = await callClaude(
-    `Extract contact information from a resume. Return ONLY a JSON object with these exact keys:
-{"name":"","phone":"","email":"","address":"","linkedin":"","website":"","title":""}
-For linkedin: extract just the path like "linkedin.com/in/username". For website: just the domain.
-For title: extract their most recent job title or professional headline.
-If a field is not found, use empty string. Return ONLY the JSON, no other text.`,
-    resumeText.slice(0, 3000),
-    400
-  );
-  const m = text.match(/\{[\s\S]*?\}/);
-  if (!m) throw new Error("Could not parse contact info from resume");
-  return JSON.parse(m[0]);
-}
-
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SAFETY INFRASTRUCTURE
-// ─────────────────────────────────────────────────────────────────────────────
-
-const PRIVACY_NOTICE = `CareerForge sends content you enter — job descriptions, resume text, and company names — to the Anthropic Claude API for AI processing. This is subject to Anthropic's privacy policy.
-
-Do not enter confidential, proprietary, or personally sensitive information beyond what you intend to share with an AI service provider.
-
-AI outputs require human review before use. Fit scores reflect keyword and experience alignment only — they are not assessments of your actual qualifications or likelihood of success.`;
-
-// Cost estimate (Haiku pricing: ~$0.80/M input tokens, ~$4/M output tokens)
-function estimateCost(inputChars, outputChars) {
-  return ((inputChars / 4) * 0.0000008) + ((outputChars / 4) * 0.000004);
-}
-
-// Module-level session cost accumulator
 let _sessionCost = 0;
 const _costListeners = new Set();
 function trackCost(inChars, outChars) {
-  _sessionCost += estimateCost(inChars, outChars);
+  _sessionCost += (inChars / 1_000_000) * 0.25 + (outChars / 1_000_000) * 1.25;
   _costListeners.forEach(cb => cb(_sessionCost));
 }
 function useSessionCost() {
@@ -148,7 +49,6 @@ function useSessionCost() {
   return cost;
 }
 
-// Global API lock — prevents concurrent calls across tabs
 let _apiLocked = false;
 const _lockListeners = new Set();
 function setApiLock(v) { _apiLocked = v; _lockListeners.forEach(cb => cb(v)); }
@@ -162,12 +62,8 @@ function useApiLock() {
 // STORAGE
 // ─────────────────────────────────────────────────────────────────────────────
 
-// localStorage-backed storage — works on Netlify and all browsers
 function storageGet(key) {
-  try {
-    const val = localStorage.getItem(key);
-    return val ? JSON.parse(val) : null;
-  } catch { return null; }
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; }
 }
 function storageSet(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
@@ -191,11 +87,13 @@ async function callClaude(system, user, maxTokens = 2000) {
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true",
       },
-      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: maxTokens, system, messages: [{ role: "user", content: user }] }),
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001", max_tokens: maxTokens,
+        system, messages: [{ role: "user", content: user }]
+      }),
     });
-    const raw = await res.text();
-    const data = JSON.parse(raw);
-    if (!res.ok || data.error) throw new Error(data.error?.message || `API ${res.status}: ${raw.slice(0,200)}`);
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error?.message || `API ${res.status}`);
     const text = data.content?.find(b => b.type === "text")?.text || "";
     trackCost((system + user).length, text.length);
     return text;
@@ -203,7 +101,6 @@ async function callClaude(system, user, maxTokens = 2000) {
 }
 
 async function callClaudeSearch(company, query) {
-  // Safety: only company name in queries — no PII, no resume content
   if (!ANTHROPIC_API_KEY) throw new Error("API key not configured.");
   setApiLock(true);
   try {
@@ -216,18 +113,16 @@ async function callClaudeSearch(company, query) {
         "anthropic-dangerous-direct-browser-access": "true",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1500,
+        model: "claude-haiku-4-5-20251001", max_tokens: 1500,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         system: `You are a research analyst preparing a pre-interview briefing about ${company}.
 Summarize findings in 3-5 factual sentences with specific numbers, names, and dates.
 After your summary, list 1-3 source URLs as: "Sources: url1, url2"
-Scope is limited to public information about the company. Do not search for individual private persons.`,
+Scope is limited to public information about the company.`,
         messages: [{ role: "user", content: query }],
       }),
     });
-    const raw = await res.text();
-    const data = JSON.parse(raw);
+    const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error?.message || `API ${res.status}`);
     const text = data.content?.filter(b => b.type === "text").map(b => b.text).join("\n").trim();
     trackCost(query.length, (text || "").length);
@@ -236,308 +131,706 @@ Scope is limited to public information about the company. Do not search for indi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DOCX HELPERS
+// GOOGLE DRIVE INTEGRATION
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TODAY = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-const AI_STAMP = `AI-assisted | Generated ${TODAY} | Verify before use`;
+const DRIVE_FOLDER_NAME = "CareerForge";
 
-// Builds a clean ATS-ready final resume from base + tailoring recommendations
-async function buildFinalResumeText(baseResume, tailoringNotes, jd) {
-  const system = `You are an expert resume writer. You will be given:
-1. A base resume
-2. Tailoring recommendations for a specific role
-3. The job description
-
-Produce a FINAL, SUBMISSION-READY resume that incorporates the recommendations. Output ONLY the clean resume text — no commentary, no "why this works" explanations, no strategy notes, no markdown headers, no section labels like "REVISED:" or "CURRENT:".
-
-Format rules:
-- Name on first line in ALL CAPS
-- Contact line second: City, ST  |  phone  |  email  |  linkedin  |  website
-- Section headers in ALL CAPS (SUMMARY, EXPERIENCE, CERTIFICATIONS, SKILLS)
-- Job entries: Title | Company | Years (on one line)
-- Bullet points starting with a dash (-)
-- Em dashes (—) for separators within bullets
-- No tables, no markdown, no asterisks, no pound signs
-- Clean plain text that will render properly in Word
-
-The output should read as a polished, human-written executive resume ready to submit to an ATS and a hiring manager.`;
-
-  return callClaude(system,
-    `Base Resume:\n${baseResume}\n\nTailoring Recommendations:\n${tailoringNotes}\n\nJob Description:\n${jd}`,
-    3000
-  );
+async function getDriveToken() {
+  return localStorage.getItem("cf:google_token:drive");
 }
 
-async function downloadResumeDocx(finalResumeText, company, profile) {
-  const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle, UnderlineType } = await import("https://esm.sh/docx@8.5.0");
+async function getOrCreateDriveFolder(token) {
+  // Check if folder exists
+  const searchRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id,name)`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  const searchData = await searchRes.json();
+  if (searchData.files?.length > 0) return searchData.files[0].id;
 
+  // Create folder
+  const createRes = await fetch("https://www.googleapis.com/drive/v3/files", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: DRIVE_FOLDER_NAME, mimeType: "application/vnd.google-apps.folder" }),
+  });
+  const folder = await createRes.json();
+  return folder.id;
+}
+
+async function saveToDrive(blob, filename, token) {
+  const folderId = await getOrCreateDriveFolder(token);
+  const metadata = { name: filename, parents: [folderId] };
+  const form = new FormData();
+  form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+  form.append("file", blob);
+  const res = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink",
+    { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form }
+  );
+  return await res.json(); // { id, webViewLink }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOCX GENERATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function buildResumeDocxBlob(finalResumeText, company, profile) {
+  const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = await import("https://esm.sh/docx@8.5.0");
   const children = [];
   const lines = finalResumeText.split("\n");
 
   for (let i = 0; i < lines.length; i++) {
     const t = lines[i].trim();
     if (!t) { children.push(new Paragraph({ text: "", spacing: { after: 60 } })); continue; }
-
-    // Name — first non-empty line, ALL CAPS
-    if (i === 0 || (children.length === 0)) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: t, bold: true, size: 32, color: "1a1a4a", font: "Calibri" })],
-        alignment: AlignmentType.CENTER, spacing: { after: 80 }
-      }));
-
-    // Contact line — contains | and email
+    if (i === 0 || children.length === 0) {
+      children.push(new Paragraph({ children: [new TextRun({ text: t, bold: true, size: 32, color: "1a1a4a", font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { after: 80 } }));
     } else if (t.includes("|") && t.includes("@") && children.length <= 2) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: t, size: 19, color: "444444", font: "Calibri" })],
-        alignment: AlignmentType.CENTER, spacing: { after: 160 }
-      }));
-      // Accent rule below contact
-      children.push(new Paragraph({
-        border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: "2F2B8F" } },
-        spacing: { after: 180 }
-      }));
-
-    // Section headers — ALL CAPS, no special chars, standalone line
+      children.push(new Paragraph({ children: [new TextRun({ text: t, size: 19, color: "444444", font: "Calibri" })], alignment: AlignmentType.CENTER, spacing: { after: 160 } }));
+      children.push(new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: "2F2B8F" } }, spacing: { after: 180 } }));
     } else if (t === t.toUpperCase() && t.length > 2 && t.length < 40 && !t.includes("|") && !t.includes("@") && !t.includes("—")) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: t, bold: true, size: 22, color: "1a1a4a", font: "Calibri" })],
-        spacing: { before: 240, after: 80 },
-        border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "2F2B8F" } }
-      }));
-
-    // Job title lines — contain | separator (Title | Company | Years)
+      children.push(new Paragraph({ children: [new TextRun({ text: t, bold: true, size: 22, color: "1a1a4a", font: "Calibri" })], spacing: { before: 240, after: 80 }, border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "2F2B8F" } } }));
     } else if (t.includes("|") && !t.includes("@") && t.split("|").length >= 2 && t.split("|").length <= 4) {
       const parts = t.split("|").map(p => p.trim());
-      children.push(new Paragraph({
-        children: [
-          new TextRun({ text: parts[0], bold: true, size: 21, color: "111111", font: "Calibri" }),
-          new TextRun({ text: "  |  ", size: 21, color: "888888", font: "Calibri" }),
-          new TextRun({ text: parts.slice(1).join("  |  "), size: 21, color: "444444", font: "Calibri" }),
-        ],
-        spacing: { before: 180, after: 60 }
-      }));
-
-    // Bullet points
+      children.push(new Paragraph({ children: [new TextRun({ text: parts[0], bold: true, size: 21, color: "111111", font: "Calibri" }), new TextRun({ text: "  |  ", size: 21, color: "888888", font: "Calibri" }), new TextRun({ text: parts.slice(1).join("  |  "), size: 21, color: "444444", font: "Calibri" })], spacing: { before: 180, after: 60 } }));
     } else if (t.startsWith("-") || t.startsWith("•")) {
-      const bulletText = t.replace(/^[-•]\s*/, "");
-      // Handle em dashes within bullet text
-      children.push(new Paragraph({
-        children: [new TextRun({ text: bulletText, size: 20, color: "111111", font: "Calibri" })],
-        bullet: { level: 0 },
-        spacing: { after: 60 }
-      }));
-
-    // Regular paragraph text
+      children.push(new Paragraph({ children: [new TextRun({ text: t.replace(/^[-•]\s*/, ""), size: 20, color: "111111", font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 60 } }));
     } else {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: t, size: 20, color: "111111", font: "Calibri" })],
-        spacing: { after: 80 }
-      }));
+      children.push(new Paragraph({ children: [new TextRun({ text: t, size: 20, color: "111111", font: "Calibri" })], spacing: { after: 80 } }));
     }
   }
-
-  // AI stamp
-  children.push(new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 4, color: "EEEEEE" } }, spacing: { before: 480 } }));
-  children.push(new Paragraph({
-    children: [new TextRun({ text: AI_STAMP, size: 16, color: "AAAAAA", italics: true, font: "Calibri" })],
-    alignment: AlignmentType.CENTER
-  }));
 
   const doc = new Document({
     sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }],
     styles: { default: { document: { run: { font: "Calibri", size: 20 } } } }
   });
-  const blob = await Packer.toBlob(doc);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `Scott_Henderson_Resume${company ? "_" + company.replace(/\s+/g,"_") : ""}.docx`;
-  a.click();
-  URL.revokeObjectURL(url);
+  return await Packer.toBlob(doc);
 }
 
-async function downloadCoverLetterDocx(letterText, company, role, profile) {
+async function buildCoverLetterDocxBlob(letterText, company, role, profile) {
   const { Document, Packer, Paragraph, TextRun, AlignmentType, BorderStyle } = await import("https://esm.sh/docx@8.5.0");
-
-  // Strip any AI-generated contact blocks from the letter body
-  // (remove lines that look like "[Phone]", "[Email]", or duplicate contact info)
-  const cleanedLines = letterText.split("\n").filter(line => {
-    const t = line.trim();
+  const contactLine = `${profile.address}  |  ${profile.phone}  |  ${profile.email}  |  ${profile.website}`;
+  const cleanLines = letterText.split("\n").filter(l => {
+    const t = l.trim();
     if (!t) return true;
-    if (t.match(/^\[.*\]$/) || t.match(/^\[.*\]\s*\|/)) return false; // [Phone] | [Email] etc
-    if (t === profile.email || t === profile.phone) return false;
-    if (t.toLowerCase().includes("scott henderson") && t.length < 30) return false; // standalone name line
+    if (t.match(/^\[.*\]$/) || t === profile.email || t === profile.phone) return false;
+    if (t.toLowerCase().includes(profile.name?.toLowerCase()) && t.length < 30) return false;
     return true;
   });
-  const cleanLetter = cleanedLines.join("\n");
-
-  const contactLine = `${profile.address}  |  ${profile.phone}  |  ${profile.email}  |  ${profile.website}`;
 
   const children = [
-    // Letterhead name
-    new Paragraph({
-      children: [new TextRun({ text: profile.name.toUpperCase(), bold: true, size: 30, color: "1a1a4a", font: "Calibri" })],
-      spacing: { after: 60 }
-    }),
-    // Full contact line with phone
-    new Paragraph({
-      children: [new TextRun({ text: contactLine, size: 18, color: "555555", font: "Calibri" })],
-      spacing: { after: 80 }
-    }),
-    // Accent rule
-    new Paragraph({
-      border: { bottom: { style: BorderStyle.SINGLE, size: 10, color: "2F2B8F" } },
-      spacing: { after: 320 }
-    }),
-    // Date
-    new Paragraph({
-      children: [new TextRun({ text: TODAY, size: 20, color: "555555", font: "Calibri" })],
-      spacing: { after: 320 }
-    }),
+    new Paragraph({ children: [new TextRun({ text: (profile.name || "").toUpperCase(), bold: true, size: 30, color: "1a1a4a", font: "Calibri" })], spacing: { after: 60 } }),
+    new Paragraph({ children: [new TextRun({ text: contactLine, size: 18, color: "555555", font: "Calibri" })], spacing: { after: 80 } }),
+    new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 10, color: "2F2B8F" } }, spacing: { after: 320 } }),
+    new Paragraph({ children: [new TextRun({ text: TODAY, size: 20, color: "555555", font: "Calibri" })], spacing: { after: 320 } }),
   ];
-
-  // Addressee block
   if (company) children.push(new Paragraph({ children: [new TextRun({ text: company, size: 20, bold: true, font: "Calibri" })], spacing: { after: 40 } }));
   if (role) children.push(new Paragraph({ children: [new TextRun({ text: role, size: 20, color: "444444", font: "Calibri" })], spacing: { after: 320 } }));
 
-  // Letter body — skip blank lines at start
   let bodyStarted = false;
-  for (const line of cleanLetter.split("\n")) {
+  for (const line of cleanLines.join("\n").split("\n")) {
     const t = line.trim();
     if (!t && !bodyStarted) continue;
     bodyStarted = true;
     if (!t) { children.push(new Paragraph({ text: "", spacing: { after: 140 } })); continue; }
-    children.push(new Paragraph({
-      children: [new TextRun({ text: t, size: 22, color: "111111", font: "Calibri" })],
-      spacing: { after: 80 },
-      alignment: AlignmentType.JUSTIFIED
-    }));
+    children.push(new Paragraph({ children: [new TextRun({ text: t, size: 22, color: "111111", font: "Calibri" })], spacing: { after: 80 }, alignment: AlignmentType.JUSTIFIED }));
   }
 
-  // Closing signature block
   children.push(new Paragraph({ text: "", spacing: { after: 160 } }));
-  children.push(new Paragraph({ children: [new TextRun({ text: profile.name, size: 22, bold: true, font: "Calibri" })], spacing: { after: 40 } }));
-  children.push(new Paragraph({ children: [new TextRun({ text: profile.phone, size: 20, color: "555555", font: "Calibri" })], spacing: { after: 40 } }));
-  children.push(new Paragraph({ children: [new TextRun({ text: profile.email, size: 20, color: "555555", font: "Calibri" })], spacing: { after: 40 } }));
-
-  // AI stamp
-  children.push(new Paragraph({ border: { top: { style: BorderStyle.SINGLE, size: 4, color: "EEEEEE" } }, spacing: { before: 480 } }));
-  children.push(new Paragraph({
-    children: [new TextRun({ text: AI_STAMP, size: 16, color: "AAAAAA", italics: true, font: "Calibri" })],
-    alignment: AlignmentType.CENTER
-  }));
+  children.push(new Paragraph({ children: [new TextRun({ text: profile.name || "", size: 22, bold: true, font: "Calibri" })], spacing: { after: 40 } }));
+  children.push(new Paragraph({ children: [new TextRun({ text: profile.phone || "", size: 20, color: "555555", font: "Calibri" })], spacing: { after: 40 } }));
+  children.push(new Paragraph({ children: [new TextRun({ text: profile.email || "", size: 20, color: "555555", font: "Calibri" })], spacing: { after: 40 } }));
 
   const doc = new Document({
     sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 1080, right: 1080 } } }, children }],
     styles: { default: { document: { run: { font: "Calibri" } } } }
   });
-  const blob = await Packer.toBlob(doc);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `Scott_Henderson_CoverLetter${company ? "_" + company.replace(/\s+/g,"_") : ""}.docx`;
-  a.click();
-  URL.revokeObjectURL(url);
+  return await Packer.toBlob(doc);
 }
 
+async function buildFinalResumeText(baseResume, tailoringNotes, jd) {
+  return callClaude(
+    `You are an expert resume writer. Produce a FINAL, SUBMISSION-READY resume incorporating the tailoring recommendations.
+Output ONLY clean resume text — no commentary, no markdown, no asterisks.
+Format: Name on first line ALL CAPS. Contact line second with | separators. Section headers ALL CAPS.
+Job entries: Title | Company | Years. Bullets starting with dash (-). Em dashes (—) within bullets.`,
+    `Base Resume:\n${baseResume}\n\nTailoring Recommendations:\n${tailoringNotes}\n\nJob Description:\n${jd}`,
+    3000
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SHARED UI
+// SHARED STYLES
 // ─────────────────────────────────────────────────────────────────────────────
 
 const S = {
   input: {
-    width: "100%",
-    background: "#1e2035",
-    border: "1px solid #3a3d5c",
-    borderRadius: "6px",
-    color: "#e8e4f8",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-    fontSize: "14px",
-    padding: "10px 14px",
-    outline: "none",
-    boxSizing: "border-box",
-    transition: "border-color 0.15s",
+    width: "100%", background: "#1e2240", border: "1px solid #3a3d5c",
+    borderRadius: "6px", padding: "10px 14px", fontSize: "14px",
+    fontFamily: "'DM Sans', system-ui, sans-serif", color: "#e8e4f8",
+    outline: "none", boxSizing: "border-box", transition: "border-color 0.15s",
   },
   textarea: {
-    width: "100%",
-    background: "#1e2035",
-    border: "1px solid #3a3d5c",
-    borderRadius: "6px",
-    color: "#e8e4f8",
-    fontFamily: "Georgia, 'Times New Roman', serif",
-    fontSize: "14px",
-    lineHeight: "1.75",
-    padding: "14px",
-    resize: "vertical",
-    outline: "none",
-    boxSizing: "border-box",
-    transition: "border-color 0.15s",
+    width: "100%", background: "#1e2240", border: "1px solid #3a3d5c",
+    borderRadius: "6px", padding: "12px 14px", fontSize: "14px",
+    fontFamily: "Georgia, serif", color: "#e8e4f8", outline: "none",
+    boxSizing: "border-box", resize: "vertical", lineHeight: "1.6",
   },
   btn: {
-    background: "#4f6ef7",
-    color: "#ffffff",
-    border: "none",
-    borderRadius: "6px",
-    padding: "11px 26px",
-    fontSize: "14px",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "background 0.15s, transform 0.1s",
-    letterSpacing: "0.2px",
+    background: "#4f6ef7", color: "#ffffff", border: "none", borderRadius: "6px",
+    padding: "10px 20px", fontSize: "14px", fontFamily: "'DM Sans', system-ui, sans-serif",
+    fontWeight: "600", cursor: "pointer", transition: "opacity 0.15s",
   },
   btnGhost: {
-    background: "transparent",
-    color: "#a8a0c8",
-    border: "1px solid #3a3d5c",
-    borderRadius: "6px",
-    padding: "10px 18px",
-    fontSize: "13px",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-    cursor: "pointer",
-    transition: "border-color 0.15s, color 0.15s",
-  },
-  label: {
-    display: "block",
-    fontSize: "11px",
-    letterSpacing: "1.5px",
-    textTransform: "uppercase",
-    color: "#8880b8",
-    fontFamily: "'DM Sans', system-ui, sans-serif",
-    fontWeight: "600",
-    marginBottom: "8px",
+    background: "transparent", color: "#8880b8", border: "1px solid #3a3d5c",
+    borderRadius: "6px", padding: "8px 16px", fontSize: "13px",
+    fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer",
   },
   section: {
-    background: "#181a2e",
-    border: "1px solid #2e3050",
-    borderRadius: "10px",
-    padding: "24px",
-    marginBottom: "20px",
+    background: "#181a2e", border: "1px solid #2e3050", borderRadius: "10px",
+    padding: "20px 24px",
+  },
+  label: {
+    display: "block", fontSize: "11px", letterSpacing: "2px", textTransform: "uppercase",
+    color: "#4f6ef7", fontFamily: "'DM Sans', system-ui, sans-serif",
+    fontWeight: "600", marginBottom: "10px",
   },
   resultBox: {
-    background: "#1a1c30",
-    border: "1px solid #2e3050",
-    borderRadius: "8px",
-    padding: "20px 24px",
-    fontFamily: "Georgia, 'Times New Roman', serif",
-    fontSize: "14px",
-    lineHeight: "1.85",
-    color: "#d8d4f0",
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
+    fontSize: "14px", color: "#c8c4e8", fontFamily: "Georgia, serif",
+    lineHeight: "1.8", whiteSpace: "pre-wrap", maxHeight: "480px",
+    overflowY: "auto", padding: "16px", background: "#1a1c2e",
+    borderRadius: "6px", border: "1px solid #2e3050",
   },
 };
 
-function Spinner({ size = 14 }) {
-  return (<><span style={{ display: "inline-block", width: size, height: size, border: "2px solid #333", borderTopColor: "#7a7adf", borderRadius: "50%", animation: "spin .7s linear infinite", flexShrink: 0 }} /><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></>);
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILITY COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Spinner({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ animation: "spin 0.8s linear infinite", flexShrink: 0 }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <circle cx="12" cy="12" r="10" fill="none" stroke="#4f6ef7" strokeWidth="3" strokeDasharray="31.4 31.4" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 function CopyBtn({ text }) {
   const [copied, setCopied] = useState(false);
-  return <button onClick={() => { navigator.clipboard?.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "5px 12px", color: copied ? "#7a9a7a" : "#5a5870" }}>{copied ? "✓ Copied" : "Copy"}</button>;
+  return (
+    <button onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1800); }}
+      style={{ ...S.btnGhost, fontSize: "12px", padding: "5px 12px" }}>
+      {copied ? "✓ Copied" : "Copy"}
+    </button>
+  );
 }
+
+function Tag({ label, color = "#3a3d5c", textColor = "#8880a0" }) {
+  return <span style={{ background: color, color: textColor, borderRadius: "3px", padding: "2px 8px", fontSize: "11px", fontFamily: "'DM Sans', system-ui, sans-serif", whiteSpace: "nowrap" }}>{label}</span>;
+}
+
+function CompBadge({ label, active, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      background: active ? "rgba(99,140,255,0.18)" : "rgba(255,255,255,0.03)",
+      color: active ? "#8aacff" : "#5a5870",
+      border: `1px solid ${active ? "#4a6abf" : "#3a3d5c"}`,
+      borderRadius: "4px", padding: "5px 12px", fontSize: "12px",
+      fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer",
+    }}>{label}</button>
+  );
+}
+
+function generateId() { return `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
+
+function StagePill({ stage, onClick, small }) {
+  const c = STAGE_COLORS[stage] || STAGE_COLORS.Radar;
+  return (
+    <button onClick={onClick}
+      style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: "12px",
+        padding: small ? "2px 8px" : "4px 12px", fontSize: small ? "11px" : "12px",
+        fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600", cursor: onClick ? "pointer" : "default" }}>
+      {stage}
+    </button>
+  );
+}
+
+function SaveToDriveBtn({ blob, filename, onSaved, disabled }) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const handle = async () => {
+    setSaving(true); setErr(null);
+    try {
+      const token = await getDriveToken();
+      if (!token) { setErr("Connect Google Drive in Profile first"); setSaving(false); return; }
+      const result = await saveToDrive(blob, filename, token);
+      if (result.webViewLink) { setSaved(true); onSaved?.(result); }
+      else setErr("Upload failed");
+    } catch (e) { setErr(e.message); }
+    finally { setSaving(false); }
+  };
+
+  if (saved) return <span style={{ fontSize: "12px", color: "#4ade80", fontFamily: "'DM Sans', system-ui, sans-serif" }}>✓ Saved to Drive</span>;
+  return (
+    <div>
+      <button onClick={handle} disabled={disabled || saving}
+        style={{ ...S.btnGhost, fontSize: "12px", padding: "6px 14px", display: "flex", alignItems: "center", gap: "6px", opacity: disabled || saving ? 0.5 : 1 }}>
+        {saving ? <><Spinner size={12} />Saving…</> : "📁 Save to Drive"}
+      </button>
+      {err && <div style={{ fontSize: "11px", color: "#f87171", marginTop: "4px" }}>{err}</div>}
+    </div>
+  );
+}
+
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTH — Netlify Identity
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useNetlifyAuth() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const ni = window.netlifyIdentity;
+    if (!ni) { setAuthLoading(false); return; }
+
+    const onInit = (u) => { setUser(u); setAuthLoading(false); };
+    const onLogin = (u) => { setUser(u); ni.close(); };
+    const onLogout = () => setUser(null);
+
+    ni.on("init", onInit);
+    ni.on("login", onLogin);
+    ni.on("logout", onLogout);
+
+    if (ni.currentUser) { setUser(ni.currentUser()); setAuthLoading(false); }
+
+    return () => { ni.off("init", onInit); ni.off("login", onLogin); ni.off("logout", onLogout); };
+  }, []);
+
+  const login = () => window.netlifyIdentity?.open("login");
+  const logout = () => window.netlifyIdentity?.logout();
+  return { user, authLoading, login, logout };
+}
+
+function LoginGate() {
+  return (
+    <div style={{ minHeight: "100vh", background: "#0f1117", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+      <div style={{ width: "100%", maxWidth: "420px" }}>
+        <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <div style={{ fontSize: "32px", fontWeight: "800", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "-1px", marginBottom: "8px" }}>CareerForge</div>
+          <div style={{ fontSize: "13px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "2px", textTransform: "uppercase" }}>Job Search Intelligence</div>
+        </div>
+        <div style={{ background: "#181a2e", border: "1px solid #2e3050", borderRadius: "16px", padding: "40px", boxShadow: "0 24px 80px rgba(0,0,0,0.5)" }}>
+          <div style={{ fontSize: "20px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "8px" }}>Sign in to continue</div>
+          <div style={{ fontSize: "14px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: "1.6", marginBottom: "32px" }}>Your profile, stories, and applications are private to your account.</div>
+          <button onClick={() => window.netlifyIdentity?.open("login")}
+            style={{ width: "100%", background: "#ffffff", color: "#1a1a2e", border: "none", borderRadius: "8px", padding: "13px 20px", fontSize: "15px", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", marginBottom: "12px" }}>
+            <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+            Continue with Google
+          </button>
+          <button onClick={() => window.netlifyIdentity?.open("login")}
+            style={{ width: "100%", background: "transparent", color: "#a8a0c8", border: "1px solid #2e3050", borderRadius: "8px", padding: "13px 20px", fontSize: "15px", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "500", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+            ✉ Continue with email
+          </button>
+          <div style={{ marginTop: "24px", fontSize: "12px", color: "#4a4868", fontFamily: "'DM Sans', system-ui, sans-serif", textAlign: "center" }}>
+            Your data stays in your browser. AI uses the Anthropic API.{" "}
+            <a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: "#5a5abf" }}>Privacy →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROLE CARD — kanban card component
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RoleCard({ card, onClick, onStageChange }) {
+  const [showStageMenu, setShowStageMenu] = useState(false);
+  const scoreColor = !card.fitScore ? "#6860a0" : card.fitScore >= 8 ? "#4ade80" : card.fitScore >= 6 ? "#fbbf24" : card.fitScore >= 4 ? "#fb923c" : "#f87171";
+
+  return (
+    <div onClick={onClick}
+      style={{ background: "#181a2e", border: "1px solid #2e3050", borderRadius: "10px", padding: "14px 16px", marginBottom: "8px", cursor: "pointer", transition: "border-color 0.15s, transform 0.1s",
+        position: "relative" }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = "#4f6ef7"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "#2e3050"; e.currentTarget.style.transform = "none"; }}>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
+        <div style={{ flex: 1, minWidth: 0, paddingRight: "8px" }}>
+          <div style={{ fontSize: "14px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {card.title || "Untitled Role"}
+          </div>
+          <div style={{ fontSize: "12px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+            {card.company || "Unknown Company"}
+          </div>
+        </div>
+        {card.fitScore && (
+          <div style={{ flexShrink: 0, width: "34px", height: "34px", borderRadius: "6px", background: `${scoreColor}18`, border: `1.5px solid ${scoreColor}40`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: "14px", fontWeight: "800", color: scoreColor, fontFamily: "'DM Sans', system-ui, sans-serif" }}>{card.fitScore}</span>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+          {card.resumeDriveLink && <span style={{ fontSize: "11px", color: "#4ade80" }} title="Resume saved">📄</span>}
+          {card.coverLetterDriveLink && <span style={{ fontSize: "11px", color: "#4ade80" }} title="Cover letter saved">✉️</span>}
+          {card.notes && <span style={{ fontSize: "11px", color: "#6860a0" }} title="Has notes">📝</span>}
+        </div>
+        <div style={{ position: "relative" }}>
+          <div onClick={e => { e.stopPropagation(); setShowStageMenu(!showStageMenu); }}>
+            <StagePill stage={card.stage || "Radar"} small />
+          </div>
+          {showStageMenu && (
+            <div style={{ position: "absolute", right: 0, top: "100%", marginTop: "4px", background: "#1e2240", border: "1px solid #3a3d5c", borderRadius: "8px", padding: "4px", zIndex: 100, minWidth: "110px", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
+              {STAGES.map(s => (
+                <button key={s} onClick={e => { e.stopPropagation(); onStageChange(s); setShowStageMenu(false); }}
+                  style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "6px 10px", fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer", color: s === card.stage ? "#8aacff" : "#a8a0c8", borderRadius: "4px" }}
+                  onMouseEnter={e => e.target.style.background = "rgba(79,110,247,0.1)"}
+                  onMouseLeave={e => e.target.style.background = "none"}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {card.addedAt && (
+        <div style={{ fontSize: "10px", color: "#4a4868", fontFamily: "'DM Sans', system-ui, sans-serif", marginTop: "6px" }}>
+          Added {new Date(card.addedAt).toLocaleDateString()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOARD — kanban home screen
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Board({ cards, onOpenCard, onStageChange, onAddCard, onOpenSearch }) {
+  const byStage = STAGES.reduce((acc, s) => ({ ...acc, [s]: cards.filter(c => (c.stage || "Radar") === s) }), {});
+  const total = cards.length;
+
+  return (
+    <div style={{ flex: 1, overflowX: "auto", padding: "24px" }}>
+      {/* Board header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
+        <div>
+          <div style={{ fontSize: "20px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+            Applications
+          </div>
+          <div style={{ fontSize: "13px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", marginTop: "2px" }}>
+            {total === 0 ? "No active applications" : `${total} role${total !== 1 ? "s" : ""} tracked`}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button onClick={onOpenSearch}
+            style={{ ...S.btnGhost, display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
+            🔍 Search Jobs
+          </button>
+          <button onClick={() => onAddCard({ title: "", company: "", stage: "Radar", jd: "", notes: "", addedAt: Date.now() })}
+            style={{ ...S.btn, fontSize: "13px", padding: "8px 16px" }}>
+            + Add Role
+          </button>
+        </div>
+      </div>
+
+      {/* Empty state */}
+      {total === 0 && (
+        <div style={{ textAlign: "center", padding: "60px 20px", color: "#6860a0" }}>
+          <div style={{ fontSize: "40px", marginBottom: "16px" }}>🎯</div>
+          <div style={{ fontSize: "18px", fontWeight: "600", color: "#9890b8", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "8px" }}>
+            Your search campaign starts here
+          </div>
+          <div style={{ fontSize: "14px", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "24px", maxWidth: "360px", margin: "0 auto 24px" }}>
+            Find a role with Job Search, paste a JD to analyze it, or add a role manually. Every application lives here.
+          </div>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
+            <button onClick={onOpenSearch} style={{ ...S.btn }}>🔍 Search Jobs</button>
+            <button onClick={() => onAddCard({ title: "", company: "", stage: "Radar", jd: "", notes: "", addedAt: Date.now() })} style={{ ...S.btnGhost }}>+ Add manually</button>
+          </div>
+        </div>
+      )}
+
+      {/* Kanban columns */}
+      {total > 0 && (
+        <div style={{ display: "flex", gap: "12px", minWidth: "900px" }}>
+          {STAGES.map(stage => {
+            const stageCards = byStage[stage] || [];
+            const c = STAGE_COLORS[stage];
+            return (
+              <div key={stage} style={{ flex: 1, minWidth: "160px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", padding: "6px 4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: c.border }} />
+                    <span style={{ fontSize: "12px", fontWeight: "600", color: c.text, fontFamily: "'DM Sans', system-ui, sans-serif", textTransform: "uppercase", letterSpacing: "1px" }}>
+                      {stage}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: "12px", color: "#4a4868", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+                    {stageCards.length}
+                  </span>
+                </div>
+                <div style={{ minHeight: "100px" }}>
+                  {stageCards.map(card => (
+                    <RoleCard key={card.id} card={card}
+                      onClick={() => onOpenCard(card.id)}
+                      onStageChange={s => onStageChange(card.id, s)} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JOB SEARCH TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function scoreJobsAgainstProfile(jobs, profile) {
+  const profileSummary = `Title: ${profile.title || "Enterprise Transformation Leader"}
+Background: ${(profile.background || profile.resumeText || "").slice(0, 400)}`;
+
+  const jobList = jobs.slice(0, 20).map((j, i) =>
+    `${i}: ${j.job_title || j.title || "Unknown"} at ${j.company_name || j.company || "Unknown"} — ${(j.job_description || j.description || "").slice(0, 300)}`
+  ).join("\n");
+
+  const text = await callClaude(
+    `You are a career matching AI. Score each job 1-10 for fit against this candidate.
+Return ONLY a JSON array: [{"index":0,"score":8,"reason":"one sentence"},...]
+Score all jobs. No preamble.`,
+    `Candidate:\n${profileSummary}\n\nJobs:\n${jobList}`,
+    2000
+  );
+
+  const m = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (!m) return jobs.map(j => ({ ...j, fitScore: 5, fitReason: "" }));
+  try {
+    const scores = JSON.parse(m[0]);
+    return jobs.slice(0, 20).map((j, i) => {
+      const s = scores.find(x => x.index === i);
+      return { ...j, fitScore: s?.score || 5, fitReason: s?.reason || "" };
+    });
+  } catch { return jobs.map(j => ({ ...j, fitScore: 5, fitReason: "" })); }
+}
+
+function JobResultCard({ job, onAnalyze }) {
+  const [expanded, setExpanded] = useState(false);
+  const score = job.fitScore || 0;
+  const scoreColor = score >= 8 ? "#4ade80" : score >= 6 ? "#fbbf24" : score >= 4 ? "#fb923c" : "#f87171";
+  const title = job.job_title || job.title || "Unknown Role";
+  const company = job.company_name || job.company || "Unknown";
+  const location = job.location || job.job_location || "";
+  const salary = job.salary || job.compensation || "";
+  const url = job.job_url || job.url || job.apply_url || "";
+  const jdText = job.job_description || job.description || "";
+  const remote = (job.workplace_type || "").toLowerCase().includes("remote") || (location || "").toLowerCase().includes("remote");
+
+  return (
+    <div style={{ ...S.section, marginBottom: "10px", padding: "14px 18px" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+        <div style={{ flexShrink: 0, width: "42px", height: "42px", borderRadius: "8px", background: `${scoreColor}15`, border: `1.5px solid ${scoreColor}50`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: "15px", fontWeight: "800", color: scoreColor, fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: 1 }}>{score}</span>
+          <span style={{ fontSize: "9px", color: scoreColor, fontFamily: "'DM Sans', system-ui, sans-serif" }}>/10</span>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", marginBottom: "4px" }}>
+            <div>
+              <div style={{ fontSize: "14px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{title}</div>
+              <div style={{ fontSize: "12px", color: "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+                {company}
+                {location && <span style={{ color: "#6860a0" }}> · {location}</span>}
+                {remote && <span style={{ color: "#4ade80", marginLeft: "6px" }}>Remote</span>}
+                {salary && <span style={{ color: "#fbbf24", marginLeft: "8px" }}>{salary}</span>}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+              {url && <a href={url} target="_blank" rel="noopener noreferrer" style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px", textDecoration: "none" }}>Apply ↗</a>}
+              <button onClick={() => onAnalyze(jdText, title, company)} style={{ ...S.btn, fontSize: "11px", padding: "4px 12px" }}>Analyze</button>
+            </div>
+          </div>
+          {job.fitReason && <div style={{ fontSize: "12px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", fontStyle: "italic", marginBottom: "4px" }}>{job.fitReason}</div>}
+          <button onClick={() => setExpanded(!expanded)} style={{ background: "none", border: "none", color: "#4f6ef7", cursor: "pointer", fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", padding: 0 }}>
+            {expanded ? "▲ Hide" : "▼ Preview JD"}
+          </button>
+          {expanded && jdText && (
+            <div style={{ marginTop: "10px", fontSize: "13px", color: "#c8c4e8", fontFamily: "Georgia, serif", lineHeight: "1.7", background: "#1e2240", borderRadius: "6px", padding: "12px", maxHeight: "200px", overflowY: "auto", whiteSpace: "pre-wrap" }}>
+              {jdText.slice(0, 1200)}{jdText.length > 1200 ? "…" : ""}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function JobSearchTab({ profile, onAnalyzeJD }) {
+  const [queries, setQueries] = useState([...DEFAULT_QUERIES]);
+  const [customQuery, setCustomQuery] = useState("");
+  const [days, setDays] = useState(3);
+  const [running, setRunning] = useState(false);
+  const [status, setStatus] = useState("");
+  const [jobs, setJobs] = useState([]);
+  const [error, setError] = useState(null);
+  const [generatingQueries, setGeneratingQueries] = useState(false);
+  const apiLocked = useApiLock();
+
+  const generateQueries = async () => {
+    setGeneratingQueries(true);
+    try {
+      const text = await callClaude(
+        `Generate 4 concise job board search queries for this candidate.
+Each query: 3-6 words, targets senior roles, includes "remote" where appropriate.
+Return ONLY a JSON array of strings.`,
+        `Profile: ${profile.title || "Enterprise Transformation Leader"}\n${(profile.resumeText || "").slice(0, 300)}`,
+        300
+      );
+      const m = text.match(/\[[\s\S]*?\]/);
+      if (m) setQueries(JSON.parse(m[0]).slice(0, 5));
+    } catch {}
+    finally { setGeneratingQueries(false); }
+  };
+
+  const runSearch = async () => {
+    if (running) return;
+    setRunning(true); setError(null); setJobs([]); setStatus("Searching HiringCafe…");
+    try {
+      const activeQueries = customQuery.trim() ? [customQuery.trim(), ...queries] : queries;
+      const allJobs = [];
+
+      for (const keyword of activeQueries.slice(0, 3)) {
+        const triggerRes = await fetch("/.netlify/functions/searchJobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keyword, days, maxItems: 20 })
+        });
+        const { runId, datasetId: initDatasetId, error: triggerErr } = await triggerRes.json();
+        if (triggerErr) throw new Error(triggerErr);
+
+        let datasetId = initDatasetId;
+        for (let attempt = 0; attempt < 30; attempt++) {
+          await new Promise(r => setTimeout(r, 4000));
+          const pollRes = await fetch(`/.netlify/functions/fetchJobs?runId=${runId}`);
+          const { status: runStatus, datasetId: did } = await pollRes.json();
+          if (did) datasetId = did;
+          if (runStatus === "SUCCEEDED" || runStatus === "FAILED" || runStatus === "ABORTED") break;
+        }
+
+        if (!datasetId) continue;
+        const fetchRes = await fetch(`/.netlify/functions/fetchJobs?datasetId=${datasetId}`);
+        const results = await fetchRes.json();
+        if (Array.isArray(results)) allJobs.push(...results);
+      }
+
+      // Deduplicate
+      const seen = new Set();
+      const deduped = allJobs.filter(j => {
+        const key = `${(j.job_title || j.title || "").toLowerCase()}|${(j.company_name || j.company || "").toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key); return true;
+      });
+
+      if (deduped.length === 0) { setStatus("No results found"); setRunning(false); return; }
+
+      setStatus("Scoring against your profile…");
+      const scored = await scoreJobsAgainstProfile(deduped, profile);
+      const top15 = scored.sort((a, b) => (b.fitScore || 0) - (a.fitScore || 0)).slice(0, 15);
+      setJobs(top15);
+      setStatus(`${top15.length} matches found`);
+    } catch (e) {
+      setError(e.message);
+      setStatus("Search failed");
+    } finally { setRunning(false); }
+  };
+
+  return (
+    <div>
+      <div style={{ ...S.section, marginBottom: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+          <div style={{ ...S.label, margin: 0 }}>Search Queries</div>
+          <button onClick={generateQueries} disabled={generatingQueries || apiLocked}
+            style={{ ...S.btnGhost, fontSize: "12px", padding: "5px 12px", display: "flex", alignItems: "center", gap: "6px" }}>
+            {generatingQueries ? <><Spinner size={10} />Generating…</> : "✦ Generate from profile"}
+          </button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "10px" }}>
+          {queries.map((q, i) => (
+            <div key={i} style={{ display: "flex", gap: "8px" }}>
+              <input value={q} onChange={e => setQueries(qs => qs.map((x, j) => j === i ? e.target.value : x))}
+                style={{ ...S.input, flex: 1 }}
+                onFocus={e => e.target.style.borderColor = "#4f6ef7"}
+                onBlur={e => e.target.style.borderColor = "#3a3d5c"} />
+              <button onClick={() => setQueries(qs => qs.filter((_, j) => j !== i))}
+                style={{ background: "none", border: "none", color: "#6860a0", cursor: "pointer", fontSize: "16px" }}>✕</button>
+            </div>
+          ))}
+        </div>
+        <button onClick={() => setQueries(qs => [...qs, ""])} style={{ ...S.btnGhost, fontSize: "12px", padding: "5px 12px", marginBottom: "16px" }}>+ Add query</button>
+
+        <div style={{ marginBottom: "14px" }}>
+          <label style={S.label}>One-time override</label>
+          <input value={customQuery} onChange={e => setCustomQuery(e.target.value)}
+            placeholder="e.g. VP Technology AI startup remote"
+            style={S.input}
+            onFocus={e => e.target.style.borderColor = "#4f6ef7"}
+            onBlur={e => e.target.style.borderColor = "#3a3d5c"} />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <label style={{ ...S.label, margin: 0 }}>Freshness</label>
+          <div style={{ display: "flex", gap: "6px" }}>
+            {[1, 3, 7, 14].map(d => (
+              <button key={d} onClick={() => setDays(d)}
+                style={{ ...S.btnGhost, fontSize: "12px", padding: "5px 12px", background: days === d ? "rgba(79,110,247,0.2)" : "transparent", color: days === d ? "#8aacff" : "#6860a0", borderColor: days === d ? "#4f6ef7" : "#3a3d5c" }}>
+                {d}d
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "28px" }}>
+        <button onClick={runSearch} disabled={running || apiLocked}
+          style={{ ...S.btn, opacity: running || apiLocked ? 0.6 : 1, display: "flex", alignItems: "center", gap: "8px" }}>
+          {running ? <><Spinner />Running…</> : "🔍 Search Jobs"}
+        </button>
+        {status && <div style={{ fontSize: "13px", color: error ? "#f87171" : "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif", display: "flex", alignItems: "center", gap: "6px" }}>{running && <Spinner size={12} />}{status}</div>}
+      </div>
+
+      {error && <div style={{ color: "#f87171", fontSize: "13px", padding: "10px 14px", background: "rgba(248,113,113,0.08)", borderRadius: "6px", border: "1px solid rgba(248,113,113,0.2)", marginBottom: "16px" }}>{error}</div>}
+
+      {jobs.length > 0 && (
+        <div>
+          <div style={{ ...S.label, marginBottom: "12px" }}>Top {jobs.length} matches</div>
+          {jobs.map((job, i) => (
+            <JobResultCard key={i} job={job} onAnalyze={onAnalyzeJD} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
 
 function JDInput({ jd, setJd }) {
   return (
@@ -838,6 +1131,7 @@ Return ONLY a JSON object:
 }`;
 }
 
+
 function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuildResume, onResumeOnly, onNewJD, profile }) {
   const [parsedScore, setParsedScore] = useState(null);
   const [parsedRationale, setParsedRationale] = useState("");
@@ -971,6 +1265,7 @@ function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuil
 // RESUME TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
+
 function ResumeTab({ jd, setJd, resumeOnly, onDownloaded, profile }) {
   const [resume, setResume] = useState(profile.resumeText || "");
   // Sync if profile changes (e.g. after upload gate completes)
@@ -1011,10 +1306,14 @@ Give actual rewritten text, not just advice.`;
     try {
       const m = jd.match(/(?:at|for|with|joining)\s+([A-Z][A-Za-z\s&,.]+?)(?:\s+is|\s+are|\s+we|\.|,)/);
       const company = m ? m[1].trim() : "";
-      // Build clean final resume from base + tailoring notes via second AI call
       const finalText = await buildFinalResumeText(resume, result, jd);
-      await downloadResumeDocx(finalText, company, profile);
-      if (onDownloaded) onDownloaded();
+      const blob = await buildResumeDocxBlob(finalText, company, profile);
+      // Trigger browser download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${profile.name || "Resume"}_${company || "Resume"}.docx`;
+      a.click(); URL.revokeObjectURL(url);
+      if (onDownloaded) onDownloaded(blob);
     } catch (e) { setError(`Download failed: ${e.message}`); }
     finally { setDownloading(false); }
   };
@@ -1062,6 +1361,7 @@ Give actual rewritten text, not just advice.`;
 // ─────────────────────────────────────────────────────────────────────────────
 // COVER LETTER TAB
 // ─────────────────────────────────────────────────────────────────────────────
+
 
 function CoverLetterTab({ jd, setJd, onDownloaded, profile }) {
   const [company, setCompany] = useState("");
@@ -1116,7 +1416,14 @@ CRITICAL FORMATTING RULES:
 
   const handleDownload = async () => {
     setDownloading(true);
-    try { await downloadCoverLetterDocx(result, company, role, profile); if (onDownloaded) onDownloaded(); }
+    try {
+      const blob = await buildCoverLetterDocxBlob(result, company, role, profile);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${profile.name || "CoverLetter"}_${company || "Cover"}.docx`;
+      a.click(); URL.revokeObjectURL(url);
+      if (onDownloaded) onDownloaded(blob);
+    }
     catch (e) { setError(`Download failed: ${e.message}`); }
     finally { setDownloading(false); }
   };
@@ -1166,6 +1473,7 @@ CRITICAL FORMATTING RULES:
 // ─────────────────────────────────────────────────────────────────────────────
 // INTERVIEW PREP TAB
 // ─────────────────────────────────────────────────────────────────────────────
+
 
 function InterviewPrepTab({ jd, setJd, stories, profile }) {
   const [round, setRound] = useState("screening");
@@ -1245,6 +1553,7 @@ function parseSources(text) {
   if (!m) return [];
   return m[1].split(",").map(s => s.trim()).filter(s => s.startsWith("http"));
 }
+
 
 function ResearchTab({ company, triggered }) {
   const [results, setResults] = useState({});
@@ -1514,6 +1823,7 @@ function StoryEditor({ story, onSave, onCancel }) {
     </div>
   );
 }
+
 
 function MyStoriesTab({ profile, stories, setStories }) {
   // view | edit | extract | interview-pick | interview-chat | interview-review
@@ -1920,6 +2230,7 @@ Let's start with **Situation**. What was going on in the organization — what w
 // ─────────────────────────────────────────────────────────────────────────────
 
 
+
 function ResumeUploadGate({ profile, onComplete, onSkip }) {
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState("");
@@ -2022,16 +2333,558 @@ function ResumeUploadGate({ profile, onComplete, onSkip }) {
   );
 }
 
-function ProfileTab({ profile, onUpdateProfile, saveJD, setSaveJD, corrections, onUpdateCorrections, user, logout, stories, starredCount }) {
+
+// ─────────────────────────────────────────────────────────────────────────────
+// JOB SEARCH TAB — HiringCafe via Apify + AI scoring
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DEFAULT_QUERIES = [
+  "VP Digital Transformation remote",
+  "Director Enterprise PMO remote",
+  "Senior Director Technology Transformation",
+];
+
+async function scoreJobsAgainstProfile(jobs, profile) {
+  const profileSummary = `
+Name: ${profile.name}
+Title: ${profile.title || "Enterprise Transformation Leader"}
+Background: ${profile.background || ""}
+Key proof points: ${(profile.proofPoints || []).slice(0,3).join("; ")}
+Certifications: ${(profile.certifications || []).slice(0,3).join(", ")}
+  `.trim();
+
+  const jobList = jobs.slice(0, 20).map((j, i) => `${i}: ${j.job_title || j.title || "Unknown"} at ${j.company_name || j.company || "Unknown"} — ${(j.job_description || j.description || "").slice(0, 300)}`).join("\n");
+
+  const text = await callClaude(
+    `You are a career matching AI. Score each job 1-10 for fit against this candidate profile:
+
+${profileSummary}
+
+Return ONLY a JSON array of objects: [{"index": 0, "score": 8, "reason": "one sentence"}, ...]
+Score all jobs provided. No preamble.`,
+    `Jobs to score:\n${jobList}`,
+    2000
+  );
+
+  const m = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (!m) return jobs.map((j, i) => ({ ...j, fitScore: 5, fitReason: "Could not score" }));
+  const scores = JSON.parse(m[0]);
+  return jobs.slice(0, 20).map((j, i) => {
+    const s = scores.find(x => x.index === i);
+    return { ...j, fitScore: s?.score || 5, fitReason: s?.reason || "" };
+  });
+}
+
+function JobCard({ job, onAnalyze }) {
+  const [expanded, setExpanded] = useState(false);
+  const score = job.fitScore || 0;
+  const scoreColor = score >= 8 ? "#4ade80" : score >= 6 ? "#fbbf24" : score >= 4 ? "#fb923c" : "#f87171";
+  const title = job.job_title || job.title || "Unknown Role";
+  const company = job.company_name || job.company || "Unknown Company";
+  const location = job.location || job.job_location || "";
+  const salary = job.salary || job.compensation || "";
+  const url = job.job_url || job.url || job.apply_url || "";
+  const jdText = job.job_description || job.description || "";
+  const remote = (job.workplace_type || job.workplaceType || "").toLowerCase().includes("remote")
+    || (location || "").toLowerCase().includes("remote");
+
+  return (
+    <div style={{ ...S.section, marginBottom: "10px", padding: "16px 20px" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "14px" }}>
+        {/* Score badge */}
+        <div style={{ flexShrink: 0, width: "44px", height: "44px", borderRadius: "8px", background: `${scoreColor}18`, border: `1.5px solid ${scoreColor}60`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontSize: "16px", fontWeight: "800", color: scoreColor, fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: 1 }}>{score}</span>
+          <span style={{ fontSize: "9px", color: scoreColor, fontFamily: "'DM Sans', system-ui, sans-serif" }}>/10</span>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "8px", marginBottom: "4px" }}>
+            <div>
+              <div style={{ fontSize: "15px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{title}</div>
+              <div style={{ fontSize: "13px", color: "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+                {company}
+                {location && <span style={{ color: "#6860a0" }}> · {location}</span>}
+                {remote && <span style={{ color: "#4ade80", marginLeft: "6px", fontSize: "11px" }}>Remote</span>}
+                {salary && <span style={{ color: "#fbbf24", marginLeft: "8px", fontSize: "12px" }}>{salary}</span>}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+              {url && (
+                <a href={url} target="_blank" rel="noopener noreferrer"
+                  style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px", textDecoration: "none", color: "#8880b8" }}>
+                  Apply ↗
+                </a>
+              )}
+              <button onClick={() => onAnalyze(jdText, title, company)}
+                style={{ ...S.btn, fontSize: "11px", padding: "4px 12px" }}>
+                Analyze
+              </button>
+            </div>
+          </div>
+
+          {job.fitReason && (
+            <div style={{ fontSize: "12px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "4px", fontStyle: "italic" }}>
+              {job.fitReason}
+            </div>
+          )}
+
+          {/* Expand/collapse JD preview */}
+          <button onClick={() => setExpanded(!expanded)}
+            style={{ background: "none", border: "none", color: "#4f6ef7", cursor: "pointer", fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", padding: 0 }}>
+            {expanded ? "▲ Hide description" : "▼ Preview description"}
+          </button>
+
+          {expanded && jdText && (
+            <div style={{ marginTop: "10px", fontSize: "13px", color: "#c8c4e8", fontFamily: "Georgia, serif", lineHeight: "1.7",
+              background: "#1e2240", borderRadius: "6px", padding: "12px 14px",
+              maxHeight: "200px", overflowY: "auto", whiteSpace: "pre-wrap" }}>
+              {jdText.slice(0, 1200)}{jdText.length > 1200 ? "…" : ""}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function JobSearchTab({ profile, onAnalyzeJD }) {
+  const [queries, setQueries] = useState(DEFAULT_QUERIES.slice());
+  const [customQuery, setCustomQuery] = useState("");
+  const [days, setDays] = useState(3);
+  const [running, setRunning] = useState(false);
+  const [runStatus, setRunStatus] = useState(""); // idle | scraping | scoring | done | error
+  const [jobs, setJobs] = useState([]);
+  const [error, setError] = useState(null);
+  const [generatingQueries, setGeneratingQueries] = useState(false);
+  const apiLocked = useApiLock();
+
+  // Generate queries from profile
+  const generateQueries = async () => {
+    setGeneratingQueries(true);
+    try {
+      const text = await callClaude(
+        `Generate 4 concise job search queries for a job board search for this candidate. 
+Each query should be 3-6 words, target senior roles, and include "remote" where appropriate.
+Return ONLY a JSON array of strings. No preamble.`,
+        `Profile: ${profile.title || "Enterprise Transformation Leader"}\nBackground: ${(profile.background || "").slice(0, 300)}`,
+        300
+      );
+      const m = text.match(/\[[\s\S]*?\]/);
+      if (m) setQueries(JSON.parse(m[0]).slice(0, 5));
+    } catch {}
+    finally { setGeneratingQueries(false); }
+  };
+
+  const runSearch = async () => {
+    if (running) return;
+    setRunning(true); setError(null); setJobs([]); setRunStatus("scraping");
+
+    try {
+      // Run all queries in parallel
+      const activeQueries = customQuery.trim()
+        ? [customQuery.trim(), ...queries]
+        : queries;
+
+      const allJobs = [];
+
+      for (const keyword of activeQueries.slice(0, 3)) {
+        // Trigger scrape
+        const triggerRes = await fetch("/.netlify/functions/searchJobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keyword, days, maxItems: 20 })
+        });
+        const { runId, datasetId: initialDatasetId, error: triggerErr } = await triggerRes.json();
+        if (triggerErr) throw new Error(triggerErr);
+
+        // Poll for completion
+        let datasetId = initialDatasetId;
+        let attempts = 0;
+        while (attempts < 30) {
+          await new Promise(r => setTimeout(r, 4000));
+          const pollRes = await fetch(`/.netlify/functions/fetchJobs?runId=${runId}`);
+          const { status, datasetId: did } = await pollRes.json();
+          if (did) datasetId = did;
+          if (status === "SUCCEEDED" || status === "FAILED" || status === "ABORTED") break;
+          attempts++;
+        }
+
+        if (!datasetId) continue;
+
+        // Fetch results
+        const fetchRes = await fetch(`/.netlify/functions/fetchJobs?datasetId=${datasetId}`);
+        const results = await fetchRes.json();
+        if (Array.isArray(results)) allJobs.push(...results);
+      }
+
+      if (allJobs.length === 0) {
+        setRunStatus("done");
+        setJobs([]);
+        setRunning(false);
+        return;
+      }
+
+      // Deduplicate by title+company
+      const seen = new Set();
+      const deduped = allJobs.filter(j => {
+        const key = `${(j.job_title||j.title||"").toLowerCase()}|${(j.company_name||j.company||"").toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      // Score against profile
+      setRunStatus("scoring");
+      const scored = await scoreJobsAgainstProfile(deduped, profile);
+
+      // Sort by score, take top 15
+      const top15 = scored.sort((a, b) => (b.fitScore || 0) - (a.fitScore || 0)).slice(0, 15);
+      setJobs(top15);
+      setRunStatus("done");
+
+    } catch (e) {
+      setError(e.message);
+      setRunStatus("error");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const statusLabel = {
+    scraping: "Searching HiringCafe…",
+    scoring: "Scoring against your profile…",
+    done: `${jobs.length} matches found`,
+    error: "Search failed",
+    idle: ""
+  }[runStatus] || "";
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ marginBottom: "24px" }}>
+        <div style={{ fontSize: "20px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "6px" }}>
+          Job Search
+        </div>
+        <div style={{ fontSize: "13px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+          Searches HiringCafe for roles matching your profile, then scores each result for fit.
+        </div>
+      </div>
+
+      {/* Query config */}
+      <div style={{ ...S.section, marginBottom: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+          <div style={{ ...S.label, margin: 0 }}>Search Queries</div>
+          <button onClick={generateQueries} disabled={generatingQueries || apiLocked}
+            style={{ ...S.btnGhost, fontSize: "12px", padding: "5px 12px", display: "flex", alignItems: "center", gap: "6px" }}>
+            {generatingQueries ? <><Spinner size={10} />Generating…</> : "✦ Generate from profile"}
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" }}>
+          {queries.map((q, i) => (
+            <div key={i} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <input value={q} onChange={e => setQueries(qs => qs.map((x, j) => j === i ? e.target.value : x))}
+                style={{ ...S.input, flex: 1 }}
+                onFocus={e => e.target.style.borderColor = "#4f6ef7"}
+                onBlur={e => e.target.style.borderColor = "#3a3d5c"} />
+              <button onClick={() => setQueries(qs => qs.filter((_, j) => j !== i))}
+                style={{ background: "none", border: "none", color: "#6860a0", cursor: "pointer", fontSize: "16px", padding: "0 4px" }}>✕</button>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={() => setQueries(qs => [...qs, ""])}
+          style={{ ...S.btnGhost, fontSize: "12px", padding: "5px 12px", marginBottom: "14px" }}>
+          + Add query
+        </button>
+
+        {/* Custom one-off query */}
+        <div style={{ marginBottom: "14px" }}>
+          <label style={S.label}>One-time search override</label>
+          <input value={customQuery} onChange={e => setCustomQuery(e.target.value)}
+            placeholder="e.g. VP Technology AI startup remote (overrides saved queries for this run)"
+            style={S.input}
+            onFocus={e => e.target.style.borderColor = "#4f6ef7"}
+            onBlur={e => e.target.style.borderColor = "#3a3d5c"} />
+        </div>
+
+        {/* Freshness */}
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <label style={{ ...S.label, margin: 0 }}>Freshness</label>
+          <div style={{ display: "flex", gap: "6px" }}>
+            {[1, 3, 7, 14].map(d => (
+              <button key={d} onClick={() => setDays(d)}
+                style={{ ...S.btnGhost, fontSize: "12px", padding: "5px 12px",
+                  background: days === d ? "rgba(79,110,247,0.2)" : "transparent",
+                  color: days === d ? "#8aacff" : "#6860a0",
+                  borderColor: days === d ? "#4f6ef7" : "#3a3d5c" }}>
+                {d}d
+              </button>
+            ))}
+          </div>
+          <span style={{ fontSize: "12px", color: "#4a4868", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+            Jobs posted in last {days} day{days > 1 ? "s" : ""}
+          </span>
+        </div>
+      </div>
+
+      {/* Run button */}
+      <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "28px" }}>
+        <button onClick={runSearch} disabled={running || apiLocked}
+          style={{ ...S.btn, opacity: running || apiLocked ? 0.6 : 1, display: "flex", alignItems: "center", gap: "8px", padding: "12px 28px" }}>
+          {running ? <><Spinner />Running…</> : "🔍 Search Jobs"}
+        </button>
+        {runStatus && (
+          <div style={{ fontSize: "13px", color: runStatus === "error" ? "#f87171" : "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif", display: "flex", alignItems: "center", gap: "6px" }}>
+            {running && <Spinner size={12} />}
+            {statusLabel}
+          </div>
+        )}
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div style={{ color: "#f87171", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px", marginBottom: "16px", padding: "10px 14px", background: "rgba(248,113,113,0.08)", borderRadius: "6px", border: "1px solid rgba(248,113,113,0.2)" }}>
+          {error}
+        </div>
+      )}
+
+      {/* Results */}
+      {jobs.length > 0 && (
+        <div>
+          <div style={{ ...S.label, marginBottom: "16px" }}>
+            Top {jobs.length} matches — scored against your profile
+          </div>
+          {jobs.map((job, i) => (
+            <JobCard key={i} job={job} onAnalyze={(jd, title, company) => onAnalyzeJD(jd, title, company)} />
+          ))}
+        </div>
+      )}
+
+      {runStatus === "done" && jobs.length === 0 && (
+        <div style={{ textAlign: "center", padding: "40px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+          <div style={{ fontSize: "32px", marginBottom: "12px" }}>🔍</div>
+          <div style={{ fontSize: "15px", fontWeight: "600", marginBottom: "8px", color: "#9890b8" }}>No results found</div>
+          <div style={{ fontSize: "13px" }}>Try broader search terms or a longer freshness window.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROLE WORKSPACE — per-role container wrapping existing tabs
+// ─────────────────────────────────────────────────────────────────────────────
+
+function RoleWorkspace({ card, profile, stories, corrections, onUpdateCard, onUpdateCorrections, onClose }) {
+  const [activeTab, setActiveTab] = useState("Overview");
+  const [proceeded, setProceeded] = useState(false);
+  const [resumeOnly, setResumeOnly] = useState(false);
+  const [resumeDownloaded, setResumeDownloaded] = useState(false);
+  const [coverDownloaded, setCoverDownloaded] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(!card.company);
+  const [resumeBlob, setResumeBlob] = useState(null);
+  const [coverBlob, setCoverBlob] = useState(null);
+
+  const materialsComplete = resumeDownloaded && (coverDownloaded || resumeOnly);
+
+  const setJd = (jd) => onUpdateCard({ ...card, jd });
+  const setNotes = (notes) => onUpdateCard({ ...card, notes });
+
+  const workspaceTabs = [
+    { name: "Overview" },
+    { name: "Analyze JD" },
+    { name: "Resume",         dim: !proceeded && !resumeOnly },
+    { name: "Cover Letter",   dim: !resumeDownloaded },
+    { name: "Interview Prep", dim: !materialsComplete },
+    { name: "Research",       dim: !materialsComplete },
+  ];
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#0f1117", zIndex: 200, display: "flex", flexDirection: "column", overflowY: "auto" }}>
+      {/* Workspace header */}
+      <div style={{ background: "#131528", borderBottom: "1px solid #2e3050", padding: "14px 24px", position: "sticky", top: 0, zIndex: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#6860a0", cursor: "pointer", fontSize: "20px", lineHeight: 1 }}>←</button>
+          <div style={{ flex: 1 }}>
+            {editingTitle ? (
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <input defaultValue={card.title} placeholder="Role title"
+                  style={{ ...S.input, fontSize: "16px", fontWeight: "600", padding: "6px 10px", width: "200px" }}
+                  onBlur={e => { onUpdateCard({ ...card, title: e.target.value }); setEditingTitle(false); }}
+                  autoFocus />
+                <input defaultValue={card.company} placeholder="Company"
+                  style={{ ...S.input, fontSize: "14px", padding: "6px 10px", width: "160px" }}
+                  onBlur={e => onUpdateCard({ ...card, company: e.target.value })} />
+              </div>
+            ) : (
+              <div onClick={() => setEditingTitle(true)} style={{ cursor: "text" }}>
+                <div style={{ fontSize: "16px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+                  {card.title || "Untitled Role"}
+                </div>
+                <div style={{ fontSize: "13px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+                  {card.company || "Unknown Company"} · click to edit
+                </div>
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {card.fitScore && (
+              <div style={{ fontSize: "12px", color: "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+                Fit: <span style={{ color: card.fitScore >= 8 ? "#4ade80" : card.fitScore >= 6 ? "#fbbf24" : "#fb923c", fontWeight: "700" }}>{card.fitScore}/10</span>
+              </div>
+            )}
+            {/* Stage selector inside workspace */}
+            <div style={{ position: "relative" }}>
+              {STAGES.map(s => s === (card.stage || "Radar") && (
+                <select key={s} value={card.stage || "Radar"} onChange={e => onUpdateCard({ ...card, stage: e.target.value })}
+                  style={{ background: STAGE_COLORS[card.stage || "Radar"].bg, color: STAGE_COLORS[card.stage || "Radar"].text, border: `1px solid ${STAGE_COLORS[card.stage || "Radar"].border}`, borderRadius: "12px", padding: "4px 10px", fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600", cursor: "pointer", outline: "none" }}>
+                  {STAGES.map(st => <option key={st} value={st} style={{ background: "#1e2240", color: "#e8e4f8" }}>{st}</option>)}
+                </select>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Workspace tabs */}
+        <div style={{ display: "flex", gap: "2px", flexWrap: "wrap" }}>
+          {workspaceTabs.map(({ name, dim }) => {
+            const isActive = activeTab === name;
+            const done = (name === "Resume" && resumeDownloaded) || (name === "Cover Letter" && coverDownloaded);
+            return (
+              <button key={name} onClick={() => setActiveTab(name)} style={{
+                background: isActive ? "rgba(79,110,247,0.18)" : "transparent",
+                color: isActive ? "#c8d8ff" : dim ? "#4a4868" : "#9890b8",
+                border: `1px solid ${isActive ? "#4f6ef7" : "transparent"}`,
+                borderRadius: "4px 4px 0 0", padding: "6px 14px", fontSize: "12px",
+                fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer",
+                display: "flex", alignItems: "center", gap: "4px",
+              }}>
+                {name}{done && <span style={{ fontSize: "9px", color: "#4ade80" }}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Workspace content */}
+      <div style={{ padding: "28px 32px", maxWidth: "860px", paddingBottom: "60px" }}>
+
+        {activeTab === "Overview" && (
+          <div>
+            {/* Quick stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px", marginBottom: "24px" }}>
+              {[
+                { label: "Stage", value: card.stage || "Radar" },
+                { label: "Fit Score", value: card.fitScore ? `${card.fitScore}/10` : "—" },
+                { label: "Added", value: card.addedAt ? new Date(card.addedAt).toLocaleDateString() : "—" },
+                { label: "Materials", value: resumeDownloaded ? (coverDownloaded ? "Both ready" : "Resume ready") : "None yet" },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ ...S.section, padding: "14px 16px" }}>
+                  <div style={{ ...S.label, marginBottom: "6px" }}>{label}</div>
+                  <div style={{ fontSize: "16px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Drive links */}
+            {(card.resumeDriveLink || card.coverLetterDriveLink) && (
+              <div style={{ ...S.section, marginBottom: "20px" }}>
+                <div style={{ ...S.label, marginBottom: "12px" }}>Saved Documents</div>
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                  {card.resumeDriveLink && <a href={card.resumeDriveLink} target="_blank" rel="noopener noreferrer" style={{ color: "#4f6ef7", fontSize: "13px", fontFamily: "'DM Sans', system-ui, sans-serif" }}>📄 Resume in Drive ↗</a>}
+                  {card.coverLetterDriveLink && <a href={card.coverLetterDriveLink} target="_blank" rel="noopener noreferrer" style={{ color: "#4f6ef7", fontSize: "13px", fontFamily: "'DM Sans', system-ui, sans-serif" }}>✉️ Cover Letter in Drive ↗</a>}
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            <div style={{ ...S.section }}>
+              <div style={{ ...S.label, marginBottom: "10px" }}>Notes</div>
+              <textarea value={card.notes || ""} onChange={e => setNotes(e.target.value)}
+                placeholder="Recruiter contact, next steps, interview notes, anything relevant to this role…"
+                rows={6} style={{ ...S.textarea, width: "100%" }}
+                onFocus={e => e.target.style.borderColor = "#4f6ef7"}
+                onBlur={e => e.target.style.borderColor = "#3a3d5c"} />
+            </div>
+          </div>
+        )}
+
+        {activeTab === "Analyze JD" && (
+          <>
+            {card.jd && (
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "12px" }}>
+                <button onClick={() => { setJd(""); setProceeded(false); setResumeOnly(false); setResumeDownloaded(false); setCoverDownloaded(false); }}
+                  style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px" }}>✕ Clear JD</button>
+              </div>
+            )}
+            <AnalyzeTab
+              jd={card.jd || ""} setJd={setJd}
+              stories={stories} profile={profile}
+              corrections={corrections} onSaveCorrections={onUpdateCorrections}
+              onBuildResume={() => { setProceeded(true); setActiveTab("Resume"); }}
+              onResumeOnly={() => { setResumeOnly(true); setActiveTab("Resume"); }}
+              onNewJD={() => { setJd(""); setProceeded(false); setResumeOnly(false); setResumeDownloaded(false); setCoverDownloaded(false); }}
+            />
+          </>
+        )}
+
+        {activeTab === "Resume" && (
+          <ResumeTab
+            jd={card.jd || ""} setJd={setJd} resumeOnly={resumeOnly}
+            profile={profile}
+            onDownloaded={(blob) => { setResumeDownloaded(true); setResumeBlob(blob); }}
+            onSaveToDrive={async (blob) => {
+              const token = await getDriveToken();
+              if (!token) return;
+              const filename = `${(card.company || "Company").replace(/\s+/g, "_")}_${(card.title || "Role").replace(/\s+/g, "_")}_Resume.docx`;
+              const result = await saveToDrive(blob, filename, token);
+              if (result.webViewLink) onUpdateCard({ ...card, resumeDriveLink: result.webViewLink });
+            }}
+          />
+        )}
+
+        {activeTab === "Cover Letter" && (
+          <CoverLetterTab
+            jd={card.jd || ""} setJd={setJd}
+            profile={profile}
+            onDownloaded={(blob) => { setCoverDownloaded(true); setCoverBlob(blob); }}
+            onSaveToDrive={async (blob) => {
+              const token = await getDriveToken();
+              if (!token) return;
+              const filename = `${(card.company || "Company").replace(/\s+/g, "_")}_${(card.title || "Role").replace(/\s+/g, "_")}_CoverLetter.docx`;
+              const result = await saveToDrive(blob, filename, token);
+              if (result.webViewLink) onUpdateCard({ ...card, coverLetterDriveLink: result.webViewLink });
+            }}
+          />
+        )}
+
+        {activeTab === "Interview Prep" && (
+          <InterviewPrepTab jd={card.jd || ""} setJd={setJd} stories={stories} profile={profile} />
+        )}
+
+        {activeTab === "Research" && (
+          <ResearchTab company={card.company || ""} triggered={true} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROFILE TAB — contact editing, resume, Gmail/Drive, corrections
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ProfileTab({ profile, onUpdateProfile, saveJD, setSaveJD, corrections, onUpdateCorrections, user, logout, stories }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...profile });
   const [reupload, setReupload] = useState(false);
-  const [driveConnected, setDriveConnected] = useState(
-    !!localStorage.getItem("cf:google_token:drive")
-  );
-  const [gmailConnected, setGmailConnected] = useState(
-    !!localStorage.getItem("cf:google_token:gmail")
-  );
+  const [driveConnected, setDriveConnected] = useState(!!localStorage.getItem("cf:google_token:drive"));
+  const [gmailConnected, setGmailConnected] = useState(!!localStorage.getItem("cf:google_token:gmail"));
 
   const field = (key, label) => (
     <div style={{ marginBottom: "14px" }}>
@@ -2044,48 +2897,35 @@ function ProfileTab({ profile, onUpdateProfile, saveJD, setSaveJD, corrections, 
   );
 
   const connectGoogle = (scopeKey, scope, onConnected) => {
-    if (!window.google?.accounts?.oauth2) {
-      alert("Google services not loaded. Make sure VITE_GOOGLE_CLIENT_ID is set in Netlify environment variables.");
-      return;
-    }
+    if (!window.google?.accounts?.oauth2) { alert("Google services not loaded. Check VITE_GOOGLE_CLIENT_ID in Netlify env vars."); return; }
     const client = window.google.accounts.oauth2.initTokenClient({
       client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "",
       scope,
-      callback: (response) => {
-        if (response.access_token) {
-          localStorage.setItem(`cf:google_token:${scopeKey}`, response.access_token);
-          onConnected(true);
-        }
-      }
+      callback: (r) => { if (r.access_token) { localStorage.setItem(`cf:google_token:${scopeKey}`, r.access_token); onConnected(true); } }
     });
     client.requestAccessToken();
   };
 
   return (
-    <div>
-      {/* Account summary */}
-      <div style={{ ...S.section, marginBottom: "24px", display: "flex", alignItems: "center", gap: "16px" }}>
-        {user?.user_metadata?.avatar_url && (
-          <img src={user.user_metadata.avatar_url} alt="" style={{ width: "52px", height: "52px", borderRadius: "50%", border: "2px solid #3a3d5c", flexShrink: 0 }} />
-        )}
+    <div style={{ padding: "24px" }}>
+      {/* Account */}
+      <div style={{ ...S.section, marginBottom: "20px", display: "flex", alignItems: "center", gap: "16px" }}>
+        {user?.user_metadata?.avatar_url && <img src={user.user_metadata.avatar_url} alt="" style={{ width: "50px", height: "50px", borderRadius: "50%", border: "2px solid #3a3d5c" }} />}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: "17px", fontWeight: "600", color: "#e8e4f8", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>{profile.name || profile.displayName}</div>
-          <div style={{ fontSize: "13px", color: "#6860a0", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginTop: "2px" }}>{user?.email}</div>
-          <div style={{ fontSize: "12px", color: "#4a4868", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginTop: "4px" }}>
-            {stories.length} stories · {starredCount} starred
-            {profile.resumeUploaded && <span style={{ color: "#4ade80", marginLeft: "12px" }}>✓ Resume uploaded</span>}
+          <div style={{ fontSize: "16px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{profile.name || user?.email}</div>
+          <div style={{ fontSize: "13px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{user?.email}</div>
+          <div style={{ fontSize: "12px", color: "#4a4868", fontFamily: "'DM Sans', system-ui, sans-serif", marginTop: "2px" }}>
+            {stories.length} stories{profile.resumeUploaded && <span style={{ color: "#4ade80", marginLeft: "10px" }}>✓ Resume uploaded</span>}
           </div>
         </div>
-        <button onClick={logout} style={{ ...S.btnGhost, fontSize: "12px", padding: "6px 14px", color: "#f87171", borderColor: "#6a2a2a" }}>Sign out</button>
+        <button onClick={logout} style={{ ...S.btnGhost, fontSize: "12px", color: "#f87171", borderColor: "#6a2a2a" }}>Sign out</button>
       </div>
 
-      {/* Contact info */}
-      <div style={{ ...S.section, marginBottom: "24px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+      {/* Contact */}
+      <div style={{ ...S.section, marginBottom: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
           <div style={{ ...S.label, margin: 0 }}>Contact Information</div>
-          <button onClick={() => { setEditing(!editing); setForm({ ...profile }); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px" }}>
-            {editing ? "Cancel" : "Edit"}
-          </button>
+          <button onClick={() => { setEditing(!editing); setForm({ ...profile }); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px" }}>{editing ? "Cancel" : "Edit"}</button>
         </div>
         {editing ? (
           <>
@@ -2098,10 +2938,10 @@ function ProfileTab({ profile, onUpdateProfile, saveJD, setSaveJD, corrections, 
               <div>{field("website", "Website")}</div>
             </div>
             {field("title", "Professional Title")}
-            <button onClick={() => { onUpdateProfile(form); setEditing(false); }} style={S.btn}>Save Changes</button>
+            <button onClick={() => { onUpdateProfile(form); setEditing(false); }} style={S.btn}>Save</button>
           </>
         ) : (
-          <div style={{ fontFamily: "\'DM Sans\', system-ui, sans-serif", fontSize: "13px", lineHeight: "2" }}>
+          <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px", lineHeight: "2.2" }}>
             {[["Name", profile.name], ["Phone", profile.phone], ["Email", profile.email], ["Address", profile.address], ["LinkedIn", profile.linkedin], ["Website", profile.website]].map(([l, v]) => (
               <div key={l} style={{ display: "flex", gap: "16px" }}>
                 <span style={{ color: "#6860a0", width: "80px", flexShrink: 0 }}>{l}</span>
@@ -2113,97 +2953,69 @@ function ProfileTab({ profile, onUpdateProfile, saveJD, setSaveJD, corrections, 
       </div>
 
       {/* Resume */}
-      <div style={{ ...S.section, marginBottom: "24px" }}>
+      <div style={{ ...S.section, marginBottom: "20px" }}>
         <div style={{ ...S.label, marginBottom: "12px" }}>Resume Baseline</div>
         {profile.resumeUploaded ? (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: reupload ? "16px" : 0 }}>
             <div>
-              <div style={{ fontSize: "13px", color: "#4ade80", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginBottom: "4px" }}>✓ Resume uploaded</div>
-              <div style={{ fontSize: "12px", color: "#6860a0", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>{(profile.resumeText?.length || 0).toLocaleString()} characters · used as baseline for all tailoring</div>
+              <div style={{ fontSize: "13px", color: "#4ade80", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "2px" }}>✓ Resume uploaded</div>
+              <div style={{ fontSize: "12px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{(profile.resumeText?.length || 0).toLocaleString()} characters</div>
             </div>
-            <button onClick={() => setReupload(!reupload)} style={{ ...S.btnGhost, fontSize: "12px", padding: "6px 14px" }}>
-              {reupload ? "Cancel" : "Replace"}
-            </button>
+            <button onClick={() => setReupload(!reupload)} style={{ ...S.btnGhost, fontSize: "12px" }}>{reupload ? "Cancel" : "Replace"}</button>
           </div>
         ) : (
-          <div style={{ fontSize: "13px", color: "#fb923c", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginBottom: "16px" }}>
-            ⚠ No resume uploaded — tailoring outputs will use a generic baseline and may be missing your contact info.
-          </div>
+          <div style={{ fontSize: "13px", color: "#fb923c", marginBottom: "12px" }}>⚠ No resume uploaded</div>
         )}
         {(!profile.resumeUploaded || reupload) && (
-          <div style={{ marginTop: "16px" }}>
+          <div style={{ marginTop: "12px" }}>
             <ResumeUploadGate profile={profile} onComplete={p => { onUpdateProfile(p); setReupload(false); }} onSkip={() => setReupload(false)} />
           </div>
         )}
       </div>
 
-      {/* Google integrations */}
-      <div style={{ ...S.section, marginBottom: "24px" }}>
-        <div style={{ ...S.label, marginBottom: "16px" }}>Integrations</div>
-
+      {/* Integrations */}
+      <div style={{ ...S.section, marginBottom: "20px" }}>
+        <div style={{ ...S.label, marginBottom: "14px" }}>Integrations</div>
         {[
-          {
-            key: "drive", icon: "📁", name: "Google Drive",
-            desc: driveConnected ? "✓ Connected — save resumes and cover letters directly to Drive" : "Save DOCX outputs directly to your Google Drive",
-            scope: "https://www.googleapis.com/auth/drive.file",
-            connected: driveConnected, setConnected: setDriveConnected
-          },
-          {
-            key: "gmail", icon: "✉️", name: "Gmail",
-            desc: gmailConnected ? "✓ Connected — recruiter thread detection enabled" : "Detect recruiter emails, draft follow-ups, flag stale threads",
-            scope: "https://www.googleapis.com/auth/gmail.readonly",
-            connected: gmailConnected, setConnected: setGmailConnected
-          }
+          { key: "drive", icon: "📁", name: "Google Drive", desc: driveConnected ? "✓ Connected — save documents directly to Drive" : "Save resumes and cover letters to your Drive", scope: "https://www.googleapis.com/auth/drive.file", connected: driveConnected, setConnected: setDriveConnected },
+          { key: "gmail", icon: "✉️", name: "Gmail", desc: gmailConnected ? "✓ Connected — recruiter detection enabled" : "Detect recruiter emails and draft follow-ups", scope: "https://www.googleapis.com/auth/gmail.readonly", connected: gmailConnected, setConnected: setGmailConnected },
         ].map(({ key, icon, name, desc, scope, connected, setConnected }) => (
           <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", background: "#1e2240", borderRadius: "8px", marginBottom: "10px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <span style={{ fontSize: "22px" }}>{icon}</span>
+              <span style={{ fontSize: "20px" }}>{icon}</span>
               <div>
-                <div style={{ fontSize: "14px", fontWeight: "600", color: "#e8e4f8", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>{name}</div>
-                <div style={{ fontSize: "12px", color: connected ? "#4ade80" : "#6860a0", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>{desc}</div>
+                <div style={{ fontSize: "14px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{name}</div>
+                <div style={{ fontSize: "12px", color: connected ? "#4ade80" : "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{desc}</div>
               </div>
             </div>
-            <button
-              onClick={() => !connected && connectGoogle(key, scope, setConnected)}
+            <button onClick={() => !connected && connectGoogle(key, scope, setConnected)}
               style={{ ...S.btn, padding: "7px 16px", fontSize: "12px", background: connected ? "#1a3a1a" : "#4f6ef7", cursor: connected ? "default" : "pointer" }}>
               {connected ? "Connected ✓" : "Connect"}
             </button>
           </div>
         ))}
-
-        {!import.meta.env.VITE_GOOGLE_CLIENT_ID && (
-          <div style={{ marginTop: "10px", fontSize: "12px", color: "#8a6040", fontFamily: "\'DM Sans\', system-ui, sans-serif", padding: "10px 14px", background: "rgba(251,191,36,0.06)", borderRadius: "6px", border: "1px solid rgba(251,191,36,0.2)" }}>
-            ⚠ Add <code>VITE_GOOGLE_CLIENT_ID</code> to Netlify environment variables to enable Drive and Gmail.
-          </div>
-        )}
       </div>
 
       {/* Preferences */}
-      <div style={{ ...S.section, marginBottom: "24px" }}>
-        <div style={{ ...S.label, marginBottom: "14px" }}>Preferences</div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <button onClick={() => setSaveJD(!saveJD)} style={{ background: saveJD ? "rgba(79,110,247,0.2)" : "rgba(255,255,255,0.03)", border: `1px solid ${saveJD ? "#4f6ef7" : "#3a3d5c"}`, borderRadius: "6px", padding: "7px 14px", fontSize: "13px", fontFamily: "\'DM Sans\', system-ui, sans-serif", cursor: "pointer", color: saveJD ? "#8aacff" : "#6860a0" }}>
-            {saveJD ? "💾 JD saved across sessions" : "💾 JD not saved"}
-          </button>
-          <span style={{ fontSize: "12px", color: "#4a4868", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>Toggle to control whether your JD persists between visits</span>
-        </div>
+      <div style={{ ...S.section, marginBottom: "20px" }}>
+        <div style={{ ...S.label, marginBottom: "12px" }}>Preferences</div>
+        <button onClick={() => setSaveJD(!saveJD)} style={{ ...S.btnGhost, fontSize: "13px", background: saveJD ? "rgba(79,110,247,0.15)" : "transparent", color: saveJD ? "#8aacff" : "#6860a0", borderColor: saveJD ? "#4f6ef7" : "#3a3d5c" }}>
+          {saveJD ? "💾 JD saved across sessions" : "💾 JD not saved"}
+        </button>
       </div>
 
       {/* Corrections */}
       {Object.keys(corrections).length > 0 && (
-        <div style={{ ...S.section, marginBottom: "24px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+        <div style={{ ...S.section }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
             <div style={{ ...S.label, margin: 0 }}>Saved Corrections ({Object.keys(corrections).length})</div>
-            <button onClick={() => { if (window.confirm("Clear all corrections?")) onUpdateCorrections({}); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px", color: "#f87171", borderColor: "#6a2a2a" }}>Clear all</button>
-          </div>
-          <div style={{ fontSize: "12px", color: "#6860a0", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginBottom: "12px" }}>
-            These are injected into every JD analysis — these gaps will never be flagged again.
+            <button onClick={() => { if (window.confirm("Clear all?")) onUpdateCorrections({}); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "3px 8px", color: "#f87171", borderColor: "#6a2a2a" }}>Clear all</button>
           </div>
           {Object.entries(corrections).map(([title, correction]) => (
-            <div key={title} style={{ background: "rgba(251,191,36,0.04)", border: "1px solid rgba(251,191,36,0.15)", borderRadius: "6px", padding: "10px 14px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+            <div key={title} style={{ background: "rgba(251,191,36,0.04)", border: "1px solid rgba(251,191,36,0.15)", borderRadius: "6px", padding: "10px 14px", marginBottom: "8px", display: "flex", justifyContent: "space-between", gap: "12px" }}>
               <div>
-                <div style={{ fontSize: "12px", fontWeight: "600", color: "#c8b890", fontFamily: "\'DM Sans\', system-ui, sans-serif", marginBottom: "3px" }}>{title}</div>
-                <div style={{ fontSize: "11px", color: "#7a6a50", fontFamily: "\'DM Sans\', system-ui, sans-serif" }}>{correction}</div>
+                <div style={{ fontSize: "12px", fontWeight: "600", color: "#c8b890", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{title}</div>
+                <div style={{ fontSize: "11px", color: "#7a6a50", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{correction}</div>
               </div>
               <button onClick={() => { const u = { ...corrections }; delete u[title]; onUpdateCorrections(u); }} style={{ background: "none", border: "none", color: "#6a3a3a", cursor: "pointer", fontSize: "14px" }}>✕</button>
             </div>
@@ -2214,104 +3026,106 @@ function ProfileTab({ profile, onUpdateProfile, saveJD, setSaveJD, corrections, 
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM NAV — mobile navigation
+// ─────────────────────────────────────────────────────────────────────────────
+
+function BottomNav({ active, onSelect }) {
+  const items = [
+    { id: "board",  icon: "⊞", label: "Board" },
+    { id: "search", icon: "🔍", label: "Search" },
+    { id: "stories",icon: "📖", label: "Stories" },
+    { id: "profile",icon: "⚙",  label: "Profile" },
+  ];
+  return (
+    <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#131528", borderTop: "1px solid #2e3050", display: "flex", zIndex: 50 }}>
+      {items.map(({ id, icon, label }) => (
+        <button key={id} onClick={() => onSelect(id)}
+          style={{ flex: 1, background: "none", border: "none", padding: "10px 0 8px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
+          <span style={{ fontSize: "20px" }}>{icon}</span>
+          <span style={{ fontSize: "10px", fontFamily: "'DM Sans', system-ui, sans-serif", color: active === id ? "#8aacff" : "#4a4868", fontWeight: active === id ? "700" : "400" }}>{label}</span>
+          {active === id && <div style={{ width: "20px", height: "2px", background: "#4f6ef7", borderRadius: "1px" }} />}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN APP
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function CareerForge() {
-  const { user, authLoading, login, logout } = useNetlifyAuth();
-  const [activeTab, setActiveTab] = useState("My Stories");
+  const { user, authLoading, logout } = useNetlifyAuth();
   const [loaded, setLoaded] = useState(false);
+  const [activeScreen, setActiveScreen] = useState("board"); // board | search | stories | profile
+  const [openCardId, setOpenCardId] = useState(null);
   const [saveJD, setSaveJD] = useState(true);
+  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
-  // Storage key scoped to logged-in user so data is private
+  // User-keyed storage
   const userKey = user?.email ? `cf:${user.email}` : "cf:local";
 
-  // Single profile per login — no multi-profile switcher needed with auth
-  const [profile, setProfile] = useState(SEED_PROFILES.scott);
+  // App state
+  const [profile, setProfile] = useState(DEFAULT_PROFILE);
+  const [cards, setCards] = useState([]); // application cards
   const [stories, setStories] = useState([]);
   const [corrections, setCorrections] = useState({});
-  const [jd, setJd] = useState("");
-  const [showUploadGate, setShowUploadGate] = useState(false);
 
-  // Flow gates
-  const [proceeded, setProceeded] = useState(false);
-  const [resumeOnly, setResumeOnly] = useState(false);
-  const [resumeDownloaded, setResumeDownloaded] = useState(false);
-  const [coverDownloaded, setCoverDownloaded] = useState(false);
-  const [researchCompany, setResearchCompany] = useState("");
-  const [researchTriggered, setResearchTriggered] = useState(false);
-
-  const materialsComplete = resumeDownloaded && (coverDownloaded || resumeOnly);
   const sessionCost = useSessionCost();
   const apiLocked = useApiLock();
 
-  // Load data when user is known
+  // Load on auth
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) { setLoaded(false); return; }
-
-    const p  = storageGet(`${userKey}:profile`);
-    const s  = storageGet(`${userKey}:stories`);
-    const c  = storageGet(`${userKey}:corrections`);
-    const j  = storageGet(`${userKey}:jd`);
+    if (authLoading || !user) { setLoaded(false); return; }
+    const p = storageGet(`${userKey}:profile`);
+    const c = storageGet(`${userKey}:cards`);
+    const s = storageGet(`${userKey}:stories`);
+    const cr = storageGet(`${userKey}:corrections`);
     const sj = storageGet(`${userKey}:saveJD`);
 
     if (p) setProfile(p);
-    else {
-      // First login — seed with user's name from Google
-      const seeded = {
-        ...SEED_PROFILES.scott,
-        name: user.user_metadata?.full_name || user.email.split("@")[0],
-        email: user.email,
-        displayName: user.user_metadata?.full_name || user.email,
-      };
-      setProfile(seeded);
-    }
+    else setProfile({ ...DEFAULT_PROFILE, name: user.user_metadata?.full_name || user.email.split("@")[0], email: user.email, displayName: user.user_metadata?.full_name || user.email });
+    if (c) setCards(c);
     if (s) setStories(s);
-    else setStories(SEED_STORIES_BY_PROFILE.scott);
-    if (c) setCorrections(c);
-    if (j && (sj !== false)) setJd(j);
+    if (cr) setCorrections(cr);
     setSaveJD(sj !== null ? sj : true);
     setLoaded(true);
-
-    // Show upload gate if no resume yet
-    if (!p?.resumeUploaded) setShowUploadGate(true);
   }, [user, authLoading]);
 
-  // Persist on change
+  // Persist
   useEffect(() => { if (loaded && user) storageSet(`${userKey}:profile`, profile); }, [profile, loaded]);
+  useEffect(() => { if (loaded && user) storageSet(`${userKey}:cards`, cards); }, [cards, loaded]);
   useEffect(() => { if (loaded && user) storageSet(`${userKey}:stories`, stories); }, [stories, loaded]);
   useEffect(() => { if (loaded && user) storageSet(`${userKey}:corrections`, corrections); }, [corrections, loaded]);
   useEffect(() => { if (loaded && user) storageSet(`${userKey}:saveJD`, saveJD); }, [saveJD, loaded]);
-  useEffect(() => {
-    if (loaded && user && saveJD) storageSet(`${userKey}:jd`, jd);
-  }, [jd, loaded, saveJD]);
 
-  useEffect(() => { if (resumeDownloaded && !coverDownloaded && !resumeOnly) setActiveTab("Cover Letter"); }, [resumeDownloaded]);
-
-  const handleNewJD = () => {
-    setJd(""); setProceeded(false); setResumeOnly(false);
-    setResumeDownloaded(false); setCoverDownloaded(false);
-    setResearchTriggered(false); setResearchCompany("");
-    setActiveTab("Analyze JD");
+  // Card operations
+  const addCard = (cardData) => {
+    const newCard = { id: generateId(), stage: "Radar", addedAt: Date.now(), ...cardData };
+    setCards(prev => [newCard, ...prev]);
+    return newCard.id;
   };
 
-  const handleUpdateProfile = (updated) => {
-    setProfile(updated);
-    if (updated.resumeUploaded) setShowUploadGate(false);
+  const updateCard = (updated) => setCards(prev => prev.map(c => c.id === updated.id ? updated : c));
+  const updateStage = (id, stage) => setCards(prev => prev.map(c => c.id === id ? { ...c, stage } : c));
+
+  const handleAnalyzeFromSearch = (jdText, title, company) => {
+    // Find existing card or create new one
+    const existing = cards.find(c => c.company?.toLowerCase() === company?.toLowerCase() && c.title?.toLowerCase() === title?.toLowerCase());
+    if (existing) {
+      updateCard({ ...existing, jd: jdText });
+      setOpenCardId(existing.id);
+    } else {
+      const id = addCard({ title, company, jd: jdText, stage: "Radar" });
+      setOpenCardId(id);
+    }
+    setActiveScreen("board");
   };
 
-  const tabConfig = [
-    { name: "Analyze JD",     status: "ready" },
-    { name: "Resume",         status: proceeded || resumeOnly ? "active" : "suggested" },
-    { name: "Cover Letter",   status: coverDownloaded ? "done" : resumeDownloaded ? "active" : "suggested" },
-    { name: "My Stories",     status: "ready" },
-    { name: "Interview Prep", status: materialsComplete ? "active" : "suggested" },
-    { name: "Research",       status: materialsComplete ? "active" : "suggested" },
-    { name: "Profile",        status: "ready" },
-  ];
+  const openCard = cards.find(c => c.id === openCardId);
 
-  const starredCount = stories.filter(s => s.starred).length;
-
-  // ── Show login gate if not authenticated ──────────────────────────────
+  // Auth loading
   if (authLoading) {
     return (
       <div style={{ minHeight: "100vh", background: "#0f1117", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -2324,129 +3138,93 @@ export default function CareerForge() {
 
   if (!user) return <LoginGate />;
 
+  // Role workspace overlay
+  if (openCardId && openCard) {
+    return (
+      <RoleWorkspace
+        card={openCard}
+        profile={profile}
+        stories={stories}
+        corrections={corrections}
+        onUpdateCard={updateCard}
+        onUpdateCorrections={setCorrections}
+        onClose={() => setOpenCardId(null)}
+      />
+    );
+  }
+
   return (
-    <div style={{ minHeight: "100vh", background: "#0f1117", color: "#e8e4f8", fontFamily: "Georgia, 'Times New Roman', serif", display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: "100vh", background: "#0f1117", color: "#e8e4f8", display: "flex", flexDirection: "column", paddingBottom: isMobile ? "60px" : 0 }}>
 
       {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, #131528 0%, #181a30 100%)", borderBottom: "1px solid #2e3050", padding: "16px 40px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: "12px" }}>
-              <span style={{ fontSize: "20px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "-0.5px" }}>CareerForge</span>
-              <span style={{ fontSize: "10px", letterSpacing: "3px", color: "#4f6ef7", textTransform: "uppercase", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600" }}>Job Search Intelligence</span>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-            {sessionCost > 0 && <span style={{ fontSize: "11px", color: "#8880b8" }}>~${sessionCost.toFixed(4)} session</span>}
-            {apiLocked && <div style={{ fontSize: "11px", color: "#fbbf24", display: "flex", alignItems: "center", gap: "6px" }}><Spinner size={10} />AI running…</div>}
-            {(proceeded || resumeOnly) && (
-              <button onClick={handleNewJD} style={{ background: "transparent", border: "1px solid #3a3d5c", color: "#8880b8", borderRadius: "4px", padding: "5px 12px", fontSize: "11px", cursor: "pointer" }}>↺ New Application</button>
-            )}
-            {/* User avatar + sign out */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              {user.user_metadata?.avatar_url && (
-                <img src={user.user_metadata.avatar_url} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", border: "1px solid #3a3d5c" }} />
-              )}
-              <span style={{ fontSize: "12px", color: "#6860a0" }}>{user.email}</span>
-              <button onClick={logout} style={{ background: "transparent", border: "1px solid #3a3d5c", color: "#6860a0", borderRadius: "4px", padding: "4px 10px", fontSize: "11px", cursor: "pointer" }}>Sign out</button>
-            </div>
-          </div>
+      <div style={{ background: "#131528", borderBottom: "1px solid #2e3050", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
+          <span style={{ fontSize: "18px", fontWeight: "800", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "-0.5px" }}>CareerForge</span>
+          <span style={{ fontSize: "10px", letterSpacing: "3px", color: "#4f6ef7", textTransform: "uppercase", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600" }}>Beta</span>
         </div>
-
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: "4px", marginTop: "16px", flexWrap: "wrap" }}>
-          {tabConfig.map(({ name, status }) => {
-            const isActive = activeTab === name;
-            const done = (name === "Resume" && resumeDownloaded) || (name === "Cover Letter" && coverDownloaded);
-            return (
-              <button key={name} onClick={() => setActiveTab(name)} style={{
-                background: isActive ? "rgba(79,110,247,0.18)" : "transparent",
-                color: isActive ? "#c8d8ff" : status === "suggested" ? "#5a5878" : "#a8a0c8",
-                border: `1px solid ${isActive ? "#4f6ef7" : "transparent"}`,
-                borderBottom: isActive ? "1px solid #0f1117" : "1px solid transparent",
-                borderRadius: "4px 4px 0 0", padding: "7px 14px", fontSize: "12px",
-                fontFamily: "'DM Sans', system-ui, sans-serif",
-                cursor: "pointer", marginBottom: isActive ? "-1px" : "0",
-                display: "flex", alignItems: "center", gap: "4px",
-              }}>
-                {name}
-                {done && <span style={{ fontSize: "9px", color: "#4ade80" }}>✓</span>}
-                {name === "Profile" && <span style={{ fontSize: "10px", opacity: 0.5 }}>⚙</span>}
-              </button>
-            );
-          })}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {sessionCost > 0 && <span style={{ fontSize: "11px", color: "#4a4868" }}>~${sessionCost.toFixed(4)}</span>}
+          {apiLocked && <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#fbbf24" }}><Spinner size={10} />Running…</div>}
+          {!isMobile && (
+            <div style={{ display: "flex", gap: "4px" }}>
+              {[["board","Board"], ["search","Search"], ["stories","Stories"], ["profile","Profile"]].map(([id, label]) => (
+                <button key={id} onClick={() => setActiveScreen(id)}
+                  style={{ ...S.btnGhost, fontSize: "12px", padding: "5px 12px", background: activeScreen === id ? "rgba(79,110,247,0.15)" : "transparent", color: activeScreen === id ? "#8aacff" : "#6860a0", borderColor: activeScreen === id ? "#4f6ef7" : "transparent" }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {user.user_metadata?.avatar_url && <img src={user.user_metadata.avatar_url} alt="" style={{ width: "28px", height: "28px", borderRadius: "50%", border: "1px solid #3a3d5c", cursor: "pointer" }} onClick={() => setActiveScreen("profile")} />}
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{ padding: "32px 40px", maxWidth: "900px", paddingBottom: "60px" }}>
+      {/* Main content */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "auto" }}>
         {!loaded ? (
-          <div style={{ color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", display: "flex", alignItems: "center", gap: "10px" }}><Spinner />Loading…</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", gap: "10px" }}>
+            <Spinner />Loading your workspace…
+          </div>
         ) : (
           <>
-            {/* Upload gate inline */}
-            {showUploadGate && activeTab !== "Profile" && (
-              <div style={{ marginBottom: "28px" }}>
-                <div style={{ background: "rgba(79,110,247,0.08)", border: "1px solid rgba(79,110,247,0.3)", borderRadius: "10px", padding: "20px 24px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
-                    <div style={{ fontSize: "15px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>Upload your resume to get started</div>
-                    <button onClick={() => setShowUploadGate(false)} style={{ background: "none", border: "none", color: "#6860a0", cursor: "pointer", fontSize: "18px" }}>✕</button>
-                  </div>
-                  <ResumeUploadGate profile={profile} onComplete={handleUpdateProfile} onSkip={() => setShowUploadGate(false)} />
-                </div>
-              </div>
-            )}
-
-            {/* No-resume warning */}
-            {!profile.resumeUploaded && !showUploadGate && (activeTab === "Resume" || activeTab === "Cover Letter") && (
-              <div style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: "6px", padding: "12px 16px", marginBottom: "20px", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "13px", color: "#fbbf24", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>⚠ No resume uploaded — outputs will use a generic baseline.</span>
-                <button onClick={() => setShowUploadGate(true)} style={{ background: "none", border: "none", color: "#fbbf24", cursor: "pointer", fontSize: "12px", textDecoration: "underline" }}>Upload now</button>
-              </div>
-            )}
-
-            {activeTab === "Analyze JD" && (
-              <AnalyzeTab
-                jd={jd} setJd={setJd} stories={stories} profile={profile}
-                corrections={corrections} onSaveCorrections={setCorrections}
-                onBuildResume={company => { setResearchCompany(company); setResearchTriggered(true); setProceeded(true); setActiveTab("Resume"); }}
-                onResumeOnly={company => { setResearchCompany(company); setResumeOnly(true); setActiveTab("Resume"); }}
-                onNewJD={handleNewJD}
+            {activeScreen === "board" && (
+              <Board
+                cards={cards}
+                onOpenCard={setOpenCardId}
+                onStageChange={updateStage}
+                onAddCard={addCard}
+                onOpenSearch={() => setActiveScreen("search")}
               />
             )}
-            {activeTab === "Resume" && (
-              <ResumeTab jd={jd} setJd={setJd} resumeOnly={resumeOnly} onDownloaded={() => setResumeDownloaded(true)} profile={profile} />
+            {activeScreen === "search" && (
+              <div style={{ padding: "24px", maxWidth: "860px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+                  <button onClick={() => setActiveScreen("board")} style={{ background: "none", border: "none", color: "#6860a0", cursor: "pointer", fontSize: "18px" }}>←</button>
+                  <div style={{ fontSize: "20px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>Job Search</div>
+                </div>
+                <JobSearchTab profile={profile} onAnalyzeJD={handleAnalyzeFromSearch} />
+              </div>
             )}
-            {activeTab === "Cover Letter" && (
-              <CoverLetterTab jd={jd} setJd={setJd} onDownloaded={() => setCoverDownloaded(true)} profile={profile} />
+            {activeScreen === "stories" && (
+              <div style={{ padding: "24px", maxWidth: "860px" }}>
+                <MyStoriesTab profile={profile} stories={stories} setStories={setStories} />
+              </div>
             )}
-            {activeTab === "My Stories" && (
-              <MyStoriesTab profile={profile} stories={stories} setStories={setStories} />
-            )}
-            {activeTab === "Interview Prep" && (
-              <InterviewPrepTab jd={jd} setJd={setJd} stories={stories} profile={profile} />
-            )}
-            {activeTab === "Research" && (
-              <ResearchTab company={researchCompany} triggered={researchTriggered} />
-            )}
-            {activeTab === "Profile" && (
+            {activeScreen === "profile" && (
               <ProfileTab
-                profile={profile}
-                onUpdateProfile={handleUpdateProfile}
-                saveJD={saveJD}
-                setSaveJD={setSaveJD}
-                corrections={corrections}
-                onUpdateCorrections={setCorrections}
-                user={user}
-                logout={logout}
+                profile={profile} onUpdateProfile={setProfile}
+                saveJD={saveJD} setSaveJD={setSaveJD}
+                corrections={corrections} onUpdateCorrections={setCorrections}
+                user={user} logout={logout}
                 stories={stories}
-                starredCount={starredCount}
               />
             )}
           </>
         )}
       </div>
+
+      {/* Mobile bottom nav */}
+      {isMobile && <BottomNav active={activeScreen} onSelect={setActiveScreen} />}
     </div>
   );
 }
