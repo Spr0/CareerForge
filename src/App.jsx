@@ -646,6 +646,7 @@ Score all jobs. No preamble.`,
 }
 
 function JobResultCard({ job, onAnalyze }) {
+  const [fetchingJD, setFetchingJD] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const score = job.fitScore || 0;
   const scoreColor = score >= 8 ? "#4ade80" : score >= 6 ? "#fbbf24" : score >= 4 ? "#fb923c" : "#f87171";
@@ -682,7 +683,56 @@ function JobResultCard({ job, onAnalyze }) {
             </div>
             <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
               {url && <a href={url} target="_blank" rel="noopener noreferrer" style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px", textDecoration: "none" }}>Apply ↗</a>}
-              <button onClick={() => onAnalyze(jdText, title, company, job.fitScore, job.fitReason)} style={{ ...S.btn, fontSize: "11px", padding: "4px 12px" }}>Analyze</button>
+              <button
+                onClick={async () => {
+                  // If we already have a substantial JD, use it directly
+                  if (jdText && jdText.length > 400) {
+                    onAnalyze(jdText, title, company, job.fitScore, job.fitReason);
+                    return;
+                  }
+                  // Otherwise fetch full JD via Apify
+                  if (!url) { onAnalyze(jdText, title, company, job.fitScore, job.fitReason); return; }
+                  setFetchingJD(true);
+                  try {
+                    // Trigger single-job scrape
+                    const trigRes = await fetch("/.netlify/functions/fetchJD", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ jobUrl: url })
+                    });
+                    const { runId, datasetId } = await trigRes.json();
+
+                    // Poll Apify directly until done (single job, usually <30s)
+                    const token = import.meta.env.VITE_APIFY_TOKEN || "";
+                    let fullJD = jdText;
+                    for (let i = 0; i < 12; i++) {
+                      await new Promise(r => setTimeout(r, 6000));
+                      try {
+                        const st = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${token}`);
+                        const sd = await st.json();
+                        const done = ["SUCCEEDED","FAILED","ABORTED"].includes(sd?.data?.status);
+                        if (done) {
+                          const dr = await fetch(`https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}&clean=true&limit=1`);
+                          const items = await dr.json();
+                          if (Array.isArray(items) && items[0]) {
+                            const j = items[0];
+                            fullJD = j.description || j.jobDescription || j.job_description || j.fullDescription || jdText;
+                          }
+                          break;
+                        }
+                      } catch {}
+                    }
+                    onAnalyze(fullJD, title, company, job.fitScore, job.fitReason);
+                  } catch (e) {
+                    onAnalyze(jdText, title, company, job.fitScore, job.fitReason);
+                  } finally {
+                    setFetchingJD(false);
+                  }
+                }}
+                disabled={fetchingJD}
+                style={{ ...S.btn, fontSize: "11px", padding: "4px 12px", opacity: fetchingJD ? 0.7 : 1, display: "flex", alignItems: "center", gap: "5px" }}>
+                {fetchingJD ? <><Spinner size={10} />Fetching JD…</> : "Analyze"}
+              </button>
             </div>
           </div>
           {job.fitReason && <div style={{ fontSize: "12px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", fontStyle: "italic", marginBottom: "4px" }}>{job.fitReason}</div>}
@@ -1148,7 +1198,7 @@ Return ONLY a JSON object:
 }
 
 
-function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuildResume, onResumeOnly, onNewJD, profile }) {
+function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuildResume, onResumeOnly, onNewJD, profile, onAddToTracker }) {
   const [parsedScore, setParsedScore] = useState(null);
   const [parsedRationale, setParsedRationale] = useState("");
   const [parsedGaps, setParsedGaps] = useState([]);
@@ -1237,7 +1287,16 @@ function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuil
             </span>
             <span style={{ fontSize: "14px", color: "#c8c4e8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{parsedRationale}</span>
           </div>
-          <span style={{ fontSize: "12px", color: "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>View details →</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {onAddToTracker && (
+              <button
+                onClick={e => { e.stopPropagation(); onAddToTracker(); }}
+                style={{ ...S.btn, fontSize: "11px", padding: "5px 12px", background: "rgba(79,110,247,0.2)", color: "#8aacff", border: "1px solid #4f6ef7" }}>
+                ＋ Add to Tracker
+              </button>
+            )}
+            <span style={{ fontSize: "12px", color: "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>View details →</span>
+          </div>
         </div>
       )}
       {reScoring && (
@@ -2695,10 +2754,10 @@ function ProfileTab({ profile, onUpdateProfile, saveJD, setSaveJD, corrections, 
 
 function BottomNav({ active, onSelect }) {
   const items = [
-    { id: "board",  icon: "⊞", label: "Board" },
-    { id: "search", icon: "🔍", label: "Search" },
-    { id: "stories",icon: "📖", label: "Stories" },
-    { id: "profile",icon: "⚙",  label: "Profile" },
+    { id: "board",   icon: "⊞", label: "Board" },
+    { id: "search",  icon: "🔍", label: "Search" },
+    { id: "stories", icon: "📖", label: "Stories" },
+    { id: "profile", icon: "⚙",  label: "Profile" },
   ];
   return (
     <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#131528", borderTop: "1px solid #2e3050", display: "flex", zIndex: 50 }}>
@@ -2734,6 +2793,7 @@ export default function CareerForge() {
   const [profile, setProfile] = useState(DEFAULT_PROFILE);
   const [cards, setCards] = useState([]); // application cards
   const [searchJobs, setSearchJobs] = useState([]); // persists search results across nav
+  const [pendingAnalysis, setPendingAnalysis] = useState(null); // jd from search, not yet on board
   const [stories, setStories] = useState([]);
   const [corrections, setCorrections] = useState({});
 
@@ -2777,38 +2837,9 @@ export default function CareerForge() {
   const removeCard = (id) => setCards(prev => prev.filter(c => c.id !== id));
 
   const handleAnalyzeFromSearch = (jdText, title, company, fitScore, fitReason) => {
-    // Check for existing card
-    const existing = cards.find(c =>
-      c.company?.toLowerCase() === company?.toLowerCase() &&
-      c.title?.toLowerCase() === title?.toLowerCase()
-    );
-
-    if (existing) {
-      // Update existing card with JD
-      const updated = { ...existing, jd: jdText, fitScore: fitScore || existing.fitScore, fitReason: fitReason || existing.fitReason };
-      updateCard(updated);
-      // Set openCardId — card already in state so find works immediately
-      setOpenCardId(existing.id);
-    } else {
-      // Build new card inline so we can set openCardId before async state settles
-      const newCard = {
-        id: generateId(),
-        stage: "Radar",
-        addedAt: Date.now(),
-        title,
-        company,
-        jd: jdText,
-        fitScore: fitScore || null,
-        fitReason: fitReason || "",
-      };
-      // Add to cards state
-      setCards(prev => [newCard, ...prev]);
-      // Open it — we pass the card directly to avoid find() race condition
-      setOpenCardId(newCard.id);
-      // Store a ref so the workspace can find it even before re-render
-      _pendingCard.current = newCard;
-    }
-    setActiveScreen("board");
+    // Set pending analysis — no card created yet, user decides to add to tracker
+    setPendingAnalysis({ jdText, title, company, fitScore, fitReason });
+    setActiveScreen("analyze");
   };
 
   // Use pendingCard as fallback until setCards async update settles
@@ -2860,7 +2891,7 @@ export default function CareerForge() {
           {apiLocked && <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", color: "#fbbf24" }}><Spinner size={10} />Running…</div>}
           {!isMobile && (
             <div style={{ display: "flex", gap: "4px" }}>
-              {[["board","Board"], ["search","Search"], ["stories","Stories"], ["profile","Profile"]].map(([id, label]) => (
+              {[["board","Board"], ["search","Search"], ["analyze","Analyze JD"], ["stories","Stories"], ["profile","Profile"]].map(([id, label]) => (
                 <button key={id} onClick={() => setActiveScreen(id)}
                   style={{ ...S.btnGhost, fontSize: "12px", padding: "5px 12px", background: activeScreen === id ? "rgba(79,110,247,0.15)" : "transparent", color: activeScreen === id ? "#8aacff" : "#6860a0", borderColor: activeScreen === id ? "#4f6ef7" : "transparent" }}>
                   {label}
@@ -2897,6 +2928,65 @@ export default function CareerForge() {
                   <div style={{ fontSize: "20px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>Job Search</div>
                 </div>
                 <JobSearchTab profile={profile} onAnalyzeJD={handleAnalyzeFromSearch} savedJobs={searchJobs} onSaveJobs={setSearchJobs} />
+              </div>
+            )}
+            {activeScreen === "analyze" && (
+              <div style={{ padding: "24px", maxWidth: "860px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+                  <button onClick={() => setActiveScreen("search")} style={{ background: "none", border: "none", color: "#6860a0", cursor: "pointer", fontSize: "18px" }}>←</button>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "20px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+                      {pendingAnalysis?.title || "Analyze JD"}
+                    </div>
+                    {pendingAnalysis?.company && (
+                      <div style={{ fontSize: "13px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{pendingAnalysis.company}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!pendingAnalysis) return;
+                      const newCard = {
+                        id: generateId(), stage: "Radar", addedAt: Date.now(),
+                        title: pendingAnalysis.title, company: pendingAnalysis.company,
+                        jd: pendingAnalysis.jdText,
+                        fitScore: pendingAnalysis.fitScore || null,
+                        fitReason: pendingAnalysis.fitReason || "",
+                      };
+                      setCards(prev => [newCard, ...prev]);
+                      _pendingCard.current = newCard;
+                      setOpenCardId(newCard.id);
+                      setActiveScreen("board");
+                    }}
+                    style={{ ...S.btn, fontSize: "12px", padding: "7px 16px" }}>
+                    ＋ Add to Tracker
+                  </button>
+                </div>
+                <AnalyzeTab
+                  jd={pendingAnalysis?.jdText || ""}
+                  setJd={(jd) => setPendingAnalysis(p => p ? { ...p, jdText: jd } : p)}
+                  stories={stories} profile={profile}
+                  corrections={corrections} onSaveCorrections={setCorrections}
+                  onAddToTracker={() => {
+                    if (!pendingAnalysis) return;
+                    const newCard = {
+                      id: generateId(), stage: "Radar", addedAt: Date.now(),
+                      title: pendingAnalysis.title, company: pendingAnalysis.company,
+                      jd: pendingAnalysis.jdText,
+                      fitScore: pendingAnalysis.fitScore || null,
+                      fitReason: pendingAnalysis.fitReason || "",
+                    };
+                    setCards(prev => {
+                      const exists = prev.find(c => c.title === newCard.title && c.company === newCard.company);
+                      return exists ? prev : [newCard, ...prev];
+                    });
+                    _pendingCard.current = newCard;
+                    setOpenCardId(newCard.id);
+                    setActiveScreen("board");
+                  }}
+                  onBuildResume={() => {}}
+                  onResumeOnly={() => {}}
+                  onNewJD={() => { setPendingAnalysis(null); setActiveScreen("search"); }}
+                />
               </div>
             )}
             {activeScreen === "stories" && (
