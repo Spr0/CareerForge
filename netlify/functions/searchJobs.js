@@ -9,25 +9,20 @@ export async function handler(event) {
   const keyword = body.keyword || "transformation director";
   const maxItems = body.maxItems || 30;
 
-  // Build the HiringCafe URL with searchState — this is what the scraper navigates to
-  const searchState = encodeURIComponent(JSON.stringify({
-    query: keyword,
-    workplaceType: "remote",
-    sortBy: "relevance"
-  }));
+  // Build Indeed search URL — remote jobs in the US
+  const indeedUrl = `https://www.indeed.com/jobs?q=${encodeURIComponent(keyword)}&l=Remote&sc=0kf%3Aattr(DSQF7)%3B&sort=date&fromage=14`;
 
   const res = await fetch(
-    `https://api.apify.com/v2/acts/shahidirfan~hiring-cafe-jobs-scraper/runs?token=${process.env.APIFY_TOKEN}`,
+    `https://api.apify.com/v2/acts/memo23~apify-indeed-cheerio-ppr/runs?token=${process.env.APIFY_TOKEN}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        startUrl: `https://hiring.cafe/?searchState=${searchState}`,
-        keyword,
-        workplaceType: "Remote",
-        results_wanted: maxItems,
-        max_pages: 3,
-        proxyConfiguration: {
+        startUrls: [{ url: indeedUrl }],
+        maxItems,
+        includeCompanyDetails: false,
+        onlyExternalJobs: false,
+        proxy: {
           useApifyProxy: true,
           apifyProxyGroups: ["RESIDENTIAL"]
         }
@@ -37,7 +32,10 @@ export async function handler(event) {
 
   const data = await res.json();
   if (!res.ok) {
-    return { statusCode: res.status, body: JSON.stringify({ error: data?.error?.message || "Apify error" }) };
+    return {
+      statusCode: res.status,
+      body: JSON.stringify({ error: data?.error?.message || "Apify error" })
+    };
   }
 
   return {
