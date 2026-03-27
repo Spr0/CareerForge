@@ -765,36 +765,43 @@ Return ONLY a JSON array of strings.`,
         if (triggerErr) throw new Error(triggerErr);
         if (!runId) throw new Error("No runId returned from searchJobs function");
 
-        // Poll for completion — Indeed scraper takes 2-4 min, allow up to 6 min
-        const datasetId = initDatasetId; // always valid from trigger
-        let succeeded = false;
-        for (let attempt = 0; attempt < 90; attempt++) { // 90 × 4s = 6 min
-          const elapsed_s = (attempt + 1) * 4;
-          setStatus(`Scraping Indeed… ${elapsed_s}s — usually 2–4 min, please wait`);
-          await new Promise(r => setTimeout(r, 6000));
+        // Incremental fetch — read dataset every 15s while run is in progress
+        const datasetId = initDatasetId;
+        let lastCount = 0;
+        let runDone = false;
+
+        for (let attempt = 0; attempt < 40; attempt++) { // max 10 min
+          await new Promise(r => setTimeout(r, 15000));
+          const elapsed_s = (attempt + 1) * 15;
+
+          // Check if run finished
           try {
-            const pollRes = await fetch(`/.netlify/functions/fetchJobs?runId=${runId}`);
-            const pollText = await pollRes.text();
-            if (pollRes.ok && !pollText.startsWith("<")) {
-              const { status: runStatus } = JSON.parse(pollText);
-              if (runStatus === "SUCCEEDED") { succeeded = true; break; }
-              if (runStatus === "FAILED" || runStatus === "ABORTED") break;
+            const statusRes = await fetch(`/.netlify/functions/fetchJobs?runId=${runId}`);
+            const statusText = await statusRes.text();
+            if (statusRes.ok && !statusText.startsWith("<")) {
+              const { status: runStatus } = JSON.parse(statusText);
+              if (runStatus === "SUCCEEDED" || runStatus === "FAILED" || runStatus === "ABORTED") runDone = true;
             }
-            // Otherwise: Netlify timeout or transient error — keep polling
-          } catch { /* network blip — keep polling */ }
-        }
+          } catch { /* transient */ }
 
-        if (!succeeded) {
-          setStatus("Scraper timed out or failed — check Apify console");
-          continue;
-        }
+          // Fetch current dataset batch
+          try {
+            const fetchRes = await fetch(`/.netlify/functions/fetchJobs?datasetId=${datasetId}`);
+            const fetchText = await fetchRes.text();
+            if (fetchRes.ok && !fetchText.startsWith("<")) {
+              const batch = JSON.parse(fetchText);
+              if (Array.isArray(batch) && batch.length > lastCount) {
+                allJobs.push(...batch.slice(lastCount));
+                lastCount = batch.length;
+                setStatus(`Found ${allJobs.length} jobs… ${runDone ? "scrape done, scoring" : `${elapsed_s}s`}`);
+              } else {
+                setStatus(`Scraping Indeed… ${elapsed_s}s`);
+              }
+            }
+          } catch { /* transient */ }
 
-        // Fetch results
-        const fetchRes = await fetch(`/.netlify/functions/fetchJobs?datasetId=${datasetId}`);
-        const fetchText = await fetchRes.text();
-        if (!fetchRes.ok || fetchText.startsWith("<")) continue;
-        const results = JSON.parse(fetchText);
-        if (Array.isArray(results)) allJobs.push(...results);
+          if (runDone) break;
+        }
       }
 
       // Deduplicate
@@ -807,7 +814,7 @@ Return ONLY a JSON array of strings.`,
 
       if (deduped.length === 0) { setStatus("No results found"); setRunning(false); return; }
 
-      setStatus("Scoring against your profile…");
+      setStatus(`Scoring ${deduped.length} jobs against your profile…`);
       const scored = await scoreJobsAgainstProfile(deduped, profile);
       const top15 = scored.sort((a, b) => (b.fitScore || 0) - (a.fitScore || 0)).slice(0, 15);
       setJobs(top15);
