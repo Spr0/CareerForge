@@ -1,4 +1,4 @@
-// CareerForge v20 — Clean rebuild
+// NarrativeOS v20 — Clean rebuild
 // Sections (in order):
 //   1. Constants & Config
 //   2. Global State (session cost, API lock)
@@ -17,7 +17,7 @@
 //  15. Stories (StoryCard, StoryEditor, MyStoriesTab)
 //  16. Profile (ResumeUploadGate, ProfileTab)
 //  17. Role Workspace (RoleWorkspace)
-//  18. App Shell (BottomNav, CareerForge)
+//  18. App Shell (BottomNav, NarrativeOS)
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
@@ -200,7 +200,7 @@ Return only the JSON, no other text.`,
 // 5. GOOGLE DRIVE INTEGRATION
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DRIVE_FOLDER_NAME = "CareerForge";
+const DRIVE_FOLDER_NAME = "NarrativeOS";
 
 async function getDriveToken() {
   return localStorage.getItem("cf:google_token:drive");
@@ -578,8 +578,9 @@ function LoginGate() {
     <div style={{ minHeight: "100vh", background: "#0f1117", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
       <div style={{ width: "100%", maxWidth: "420px" }}>
         <div style={{ textAlign: "center", marginBottom: "48px" }}>
-          <div style={{ fontSize: "32px", fontWeight: "800", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "-1px", marginBottom: "8px" }}>CareerForge</div>
-          <div style={{ fontSize: "13px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "2px", textTransform: "uppercase" }}>Job Search Intelligence</div>
+          <div style={{ fontSize: "32px", fontWeight: "800", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "-1px", marginBottom: "8px" }}>NarrativeOS</div>
+          <div style={{ fontSize: "14px", color: "#c8c4e8", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "0.5px", marginBottom: "4px", fontStyle: "italic" }}>Your story. Your signal.</div>
+          <div style={{ fontSize: "12px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "1px" }}>Rise above the noise.</div>
         </div>
         <div style={{ background: "#181a2e", border: "1px solid #2e3050", borderRadius: "16px", padding: "40px", boxShadow: "0 24px 80px rgba(0,0,0,0.5)" }}>
           <div style={{ fontSize: "20px", fontWeight: "700", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "8px" }}>Sign in to continue</div>
@@ -2481,7 +2482,7 @@ Let's start with **Situation**. What was going on in the organization — what w
           Your stories are your competitive edge 🏆
         </div>
         <div style={{ fontSize: "14px", color: "#9890b8", fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: "1.7", marginBottom: "18px" }}>
-          Strong STAR stories power every part of CareerForge — they sharpen your JD fit analysis, strengthen your cover letter, and prepare you for behavioral interviews. Don't limit yourself to your resume.
+          Strong STAR stories power every part of NarrativeOS — they sharpen your JD fit analysis, strengthen your cover letter, and prepare you for behavioral interviews. Don't limit yourself to your resume.
           <strong style={{ color: "#c8c4e8" }}> Share a success that isn't on paper yet.</strong> A promotion you drove, a team you turned around, a result that surprised even you.
         </div>
         <div style={{ fontSize: "13px", color: "#7870a0", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "18px" }}>
@@ -2600,7 +2601,7 @@ function ResumeUploadGate({ profile, onComplete, onSkip }) {
         Set up {profile.displayName || profile.name || "your"} profile
       </div>
       <div style={{ fontSize: "13px", color: "#9890b8", fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: "1.6", marginBottom: "28px" }}>
-        Upload or paste your resume. CareerForge will extract your contact info and use your resume as the baseline for tailoring. Your data stays in your browser.
+        Upload or paste your resume. NarrativeOS will extract your contact info and use your resume as the baseline for tailoring. Your data stays in your browser.
       </div>
 
       <div
@@ -3035,7 +3036,7 @@ function BottomNav({ active, onSelect }) {
   );
 }
 
-export default function CareerForge() {
+export default function NarrativeOS() {
   const { user, authLoading, logout } = useNetlifyAuth();
   const [loaded, setLoaded] = useState(false);
   const [activeScreen, setActiveScreen] = useState("board");
@@ -3139,8 +3140,8 @@ export default function CareerForge() {
       {/* Header */}
       <div style={{ background: "#131528", borderBottom: "1px solid #2e3050", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 40 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
-          <span style={{ fontSize: "18px", fontWeight: "800", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "-0.5px" }}>CareerForge</span>
-          <span style={{ fontSize: "10px", letterSpacing: "3px", color: "#4f6ef7", textTransform: "uppercase", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600" }}>v20</span>
+          <span style={{ fontSize: "18px", fontWeight: "800", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "-0.5px" }}>NarrativeOS</span>
+          <span style={{ fontSize: "10px", letterSpacing: "2px", color: "#6860a0", fontFamily: "'DM Sans', system-ui, sans-serif", fontStyle: "italic" }}>Your story. Your signal.</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {sessionCost > 0 && <span style={{ fontSize: "11px", color: "#4a4868" }}>~${sessionCost.toFixed(4)}</span>}
