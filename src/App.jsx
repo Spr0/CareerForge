@@ -74,6 +74,7 @@ function storageSet(key, value) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || "";
+const APIFY_TOKEN = import.meta.env.VITE_APIFY_TOKEN || "";
 
 async function callClaude(system, user, maxTokens = 2000) {
   if (!ANTHROPIC_API_KEY) throw new Error("API key not configured. Set VITE_ANTHROPIC_API_KEY.");
@@ -766,58 +767,65 @@ Return ONLY a JSON array of strings.`,
       const { runId, datasetId, error: triggerErr } = JSON.parse(triggerText);
       if (triggerErr) throw new Error(triggerErr);
       if (!runId) throw new Error("No runId returned");
+      if (!APIFY_TOKEN) throw new Error("VITE_APIFY_TOKEN not set in Netlify env vars");
       console.log("[CF] Run started:", runId, "dataset:", datasetId);
 
       let lastCount = 0;
       let allRaw = [];
       let runDone = false;
-      let startTime = Date.now();
+      const startTime = Date.now();
 
       while (!runDone) {
         await new Promise(r => setTimeout(r, 10000));
         const elapsed = Math.round((Date.now() - startTime) / 1000);
 
-        // Check run status
+        // Check run status — direct to Apify, no Netlify proxy
         try {
-          const st = await fetch(`/.netlify/functions/fetchJobs?runId=${runId}`);
-          const stText = await st.text();
-          console.log("[CF] Status check:", st.status, stText.slice(0, 100));
-          if (st.ok && !stText.startsWith("<")) {
-            const { status: s } = JSON.parse(stText);
-            console.log("[CF] Run status:", s);
+          const st = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${APIFY_TOKEN}`);
+          if (st.ok) {
+            const sd = await st.json();
+            const s = sd?.data?.status;
             if (s === "SUCCEEDED" || s === "FAILED" || s === "ABORTED") runDone = true;
           }
-        } catch (e) { console.warn("[CF] Status error:", e.message); }
+        } catch {}
 
-        // Fetch dataset
+        // Fetch dataset directly from Apify
         try {
-          const dr = await fetch(`/.netlify/functions/fetchJobs?datasetId=${datasetId}`);
-          const dt = await dr.text();
-          console.log("[CF] Dataset fetch:", dr.status, "length:", dt.length, "preview:", dt.slice(0, 80));
-          if (dr.ok && !dt.startsWith("<")) {
-            const batch = JSON.parse(dt);
-            console.log("[CF] Batch items:", Array.isArray(batch) ? batch.length : "NOT ARRAY", "lastCount:", lastCount);
-            if (Array.isArray(batch) && batch.length > lastCount) {
-              allRaw = batch;
+          const dr = await fetch(
+            `https://api.apify.com/v2/datasets/${datasetId}/items?token=${token}&clean=true&limit=50`
+          );
+          if (dr.ok) {
+            const raw = await dr.json();
+            const batch = Array.isArray(raw) ? raw : [];
+
+            if (batch.length > lastCount) {
+              // Normalize fields (same logic as fetchJobs.js)
+              const normalized = batch.map(j => {
+                const description = j.description || j.jobDescription || j.job_description || j.fullDescription || j.snippet || "";
+                const title = j.positionName || j.title || j.jobTitle || j.job_title || "";
+                const company = j.company || j.companyName || j.company_name || "";
+                const location = j.location || j.jobLocation || j.job_location || "";
+                const salary = j.salary || j.salaryRange || j.salaryText || "";
+                const url = j.externalApplyLink || j.applyLink || j.url || j.job_url || j.jobUrl || j.link || "";
+                return { title, company, location, salary, url, description,
+                  job_title: title, company_name: company, job_description: description, job_url: url };
+              });
+              allRaw = normalized;
               lastCount = batch.length;
-              const unscored = batch.slice(0, 15).map(j => ({ ...j, fitScore: null }));
+              const unscored = normalized.slice(0, 15).map(j => ({ ...j, fitScore: null }));
               setJobs(unscored);
               setStatus(runDone
                 ? `${batch.length} jobs found — scoring…`
-                : `${batch.length} jobs found so far… (${elapsed}s)`
+                : `${batch.length} jobs so far… (${elapsed}s)`
               );
             } else {
-              setStatus(runDone
-                ? `${lastCount} jobs — scoring…`
-                : `Scraping… ${elapsed}s (${lastCount} found)`
-              );
+              setStatus(`Scraping… ${elapsed}s (${lastCount} found)`);
             }
           }
-        } catch (e) { console.warn("[CF] Dataset error:", e.message); }
+        } catch {}
 
         if (Date.now() - startTime > 480000) break;
       }
-      console.log("[CF] Loop done. allRaw:", allRaw.length, "runDone:", runDone);
 
       if (allRaw.length === 0) { setStatus("No results found"); setRunning(false); return; }
 
