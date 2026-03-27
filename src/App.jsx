@@ -487,6 +487,10 @@ function RoleCard({ card, onClick, onStageChange, onRemove }) {
           {card.notes && <span style={{ fontSize: "11px", color: "#6860a0" }} title="Has notes">📝</span>}
         </div>
         <div style={{ position: "relative" }}>
+          {showStageMenu && (
+            <div style={{ position: "fixed", inset: 0, zIndex: 99 }}
+              onClick={e => { e.stopPropagation(); setShowStageMenu(false); }} />
+          )}
           <div onClick={e => { e.stopPropagation(); setShowStageMenu(!showStageMenu); }}>
             <StagePill stage={card.stage || "Radar"} small />
           </div>
@@ -495,16 +499,16 @@ function RoleCard({ card, onClick, onStageChange, onRemove }) {
               {STAGES.map(s => (
                 <button key={s} onClick={e => { e.stopPropagation(); onStageChange(s); setShowStageMenu(false); }}
                   style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "6px 10px", fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer", color: s === card.stage ? "#8aacff" : "#a8a0c8", borderRadius: "4px" }}
-                  onMouseEnter={e => e.target.style.background = "rgba(79,110,247,0.1)"}
-                  onMouseLeave={e => e.target.style.background = "none"}>
+                  onMouseEnter={e => e.currentTarget.style.background = "rgba(79,110,247,0.1)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "none"}>
                   {s}
                 </button>
               ))}
               <div style={{ borderTop: "1px solid #2e3050", margin: "4px 0" }} />
               <button onClick={e => { e.stopPropagation(); onRemove(); setShowStageMenu(false); }}
                 style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "6px 10px", fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer", color: "#f87171", borderRadius: "4px" }}
-                onMouseEnter={e => e.target.style.background = "rgba(248,113,113,0.1)"}
-                onMouseLeave={e => e.target.style.background = "none"}>
+                onMouseEnter={e => e.currentTarget.style.background = "rgba(248,113,113,0.1)"}
+                onMouseLeave={e => e.currentTarget.style.background = "none"}>
                 Remove
               </button>
             </div>
@@ -714,10 +718,11 @@ function JobSearchTab({ profile, onAnalyzeJD, savedJobs, onSaveJobs }) {
   }, [running]);
 
   const cancelSearch = () => {
-    runningRef.current = false;
+    // Don't abort — just hide the busy UI. Apify will finish and we collect results.
     setRunning(false);
-    setStatus("Cancelled");
-    setElapsed(0);
+    setStatus("Running in background — results will appear when ready");
+    // Keep polling alive via runningRef staying true
+    // Results will be set when polling completes
   };
 
   const generateQueries = async () => {
@@ -760,22 +765,25 @@ Return ONLY a JSON array of strings.`,
         if (triggerErr) throw new Error(triggerErr);
         if (!runId) throw new Error("No runId returned from searchJobs function");
 
-        // Poll for completion
-        let datasetId = initDatasetId;
-        for (let attempt = 0; attempt < 30; attempt++) {
-          if (!runningRef.current) break; // cancelled
-          setStatus(`Waiting for results… (${(attempt + 1) * 4}s)`);
+        // Poll for completion — Indeed scraper takes 2-4 min, allow up to 6 min
+        const datasetId = initDatasetId; // always valid from trigger
+        let succeeded = false;
+        for (let attempt = 0; attempt < 90; attempt++) { // 90 × 4s = 6 min
+          const elapsed_s = (attempt + 1) * 4;
+          setStatus(`Scraping Indeed… ${elapsed_s}s (usually 2–3 min)`);
           await new Promise(r => setTimeout(r, 4000));
-          if (!runningRef.current) break; // cancelled during wait
           const pollRes = await fetch(`/.netlify/functions/fetchJobs?runId=${runId}`);
           const pollText = await pollRes.text();
           if (!pollRes.ok || pollText.startsWith("<")) break;
-          const { status: runStatus, datasetId: did } = JSON.parse(pollText);
-          if (did) datasetId = did;
-          if (runStatus === "SUCCEEDED" || runStatus === "FAILED" || runStatus === "ABORTED") break;
+          const { status: runStatus } = JSON.parse(pollText);
+          if (runStatus === "SUCCEEDED") { succeeded = true; break; }
+          if (runStatus === "FAILED" || runStatus === "ABORTED") break;
         }
 
-        if (!datasetId) continue;
+        if (!succeeded) {
+          setStatus("Scraper timed out or failed — check Apify console");
+          continue;
+        }
 
         // Fetch results
         const fetchRes = await fetch(`/.netlify/functions/fetchJobs?datasetId=${datasetId}`);
@@ -2299,7 +2307,7 @@ function ResumeUploadGate({ profile, onComplete, onSkip }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JOB SEARCH TAB — HiringCafe via Apify + AI scoring
-function RoleWorkspace({ card, profile, stories, corrections, onUpdateCard, onUpdateCorrections, onClose }) {
+function RoleWorkspace({ card, profile, stories, corrections, onUpdateCard, onUpdateCorrections, onClose, onRemove }) {
   const [activeTab, setActiveTab] = useState("Overview");
   const [proceeded, setProceeded] = useState(false);
   const [resumeOnly, setResumeOnly] = useState(false);
@@ -2360,9 +2368,10 @@ function RoleWorkspace({ card, profile, stories, corrections, onUpdateCard, onUp
             {/* Stage selector inside workspace */}
             <div style={{ position: "relative" }}>
               {STAGES.map(s => s === (card.stage || "Radar") && (
-                <select key={s} value={card.stage || "Radar"} onChange={e => onUpdateCard({ ...card, stage: e.target.value })}
+                <select key={s} value={card.stage || "Radar"} onChange={e => { if (e.target.value === "__REMOVE__") { onRemove?.(); onClose(); } else onUpdateCard({ ...card, stage: e.target.value }); }}
                   style={{ background: STAGE_COLORS[card.stage || "Radar"].bg, color: STAGE_COLORS[card.stage || "Radar"].text, border: `1px solid ${STAGE_COLORS[card.stage || "Radar"].border}`, borderRadius: "12px", padding: "4px 10px", fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600", cursor: "pointer", outline: "none" }}>
                   {STAGES.map(st => <option key={st} value={st} style={{ background: "#1e2240", color: "#e8e4f8" }}>{st}</option>)}
+                  <option value="__REMOVE__" style={{ background: "#1e2240", color: "#f87171" }}>Remove from board</option>
                 </select>
               ))}
             </div>
@@ -2797,6 +2806,7 @@ export default function CareerForge() {
         onUpdateCard={updateCard}
         onUpdateCorrections={setCorrections}
         onClose={() => setOpenCardId(null)}
+        onRemove={() => { removeCard(openCard.id); setOpenCardId(null); }}
       />
     );
   }
