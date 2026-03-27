@@ -28,9 +28,9 @@ const DEFAULT_PROFILE = {
 };
 
 const DEFAULT_QUERIES = [
-  "VP Digital Transformation remote",
-  "Director Enterprise PMO remote",
-  "Senior Director Technology Transformation",
+  "transformation director remote",
+  "PMO director remote",
+  "enterprise technology director",
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -687,6 +687,7 @@ function JobSearchTab({ profile, onAnalyzeJD }) {
   const [customQuery, setCustomQuery] = useState("");
   const [days, setDays] = useState(3);
   const [running, setRunning] = useState(false);
+  const runningRef = useRef(false); // hard guard against double-fire
   const [status, setStatus] = useState("");
   const [jobs, setJobs] = useState([]);
   const [error, setError] = useState(null);
@@ -710,13 +711,15 @@ Return ONLY a JSON array of strings.`,
   };
 
   const runSearch = async () => {
-    if (running) return;
-    setRunning(true); setError(null); setJobs([]); setStatus("Searching HiringCafe…");
+    if (running || runningRef.current) return;
+    runningRef.current = true;
+    setRunning(true); setError(null); setJobs([]); const activeQuery = customQuery.trim() || queries[0] || "transformation director";
+    setStatus(`Searching: "${activeQuery}"…`);
     try {
       const activeQueries = customQuery.trim() ? [customQuery.trim(), ...queries] : queries;
       const allJobs = [];
 
-      for (const keyword of activeQueries.slice(0, 3)) {
+      for (const keyword of activeQueries.slice(0, 1)) { // run 1 query per search to control cost + speed
         // Trigger scrape
         const triggerRes = await fetch("/.netlify/functions/searchJobs", {
           method: "POST",
@@ -771,14 +774,14 @@ Return ONLY a JSON array of strings.`,
     } catch (e) {
       setError(e.message);
       setStatus("Search failed");
-    } finally { setRunning(false); }
+    } finally { setRunning(false); runningRef.current = false; }
   };
 
   return (
     <div>
       <div style={{ ...S.section, marginBottom: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-          <div style={{ ...S.label, margin: 0 }}>Search Queries</div>
+          <div style={{ ...S.label, margin: 0 }}>Search Queries <span style={{fontSize:"10px",color:"#4a4868",textTransform:"none",letterSpacing:0,fontWeight:"400"}}>(top query runs per search)</span></div>
           <button onClick={generateQueries} disabled={generatingQueries || apiLocked}
             style={{ ...S.btnGhost, fontSize: "12px", padding: "5px 12px", display: "flex", alignItems: "center", gap: "6px" }}>
             {generatingQueries ? <><Spinner size={10} />Generating…</> : "✦ Generate from profile"}
