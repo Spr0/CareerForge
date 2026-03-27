@@ -1966,26 +1966,31 @@ function ResearchTab({ company, triggered }) {
 
 const STORY_EXTRACT_SYSTEM = (profile) => `You are an expert career coach helping ${profile.name || "this candidate"} build a STAR story library.
 
-Analyze the resume and extract 4-8 significant achievements or experiences that would make strong interview stories.
+Analyze the resume and extract 4-6 significant achievements that would make strong interview stories.
 
-For each story return a JSON object in this exact array format:
+Return ONLY a valid JSON array. Critical rules for valid JSON:
+- Use straight double quotes only (no curly quotes)
+- No em dashes (use a hyphen instead)
+- No unescaped apostrophes inside strings (use the word without apostrophe or rephrase)
+- Keep all string values on a single line (no line breaks inside strings)
+- No trailing commas
+
 [
   {
-    "title": "Brief memorable title — lead with the outcome or metric",
+    "title": "Brief title leading with the outcome or metric",
     "company": "company name",
     "role": "job title at that company",
     "competencies": ["one or two from: Transformation, Financial Impact, Leadership, Technical, Agile/Delivery, Governance, Vendor Management, Strategy, Stakeholder"],
-    "hook": "One powerful sentence leading with the result — executive HERO opener. E.g. 'I cut $28M in annual waste — not through layoffs, but by consolidating a fragmented platform ecosystem.'",
-    "situation": "2-3 sentences: what was the context, the problem, the stakes",
-    "task": "1-2 sentences: what were you specifically responsible for",
-    "action": "3-4 sentences: what you specifically did — concrete and active",
-    "result": "1-3 sentences: quantified outcomes wherever possible",
-    "tags": ["3-5 keyword tags"]
+    "hook": "One sentence leading with the result. Use hyphens not em dashes.",
+    "situation": "2-3 sentences describing the context and problem.",
+    "task": "1-2 sentences describing what you were responsible for.",
+    "action": "2-3 sentences describing what you specifically did.",
+    "result": "1-2 sentences with quantified outcomes where possible.",
+    "tags": ["keyword1", "keyword2", "keyword3"]
   }
 ]
 
-Only extract stories with clear actions and outcomes. Skip generic job description language.
-Return ONLY the JSON array, no preamble.`;
+Only extract stories with clear actions and outcomes. Return ONLY the JSON array, nothing else.`;
 
 const INTERVIEW_SYSTEM = (profile, story) => `You are a warm, encouraging career coach helping ${profile.name || "this candidate"} build a STAR interview story.
 
@@ -2147,20 +2152,58 @@ function MyStoriesTab({ profile, stories, setStories }) {
     return true;
   });
 
+  const repairJSON = (str) => {
+    // Remove control characters inside strings (the main culprit)
+    let s = str
+      .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, " ")  // control chars except \t \n \r
+      .replace(/\t/g, " ")                                // tabs → space
+      .replace(/\r?\n/g, " ")                             // newlines → space (inside strings)
+      .replace(/[\u2018\u2019]/g, "'")                    // curly single quotes → straight
+      .replace(/[\u201c\u201d]/g, '"')                    // curly double quotes → straight
+      .replace(/\u2014/g, " - ")                          // em dash → hyphen (safe in JSON)
+      .replace(/\u2013/g, "-")                            // en dash
+      .replace(/\\'/g, "'")                               // escaped single quotes (invalid in JSON)
+      .replace(/,\s*([}\]])/g, "$1");                     // trailing commas
+    return s;
+  };
+
   const handleExtract = async () => {
     setMode("extract"); setExtracting(true); setExtractError(null); setExtracted([]);
     try {
-      const text = await callClaude(STORY_EXTRACT_SYSTEM(profile), profile.resumeText, 3000);
+      const resumeSlice = (profile.resumeText || "").slice(0, 4000);
+      const text = await callClaude(STORY_EXTRACT_SYSTEM(profile), resumeSlice, 3000);
+
+      // Extract the JSON array from the response
       const m = text.match(/\[[\s\S]*\]/);
-      if (!m) throw new Error("Could not parse stories from resume");
+      if (!m) throw new Error("No stories found in resume — try adding more detail to your resume text");
+
       let parsed;
+      // First attempt: raw parse
       try {
         parsed = JSON.parse(m[0]);
       } catch {
-        const sanitized = m[0].replace(/[ -]/g, " ");
-        try { parsed = JSON.parse(sanitized); }
-        catch { throw new Error("Resume extraction returned malformed JSON — try again"); }
+        // Second attempt: repair then parse
+        try {
+          parsed = JSON.parse(repairJSON(m[0]));
+        } catch (e2) {
+          // Third attempt: extract individual story objects and parse each separately
+          const objects = m[0].match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)?\}/g);
+          if (objects && objects.length > 0) {
+            parsed = objects.map(o => {
+              try { return JSON.parse(repairJSON(o)); }
+              catch { return null; }
+            }).filter(Boolean);
+            if (parsed.length === 0) throw new Error("Could not parse any stories — try again");
+          } else {
+            throw new Error("Resume extraction returned malformed data — try again");
+          }
+        }
       }
+
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error("No stories could be extracted — ensure your resume text is pasted correctly");
+      }
+
       const withIds = parsed.map(s => ({ ...s, id: generateId(), starred: false, tags: s.tags || [] }));
       setExtracted(withIds);
       setSelectedIds(new Set(withIds.map(s => s.id)));
