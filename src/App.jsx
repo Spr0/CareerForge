@@ -453,7 +453,7 @@ function LoginGate() {
 // ROLE CARD — kanban card component
 // ─────────────────────────────────────────────────────────────────────────────
 
-function RoleCard({ card, onClick, onStageChange }) {
+function RoleCard({ card, onClick, onStageChange, onRemove }) {
   const [showStageMenu, setShowStageMenu] = useState(false);
   const scoreColor = !card.fitScore ? "#6860a0" : card.fitScore >= 8 ? "#4ade80" : card.fitScore >= 6 ? "#fbbf24" : card.fitScore >= 4 ? "#fb923c" : "#f87171";
 
@@ -500,6 +500,13 @@ function RoleCard({ card, onClick, onStageChange }) {
                   {s}
                 </button>
               ))}
+              <div style={{ borderTop: "1px solid #2e3050", margin: "4px 0" }} />
+              <button onClick={e => { e.stopPropagation(); onRemove(); setShowStageMenu(false); }}
+                style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: "6px 10px", fontSize: "12px", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer", color: "#f87171", borderRadius: "4px" }}
+                onMouseEnter={e => e.target.style.background = "rgba(248,113,113,0.1)"}
+                onMouseLeave={e => e.target.style.background = "none"}>
+                Remove
+              </button>
             </div>
           )}
         </div>
@@ -518,7 +525,7 @@ function RoleCard({ card, onClick, onStageChange }) {
 // BOARD — kanban home screen
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Board({ cards, onOpenCard, onStageChange, onAddCard, onOpenSearch }) {
+function Board({ cards, onOpenCard, onStageChange, onAddCard, onOpenSearch, onRemoveCard }) {
   const byStage = STAGES.reduce((acc, s) => ({ ...acc, [s]: cards.filter(c => (c.stage || "Radar") === s) }), {});
   const total = cards.length;
 
@@ -586,7 +593,8 @@ function Board({ cards, onOpenCard, onStageChange, onAddCard, onOpenSearch }) {
                   {stageCards.map(card => (
                     <RoleCard key={card.id} card={card}
                       onClick={() => onOpenCard(card.id)}
-                      onStageChange={s => onStageChange(card.id, s)} />
+                      onStageChange={s => onStageChange(card.id, s)}
+                      onRemove={() => onRemoveCard(card.id)} />
                   ))}
                 </div>
               </div>
@@ -641,7 +649,7 @@ function JobResultCard({ job, onAnalyze }) {
   const location = job.location || job.job_location || "";
   const salary = job.salary || job.compensation || "";
   const url = job.job_url || job.url || job.apply_url || "";
-  const jdText = job.job_description || job.description || "";
+  const jdText = job.job_description || job.description || job.jobDescription || job.snippet || job.fullDescription || "";
   const remote = (job.workplace_type || "").toLowerCase().includes("remote") || (location || "").toLowerCase().includes("remote");
 
   return (
@@ -871,7 +879,11 @@ Return ONLY a JSON array of strings.`,
 
       {jobs.length > 0 && (
         <div>
-          <div style={{ ...S.label, marginBottom: "12px" }}>Top {jobs.length} matches</div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+            <div style={{ ...S.label, margin: 0 }}>Top {jobs.length} matches</div>
+            <button onClick={() => { setJobs([]); setStatus(""); setError(null); }}
+              style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px" }}>✕ Clear results</button>
+          </div>
           {jobs.map((job, i) => (
             <JobResultCard key={i} job={job} onAnalyze={onAnalyzeJD} />
           ))}
@@ -2718,6 +2730,7 @@ export default function CareerForge() {
 
   const updateCard = (updated) => setCards(prev => prev.map(c => c.id === updated.id ? updated : c));
   const updateStage = (id, stage) => setCards(prev => prev.map(c => c.id === id ? { ...c, stage } : c));
+  const removeCard = (id) => setCards(prev => prev.filter(c => c.id !== id));
 
   const handleAnalyzeFromSearch = (jdText, title, company, fitScore, fitReason) => {
     // Check for existing card
@@ -2829,6 +2842,7 @@ export default function CareerForge() {
                 onStageChange={updateStage}
                 onAddCard={addCard}
                 onOpenSearch={() => setActiveScreen("search")}
+                onRemoveCard={removeCard}
               />
             )}
             {activeScreen === "search" && (
