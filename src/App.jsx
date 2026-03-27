@@ -766,8 +766,8 @@ Return ONLY a JSON array of strings.`,
       const { runId, datasetId, error: triggerErr } = JSON.parse(triggerText);
       if (triggerErr) throw new Error(triggerErr);
       if (!runId) throw new Error("No runId returned");
+      console.log("[CF] Run started:", runId, "dataset:", datasetId);
 
-      // Poll every 10s — show results as soon as any arrive, score when done
       let lastCount = 0;
       let allRaw = [];
       let runDone = false;
@@ -777,27 +777,29 @@ Return ONLY a JSON array of strings.`,
         await new Promise(r => setTimeout(r, 10000));
         const elapsed = Math.round((Date.now() - startTime) / 1000);
 
-        // Check run status (fire-and-forget style, don't block on errors)
+        // Check run status
         try {
           const st = await fetch(`/.netlify/functions/fetchJobs?runId=${runId}`);
           const stText = await st.text();
+          console.log("[CF] Status check:", st.status, stText.slice(0, 100));
           if (st.ok && !stText.startsWith("<")) {
             const { status: s } = JSON.parse(stText);
+            console.log("[CF] Run status:", s);
             if (s === "SUCCEEDED" || s === "FAILED" || s === "ABORTED") runDone = true;
           }
-        } catch {}
+        } catch (e) { console.warn("[CF] Status error:", e.message); }
 
-        // Fetch dataset — show whatever exists right now
+        // Fetch dataset
         try {
           const dr = await fetch(`/.netlify/functions/fetchJobs?datasetId=${datasetId}`);
           const dt = await dr.text();
+          console.log("[CF] Dataset fetch:", dr.status, "length:", dt.length, "preview:", dt.slice(0, 80));
           if (dr.ok && !dt.startsWith("<")) {
             const batch = JSON.parse(dt);
+            console.log("[CF] Batch items:", Array.isArray(batch) ? batch.length : "NOT ARRAY", "lastCount:", lastCount);
             if (Array.isArray(batch) && batch.length > lastCount) {
               allRaw = batch;
               lastCount = batch.length;
-
-              // Show unscored results immediately so user sees something
               const unscored = batch.slice(0, 15).map(j => ({ ...j, fitScore: null }));
               setJobs(unscored);
               setStatus(runDone
@@ -811,11 +813,11 @@ Return ONLY a JSON array of strings.`,
               );
             }
           }
-        } catch {}
+        } catch (e) { console.warn("[CF] Dataset error:", e.message); }
 
-        // Safety: stop after 8 min even if not done
         if (Date.now() - startTime > 480000) break;
       }
+      console.log("[CF] Loop done. allRaw:", allRaw.length, "runDone:", runDone);
 
       if (allRaw.length === 0) { setStatus("No results found"); setRunning(false); return; }
 
