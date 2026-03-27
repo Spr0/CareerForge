@@ -20,16 +20,32 @@ export async function handler(event) {
     };
   }
 
-  // Fetch dataset items
+  // Fetch and normalize dataset items
   if (datasetId) {
     const res = await fetch(
       `https://api.apify.com/v2/datasets/${datasetId}/items?token=${process.env.APIFY_TOKEN}&clean=true&limit=50`
     );
     const jobs = await res.json();
-    return {
-      statusCode: 200,
-      body: JSON.stringify(Array.isArray(jobs) ? jobs : [])
-    };
+    if (!Array.isArray(jobs)) return { statusCode: 200, body: JSON.stringify([]) };
+
+    // Normalize Indeed fields to match CareerForge's expected schema
+    const normalized = jobs.map(j => ({
+      title:       j.positionName || j.title || j.job_title || "",
+      company:     j.company || j.company_name || "",
+      location:    j.location || j.job_location || "",
+      salary:      j.salary || j.salaryRange || "",
+      description: j.description || j.job_description || "",
+      url:         j.externalApplyLink || j.url || j.job_url || j.applyUrl || "",
+      remote:      (j.jobType || j.location || "").toLowerCase().includes("remote"),
+      postedAt:    j.postedAt || j.datePosted || "",
+      // Pass through originals too for scoring
+      job_title:       j.positionName || j.title || "",
+      company_name:    j.company || "",
+      job_description: j.description || "",
+      job_url:         j.externalApplyLink || j.url || "",
+    }));
+
+    return { statusCode: 200, body: JSON.stringify(normalized) };
   }
 
   return { statusCode: 400, body: JSON.stringify({ error: "runId or datasetId required" }) };
