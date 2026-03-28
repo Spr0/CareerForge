@@ -4140,7 +4140,7 @@ export default function NarrativeOS() {
                 </div>
                 <AnalyzeTab
                   jd={pendingAnalysis?.jdText || ""}
-                  setJd={(jd) => setPendingAnalysis(p => p ? { ...p, jdText: jd } : p)}
+                  setJd={(jd) => setPendingAnalysis(p => ({ ...(p || {}), jdText: jd }))}
                   stories={stories} profile={profile}
                   corrections={corrections} onSaveCorrections={setCorrections}
                   onAddToTracker={() => {
