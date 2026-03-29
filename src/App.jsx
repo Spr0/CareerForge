@@ -19,7 +19,7 @@ async function callClaude(system, user) {
     throw new Error("API did not return JSON")
   }
 
-  return data.text
+  return data.text || JSON.stringify(data)
 }
 
 export default function App() {
