@@ -6,7 +6,7 @@ exports.handler = async function (event) {
     if (!input) {
       return {
         statusCode: 200,
-        body: JSON.stringify({ error: "Missing input" })
+        body: JSON.stringify({ embeddings: [] })
       }
     }
 
@@ -18,7 +18,7 @@ exports.handler = async function (event) {
       },
       body: JSON.stringify({
         model: "text-embedding-3-small",
-        input: input
+        input
       })
     })
 
@@ -27,7 +27,7 @@ exports.handler = async function (event) {
     if (data?.error) {
       return {
         statusCode: 200,
-        body: JSON.stringify({ error: data.error.message })
+        body: JSON.stringify({ embeddings: [] })
       }
     }
 
@@ -41,7 +41,7 @@ exports.handler = async function (event) {
   } catch (e) {
     return {
       statusCode: 200,
-      body: JSON.stringify({ error: e.message })
+      body: JSON.stringify({ embeddings: [] })
     }
   }
 }
