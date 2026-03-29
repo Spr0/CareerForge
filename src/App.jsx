@@ -2,11 +2,23 @@ import { useState } from "react"
 import { parseJD, generateResume } from "./narrative_os_engine"
 
 async function callClaude(system, user) {
-  const res = await fetch("/api/claude", {
+  const res = await fetch("/.netlify/functions/claude", {
     method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
     body: JSON.stringify({ system, user })
   })
-  const data = await res.json()
+
+  const text = await res.text()
+
+  let data
+  try {
+    data = JSON.parse(text)
+  } catch {
+    throw new Error("API did not return JSON")
+  }
+
   return data.text
 }
 
