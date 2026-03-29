@@ -8,14 +8,13 @@ exports.handler = async function (event) {
       return {
         statusCode: 200,
         body: JSON.stringify({
-          error: "Missing system or user input",
-          received: body
+          error: "Missing system or user input"
         })
       }
     }
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 20000) // 🔥 20s
+    const timeout = setTimeout(() => controller.abort(), 25000) // 🔥 slightly longer
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -30,7 +29,7 @@ exports.handler = async function (event) {
           { role: "system", content: system },
           { role: "user", content: user }
         ],
-        max_tokens: 300,        // 🔥 smaller output
+        max_tokens: 800, // 🔥 FIXED (was 300)
         temperature: 0.2
       })
     })
