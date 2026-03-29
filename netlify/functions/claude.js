@@ -10,7 +10,7 @@ export async function handler(event) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-       model: "claude-3-5-haiku-latest",
+       model: "claude-3-sonnet-20240229",
         max_tokens: 1000,
         system,
         messages: [
