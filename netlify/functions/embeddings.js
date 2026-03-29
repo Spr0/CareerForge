@@ -18,7 +18,7 @@ exports.handler = async function (event) {
       },
       body: JSON.stringify({
         model: "text-embedding-3-small",
-        input
+        input: input
       })
     })
 
@@ -31,11 +31,11 @@ exports.handler = async function (event) {
       }
     }
 
-    const embedding = data?.data?.[0]?.embedding
+    const embeddings = data?.data?.map(d => d.embedding) || []
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ embedding })
+      body: JSON.stringify({ embeddings })
     }
 
   } catch (e) {
