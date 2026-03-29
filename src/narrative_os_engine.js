@@ -41,7 +41,7 @@ async function validateHybrid(resume, jdStruct, callClaude) {
   const satisfied = []
   const reasons = []
 
-  for (const req of jdStruct.must_have || []) {
+ for (const req of (jdStruct && jdStruct.must_have) ? jdStruct.must_have : []) {
     const reqEmb = await getEmbedding(req)
     const score = cosineSimilarity(resumeEmb, reqEmb)
 
@@ -75,15 +75,16 @@ export async function generateResume(base, jd, stories, jdStruct, callClaude) {
 
   const semantic = await validateHybrid(res, jdStruct, callClaude)
 
-  const satisfiedCount = semantic.satisfied.filter(Boolean).length
-  const total = semantic.satisfied.length || 1
+  const satisfiedArray = semantic?.satisfied || []
 
+const satisfiedCount = satisfiedArray.filter(Boolean).length
+const total = satisfiedArray.length || 1
   const score = Math.round((satisfiedCount / total) * 10)
 
   return {
     best: res,
     bestScore: score,
-    keywords: jdStruct.must_have || [],
+    keywords: (jdStruct && jdStruct.must_have) ? jdStruct.must_have : [],
     jdStruct,
     explain: {
       coverage: satisfiedCount / total,
