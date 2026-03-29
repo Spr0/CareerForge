@@ -1,52 +1,52 @@
 import { useState } from "react"
-import { parseJD, generateResume } from "./narrative_os_engine"
-
-async function callClaude(system, user) {
-  const res = await fetch("/.netlify/functions/claude", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ system, user })
-  })
-
-  const text = await res.text()
-
-  let data
-  try {
-    data = JSON.parse(text)
-  } catch {
-    throw new Error("API did not return JSON")
-  }
-
-  return data.text || JSON.stringify(data)
-}
+import {
+  parseJD,
+  generateResume
+} from "./narrative_os_engine.js"
 
 export default function App() {
   const [resume, setResume] = useState("")
-  const [jd, setJD] = useState("")
-  const [output, setOutput] = useState("")
-  const [score, setScore] = useState(null)
-  const [explain, setExplain] = useState({ coverage: 0, semanticReasons: [] })
+  const [jd, setJd] = useState("")
+  const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [jdCache, setJdCache] = useState({})
+
+  // ✅ FIXED Claude call
+  async function callClaude(system, user) {
+    try {
+      const res = await fetch("/.netlify/functions/claude", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          system,
+          user
+        })
+      })
+
+      const data = await res.json()
+
+      return data?.text || ""
+    } catch (e) {
+      console.error("Claude error:", e)
+      return ""
+    }
+  }
 
   const handleGenerate = async () => {
-    if (loading) return
+    if (!resume || !jd) return
 
     setLoading(true)
     setError(null)
+    setResult(null)
 
     try {
-      let jdStruct = jdCache[jd]
+      // 1. Parse JD
+      const jdStruct = await parseJD(jd, callClaude)
 
-      if (!jdStruct) {
-        jdStruct = await parseJD(jd, callClaude)
-        setJdCache(prev => ({ ...prev, [jd]: jdStruct }))
-      }
-
-      const result = await generateResume(
+      // 2. Generate + score
+      const output = await generateResume(
         resume,
         jd,
         [],
@@ -54,45 +54,37 @@ export default function App() {
         callClaude
       )
 
-      if (result?.reject) {
-  setError("Low match — resume not generated")
-  setOutput("")
-  setScore(result?.bestScore ?? null)
-  setExplain(result?.explain || { coverage: 0, semanticReasons: [] })
-  return
-}
-
-setOutput(result?.best || "")
-setScore(result?.bestScore ?? null)
-setExplain(result?.explain || { coverage: 0, semanticReasons: [] })
-
+      setResult(output)
     } catch (e) {
-      setError(e.message || "Failed")
+      console.error(e)
+      setError("Generation failed")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>NarrativeOS</h2>
+    <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
+      <h1>NarrativeOS</h1>
 
       <textarea
-        placeholder="Paste resume"
+        placeholder="Paste your resume"
         value={resume}
-        onChange={e => setResume(e.target.value)}
-        style={{ width: "100%", height: 120 }}
+        onChange={(e) => setResume(e.target.value)}
+        rows={10}
+        style={{ width: "100%", marginBottom: 12 }}
       />
 
       <textarea
         placeholder="Paste job description"
         value={jd}
-        onChange={e => setJD(e.target.value)}
-        style={{ width: "100%", height: 120, marginTop: 10 }}
+        onChange={(e) => setJd(e.target.value)}
+        rows={10}
+        style={{ width: "100%", marginBottom: 12 }}
       />
 
       <button onClick={handleGenerate} disabled={loading}>
-        {loading ? "Generating..." : "Generate"}
+        {loading ? "Generating..." : "Generate Resume"}
       </button>
 
       {error && (
@@ -101,27 +93,41 @@ setExplain(result?.explain || { coverage: 0, semanticReasons: [] })
         </div>
       )}
 
-      {score !== null && (
-        <div style={{ marginTop: 10 }}>
-          Score: {score}/10
+      {result && (
+        <div style={{ marginTop: 20 }}>
+          {result.reject && (
+            <div style={{ color: "red", marginBottom: 10 }}>
+              Low match — resume not generated
+            </div>
+          )}
+
+          <div>
+            <strong>Score:</strong> {result.bestScore}/10
+          </div>
+
+          <div>
+            <strong>Coverage:</strong>{" "}
+            {Math.round((result.explain?.coverage || 0) * 100)}%
+          </div>
+
+          {result.explain?.semanticReasons?.length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              {result.explain.semanticReasons.slice(0, 3).join(" | ")}
+            </div>
+          )}
+
+          <pre
+            style={{
+              whiteSpace: "pre-wrap",
+              marginTop: 12,
+              background: "#f6f6f6",
+              padding: 12
+            }}
+          >
+            {result.best}
+          </pre>
         </div>
       )}
-
-      {typeof explain?.coverage === "number" && (
-        <div>
-          Coverage: {(explain.coverage * 100).toFixed(0)}%
-        </div>
-      )}
-
-      {explain?.semanticReasons?.length > 0 && (
-        <div style={{ fontSize: 12, color: "#666" }}>
-          {explain.semanticReasons.slice(0, 3).join(" | ")}
-        </div>
-      )}
-
-      <pre style={{ whiteSpace: "pre-wrap", marginTop: 20 }}>
-        {output}
-      </pre>
     </div>
   )
 }
