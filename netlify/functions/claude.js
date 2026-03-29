@@ -1,6 +1,8 @@
 exports.handler = async function (event) {
   try {
-    const { system, user } = JSON.parse(event.body || "{}")
+    const body = JSON.parse(event.body || "{}")
+    const system = body.system
+    const user = body.user
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -10,26 +12,27 @@ exports.handler = async function (event) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-  model: "claude-3-haiku",
-  max_tokens: 1000,
-  system,
-  messages: [
-    {
-      role: "user",
-      content: [{ type: "text", text: user }]
-    }
-  ]
-})
+        model: "claude-3-haiku",
+        max_tokens: 1000,
+        system: system,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: user }
+            ]
+          }
+        ]
+      })
+    })
 
     const data = await response.json()
 
-// 🔥 DEBUG MODE — return raw Claude response
-return {
-  statusCode: 200,
-  body: JSON.stringify({
-    debug: data
-  })
-}
+    // Return raw for now (debug mode)
+    return {
+      statusCode: 200,
+      body: JSON.stringify(data)
+    }
 
   } catch (e) {
     return {
