@@ -1,39 +1,33 @@
 exports.handler = async function (event) {
   try {
     const body = JSON.parse(event.body || "{}")
+    const system = body.system || ""
+    const user = body.user || ""
 
-    const system = body.system || "You are a resume optimization assistant."
-    const user = body.user || "No user input provided."
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 12000) // 🔥 12s max
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o-mini", // 🔥 FAST model
         messages: [
           { role: "system", content: system },
           { role: "user", content: user }
         ],
-        temperature: 0.3
+        max_tokens: 500,       // 🔥 LIMIT OUTPUT
+        temperature: 0.3       // 🔥 MORE DETERMINISTIC
       })
     })
 
-    const data = await response.json()
+    clearTimeout(timeout)
 
-    // 🔍 DEBUG visibility
-    if (!body.system || !body.user) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          error: "Missing system or user input",
-          received: body,
-          openai: data
-        })
-      }
-    }
+    const data = await response.json()
 
     const text =
       data?.choices?.[0]?.message?.content ||
@@ -48,7 +42,8 @@ exports.handler = async function (event) {
     return {
       statusCode: 200,
       body: JSON.stringify({
-        error: e.message || "Function error"
+        text: "LLM timeout or error",
+        error: e.message
       })
     }
   }
