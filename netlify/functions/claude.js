@@ -1,19 +1,41 @@
 export async function handler(event) {
   try {
-    const body = JSON.parse(event.body || "{}")
+    const { system, user } = JSON.parse(event.body || "{}")
 
-    // For now: mock response (safe for testing)
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 1000,
+        system,
+        messages: [
+          { role: "user", content: user }
+        ]
+      })
+    })
+
+    const data = await response.json()
+
+    const text =
+      data?.content?.[0]?.text ||
+      "No response from Claude"
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        text: "Mock resume output (API not wired yet)"
-      })
+      body: JSON.stringify({ text })
     }
+
   } catch (e) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: "Function error" })
+      body: JSON.stringify({
+        error: e.message || "Claude error"
+      })
     }
   }
 }
-
