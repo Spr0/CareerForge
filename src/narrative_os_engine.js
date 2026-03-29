@@ -12,16 +12,14 @@ async function safeJsonFetch(url, body) {
     try {
       return JSON.parse(text)
     } catch {
-      console.error("Non-JSON response:", text)
       return {}
     }
-  } catch (e) {
-    console.error("Fetch error:", e)
+  } catch {
     return {}
   }
 }
 
-// --- BATCH EMBEDDINGS ---
+// --- EMBEDDINGS ---
 async function getEmbeddingsBatch(texts) {
   const data = await safeJsonFetch("/.netlify/functions/embeddings", {
     input: texts
@@ -45,7 +43,7 @@ function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(magA) * Math.sqrt(magB))
 }
 
-// --- JD PARSING ---
+// --- JD PARSE ---
 export async function parseJD(jd, callClaude) {
   try {
     const res = await callClaude(
@@ -59,80 +57,83 @@ export async function parseJD(jd, callClaude) {
   }
 }
 
-// --- FAST EMBEDDING VALIDATION ---
-async function validateEmbeddingOnly(resume, jdStruct) {
+// --- VALIDATION (SOFTENED) ---
+async function validate(resume, jdStruct) {
   const requirements = jdStruct?.must_have || []
-  if (!requirements.length) return { reasons: [], weights: [] }
+  if (!requirements.length) return { weights: [], reasons: [] }
 
   const resumeChunks = resume.split("\n").map(s => s.trim()).filter(Boolean)
 
-  const resumeEmbeddings = (await getEmbeddingsBatch(resumeChunks)).filter(Boolean)
-  const reqEmbeddings = await getEmbeddingsBatch(requirements)
+  const resumeEmb = (await getEmbeddingsBatch(resumeChunks)).filter(Boolean)
+  const reqEmb = await getEmbeddingsBatch(requirements)
 
-  const reasons = []
   const weights = []
+  const reasons = []
 
   for (let i = 0; i < requirements.length; i++) {
-    const reqEmb = reqEmbeddings[i]
+    let best = 0
 
-    let bestScore = 0
-
-    if (reqEmb && resumeEmbeddings.length) {
-      for (const emb of resumeEmbeddings) {
-        const s = cosineSimilarity(emb, reqEmb)
-        if (s > bestScore) bestScore = s
-      }
+    for (const r of resumeEmb) {
+      const s = cosineSimilarity(r, reqEmb[i])
+      if (s > best) best = s
     }
 
-    // 🔥 FIXED THRESHOLDS
-    if (bestScore > 0.78) {
-      reasons.push("Strong")
+    // 🔥 CALIBRATED THRESHOLDS
+    if (best > 0.75) {
       weights.push(1)
-    } else if (bestScore > 0.60) {
+      reasons.push("Strong")
+    } else if (best > 0.55) {
+      weights.push(0.6)
       reasons.push("Weak")
-      weights.push(0.5)
+    } else if (best > 0.45) {
+      weights.push(0.3)
+      reasons.push("Loose")
     } else {
-      reasons.push("None")
       weights.push(0)
+      reasons.push("None")
     }
   }
 
-  return { reasons, weights }
+  return { weights, reasons }
 }
 
-// --- GENERATION (FAST MODE) ---
+// --- GENERATION ---
 export async function generateResume(base, jd, stories, jdStruct, callClaude) {
   const res = await callClaude(
     "Rewrite resume optimized for ATS. DO NOT invent experience.",
-    `Original Resume:
+    `Resume:
 ${base}
 
 Job Description:
 ${jd}
 
-Only improve wording and alignment.`
+Improve alignment but keep it truthful.`
   )
 
-  const truth = await validateEmbeddingOnly(base, jdStruct)
-  const gen = await validateEmbeddingOnly(res, jdStruct)
+  const truth = await validate(base, jdStruct)
+  const gen = await validate(res, jdStruct)
 
   const total = gen.weights.length || 1
 
   const genScore = gen.weights.reduce((a, b) => a + b, 0)
   const truthScore = truth.weights.reduce((a, b) => a + b, 0)
 
+  // 🔥 BALANCED + FLOOR
   let adjusted = (genScore * 0.7) + (truthScore * 0.3)
 
-  // 🔥 MUST-HAVE PENALTY
+  // 🔥 LIGHT penalty (not brutal)
   const critical = jdStruct?.must_have?.slice(0, 2) || []
-  critical.forEach((_, idx) => {
-    if ((truth.weights[idx] || 0) === 0) {
-      adjusted -= 0.5
+  critical.forEach((_, i) => {
+    if ((truth.weights[i] || 0) === 0) {
+      adjusted -= 0.3
     }
   })
 
+  // 🔥 MINIMUM FLOOR
+  adjusted = Math.max(adjusted, 0.2)
+
   const coverage = adjusted / total
-  const score = Math.max(0, Math.round(coverage * 10))
+  const score = Math.round(coverage * 10)
 
   return {
     best: res,
@@ -143,6 +144,6 @@ Only improve wording and alignment.`
       coverage,
       semanticReasons: gen.reasons
     },
-    reject: score < 5
+    reject: score < 4
   }
 }
