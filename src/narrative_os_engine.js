@@ -1,24 +1,18 @@
-// --- SIMPLE CACHE (in-memory) ---
-const embeddingCache = new Map()
-
-async function getEmbedding(text) {
-  if (embeddingCache.has(text)) return embeddingCache.get(text)
-
+// --- BATCH EMBEDDINGS ---
+async function getEmbeddingsBatch(texts) {
   try {
     const res = await fetch("/.netlify/functions/embeddings", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: text })
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ input: texts })
     })
 
     const data = await res.json()
-    const emb = data?.embedding || null
-
-    if (emb) embeddingCache.set(text, emb)
-
-    return emb
+    return data?.embeddings || []
   } catch {
-    return null
+    return []
   }
 }
 
@@ -54,7 +48,7 @@ export async function parseJD(jd, callClaude) {
   }
 }
 
-// --- HYBRID VALIDATION (FAST) ---
+// --- VALIDATION ---
 async function validateHybrid(resume, jdStruct, callClaude) {
   const requirements = jdStruct?.must_have || []
 
@@ -67,14 +61,8 @@ async function validateHybrid(resume, jdStruct, callClaude) {
     .map(s => s.trim())
     .filter(Boolean)
 
-  // ⚡ PARALLEL embeddings
-  const resumeEmbeddings = (await Promise.all(
-    resumeChunks.map(getEmbedding)
-  )).filter(Boolean)
-
-  const reqEmbeddings = await Promise.all(
-    requirements.map(getEmbedding)
-  )
+  const resumeEmbeddings = (await getEmbeddingsBatch(resumeChunks)).filter(Boolean)
+  const reqEmbeddings = await getEmbeddingsBatch(requirements)
 
   const reasons = []
   const weights = []
@@ -155,10 +143,9 @@ export async function generateResume(base, jd, stories, jdStruct, callClaude) {
     const genScore = gen.weights.reduce((a, b) => a + b, 0)
     const truthScore = truth.weights.reduce((a, b) => a + b, 0)
 
-    // ⚖️ Balanced scoring
     let adjusted = (genScore * 0.7) + (truthScore * 0.3)
 
-    // 🔥 MUST-HAVE PENALTIES
+    // 🔥 MUST-HAVE PENALTY
     const critical = jdStruct?.must_have?.slice(0, 2) || []
 
     critical.forEach((_, i) => {
