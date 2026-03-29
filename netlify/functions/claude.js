@@ -21,10 +21,19 @@ export async function handler(event) {
 
     const data = await response.json()
 
-    const text =
-      data?.content?.[0]?.text ||
-      "No response from Claude"
+   let text = "No response from Claude"
 
+if (data?.content && Array.isArray(data.content)) {
+  const block = data.content.find(c => c.type === "text")
+  if (block?.text) {
+    text = block.text
+  }
+}
+
+// DEBUG (optional but useful)
+if (!text || text === "No response from Claude") {
+  console.log("Claude raw response:", JSON.stringify(data))
+}
     return {
       statusCode: 200,
       body: JSON.stringify({ text })
