@@ -4,8 +4,18 @@ exports.handler = async function (event) {
     const system = body.system || ""
     const user = body.user || ""
 
+    if (!system || !user) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          error: "Missing system or user input",
+          received: body
+        })
+      }
+    }
+
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 12000) // 🔥 12s max
+    const timeout = setTimeout(() => controller.abort(), 20000) // 🔥 20s
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -15,13 +25,13 @@ exports.handler = async function (event) {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini", // 🔥 FAST model
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: system },
           { role: "user", content: user }
         ],
-        max_tokens: 500,       // 🔥 LIMIT OUTPUT
-        temperature: 0.3       // 🔥 MORE DETERMINISTIC
+        max_tokens: 300,        // 🔥 smaller output
+        temperature: 0.2
       })
     })
 
