@@ -50,6 +50,7 @@ export async function parseJD(jd, callClaude) {
       "Extract must-have requirements as JSON: { must_have: [] }",
       jd
     )
+
     const match = res.match(/\{[\s\S]*\}/)
     return match ? JSON.parse(match[0]) : { must_have: [] }
   } catch {
@@ -57,12 +58,15 @@ export async function parseJD(jd, callClaude) {
   }
 }
 
-// --- VALIDATION (SOFTENED) ---
+// --- VALIDATION (EMBEDDING ONLY) ---
 async function validate(resume, jdStruct) {
   const requirements = jdStruct?.must_have || []
   if (!requirements.length) return { weights: [], reasons: [] }
 
-  const resumeChunks = resume.split("\n").map(s => s.trim()).filter(Boolean)
+  const resumeChunks = resume
+    .split("\n")
+    .map(s => s.trim())
+    .filter(Boolean)
 
   const resumeEmb = (await getEmbeddingsBatch(resumeChunks)).filter(Boolean)
   const reqEmb = await getEmbeddingsBatch(requirements)
@@ -97,16 +101,23 @@ async function validate(resume, jdStruct) {
   return { weights, reasons }
 }
 
+// --- GENERATION (STRICT + FAST) ---
 export async function generateResume(base, jd, stories, jdStruct, callClaude) {
   const res = await callClaude(
-    "Rewrite resume for ATS. Keep concise. Do NOT exceed original length.",
-    `Resume:
+    "You are a resume editor. NEVER add skills, tools, or experience that are not explicitly stated in the original resume.",
+    `Original Resume:
 ${base.slice(0, 2000)}
 
 Job Requirements:
 ${(jdStruct?.must_have || []).join("\n")}
 
-Rewrite to better align with these requirements. Keep it concise.`
+Rules:
+- Do NOT add new technologies (e.g., ServiceNow if not present)
+- Do NOT imply experience that does not exist
+- ONLY rephrase or reorganize existing content
+- If a requirement is missing, leave it missing
+
+Rewrite to improve alignment while remaining 100% truthful and concise.`
   )
 
   const truth = await validate(base, jdStruct)
@@ -117,8 +128,10 @@ Rewrite to better align with these requirements. Keep it concise.`
   const genScore = gen.weights.reduce((a, b) => a + b, 0)
   const truthScore = truth.weights.reduce((a, b) => a + b, 0)
 
+  // ⚖️ BALANCED SCORING
   let adjusted = (genScore * 0.7) + (truthScore * 0.3)
 
+  // 🔥 LIGHT MUST-HAVE PENALTY
   const critical = jdStruct?.must_have?.slice(0, 2) || []
   critical.forEach((_, i) => {
     if ((truth.weights[i] || 0) === 0) {
@@ -126,6 +139,7 @@ Rewrite to better align with these requirements. Keep it concise.`
     }
   })
 
+  // 🔥 FLOOR (prevents 0 collapse)
   adjusted = Math.max(adjusted, 0.2)
 
   const coverage = adjusted / total
