@@ -1,17 +1,33 @@
-// --- BATCH EMBEDDINGS ---
-async function getEmbeddingsBatch(texts) {
+// --- SAFE FETCH ---
+async function safeJsonFetch(url, body) {
   try {
-    const res = await fetch("/.netlify/functions/embeddings", {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input: texts })
+      body: JSON.stringify(body)
     })
 
-    const data = await res.json()
-    return data?.embeddings || []
-  } catch {
-    return []
+    const text = await res.text()
+
+    try {
+      return JSON.parse(text)
+    } catch {
+      console.error("Non-JSON response:", text)
+      return {}
+    }
+  } catch (e) {
+    console.error("Fetch error:", e)
+    return {}
   }
+}
+
+// --- BATCH EMBEDDINGS ---
+async function getEmbeddingsBatch(texts) {
+  const data = await safeJsonFetch("/.netlify/functions/embeddings", {
+    input: texts
+  })
+
+  return data?.embeddings || []
 }
 
 // --- COSINE ---
@@ -43,8 +59,8 @@ export async function parseJD(jd, callClaude) {
   }
 }
 
-// --- VALIDATION (FAST: 1 LLM CALL) ---
-async function validateHybrid(resume, jdStruct, callClaude) {
+// --- FAST EMBEDDING VALIDATION ---
+async function validateEmbeddingOnly(resume, jdStruct) {
   const requirements = jdStruct?.must_have || []
   if (!requirements.length) return { reasons: [], weights: [] }
 
@@ -53,33 +69,11 @@ async function validateHybrid(resume, jdStruct, callClaude) {
   const resumeEmbeddings = (await getEmbeddingsBatch(resumeChunks)).filter(Boolean)
   const reqEmbeddings = await getEmbeddingsBatch(requirements)
 
-  // 🔥 ONE LLM CALL
-  let llmResults = []
-  try {
-    const response = await callClaude(
-      "For each requirement, return STRONG, WEAK, or NONE as a JSON array.",
-      `Requirements:
-${requirements.join("\n")}
-
-Resume:
-${resume}
-
-Return ONLY:
-["STRONG","WEAK","NONE"]`
-    )
-
-    const match = response.match(/\[[\s\S]*\]/)
-    llmResults = match ? JSON.parse(match[0]) : []
-  } catch {
-    llmResults = []
-  }
-
   const reasons = []
   const weights = []
 
   for (let i = 0; i < requirements.length; i++) {
     const reqEmb = reqEmbeddings[i]
-    const llmLabel = (llmResults[i] || "").toLowerCase()
 
     let bestScore = 0
 
@@ -90,106 +84,65 @@ Return ONLY:
       }
     }
 
-    if (bestScore > 0.80) {
+    // 🔥 FIXED THRESHOLDS
+    if (bestScore > 0.78) {
       reasons.push("Strong")
       weights.push(1)
+    } else if (bestScore > 0.60) {
+      reasons.push("Weak")
+      weights.push(0.5)
     } else {
-      if (llmLabel.includes("strong")) {
-        reasons.push("LLM strong")
-        weights.push(0.75)
-      } else if (llmLabel.includes("weak")) {
-        reasons.push("Weak")
-        weights.push(0.5)
-      } else {
-        reasons.push("None")
-        weights.push(0)
-      }
+      reasons.push("None")
+      weights.push(0)
     }
   }
 
   return { reasons, weights }
 }
 
-// --- GENERATION (OPTIMIZED) ---
+// --- GENERATION (FAST MODE) ---
 export async function generateResume(base, jd, stories, jdStruct, callClaude) {
-  let best = ""
-  let bestScore = 0
-  let bestExplain = { coverage: 0, semanticReasons: [] }
-
-  // 🔥 only 2 passes
-  for (let i = 0; i < 2; i++) {
-    let missing = []
-
-    if (i > 0 && bestExplain?.semanticReasons?.length) {
-      const reqs = jdStruct?.must_have || []
-      reqs.forEach((req, idx) => {
-        const reason = bestExplain.semanticReasons[idx] || ""
-        if (!reason.toLowerCase().includes("strong")) {
-          missing.push(req)
-        }
-      })
-    }
-
-    const res = await callClaude(
-      "Rewrite resume optimized for ATS. DO NOT invent experience.",
-      `Original Resume:
+  const res = await callClaude(
+    "Rewrite resume optimized for ATS. DO NOT invent experience.",
+    `Original Resume:
 ${base}
 
 Job Description:
 ${jd}
 
-Missing requirements:
-${missing.join("\n")}
+Only improve wording and alignment.`
+  )
 
-Improve alignment WITHOUT adding fake experience.`
-    )
+  const truth = await validateEmbeddingOnly(base, jdStruct)
+  const gen = await validateEmbeddingOnly(res, jdStruct)
 
-    const gen = await validateHybrid(res, jdStruct, callClaude)
+  const total = gen.weights.length || 1
 
-    const total = gen.weights.length || 1
-    const genScore = gen.weights.reduce((a, b) => a + b, 0)
+  const genScore = gen.weights.reduce((a, b) => a + b, 0)
+  const truthScore = truth.weights.reduce((a, b) => a + b, 0)
 
-    // 🔥 truth only once
-    const truth = i === 0
-      ? await validateHybrid(base, jdStruct, callClaude)
-      : null
+  let adjusted = (genScore * 0.7) + (truthScore * 0.3)
 
-    const truthScore = truth
-      ? truth.weights.reduce((a, b) => a + b, 0)
-      : bestExplain.coverage * total
-
-    let adjusted = (genScore * 0.7) + (truthScore * 0.3)
-
-    // 🔥 must-have penalty
-    const critical = jdStruct?.must_have?.slice(0, 2) || []
-    critical.forEach((_, idx) => {
-      if ((truth?.weights?.[idx] || 0) === 0) {
-        adjusted -= 0.5
-      }
-    })
-
-    const coverage = adjusted / total
-    const score = Math.max(0, Math.round(coverage * 10))
-
-    if (score > bestScore) {
-      best = res
-      bestScore = score
-      bestExplain = {
-        coverage,
-        semanticReasons: gen.reasons
-      }
+  // 🔥 MUST-HAVE PENALTY
+  const critical = jdStruct?.must_have?.slice(0, 2) || []
+  critical.forEach((_, idx) => {
+    if ((truth.weights[idx] || 0) === 0) {
+      adjusted -= 0.5
     }
+  })
 
-    // 🔥 early exit
-    if (score >= 6 || coverage >= 0.55) break
-  }
+  const coverage = adjusted / total
+  const score = Math.max(0, Math.round(coverage * 10))
 
   return {
-    best,
-    bestScore,
+    best: res,
+    bestScore: score,
     keywords: jdStruct?.must_have || [],
     jdStruct,
-    explain: bestExplain,
-    reject: bestScore < 5
+    explain: {
+      coverage,
+      semanticReasons: gen.reasons
+    },
+    reject: score < 5
   }
 }
