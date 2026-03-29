@@ -11,40 +11,17 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // 🔥 BULLETPROOF CALL
   async function callClaude(system, user) {
-    if (!system || !user) {
-      console.warn("Claude called with missing input", { system, user })
-      return ""
-    }
-
     try {
-      const payload = {
-        system: String(system),
-        user: String(user)
-      }
-
-      console.log("Sending to Claude:", payload)
-
       const res = await fetch("/.netlify/functions/claude", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ system, user })
       })
 
-      const text = await res.text()
-
-      try {
-        const data = JSON.parse(text)
-        return data?.text || ""
-      } catch {
-        console.error("Non-JSON response:", text)
-        return ""
-      }
-    } catch (e) {
-      console.error("Claude error:", e)
+      const data = await res.json()
+      return data?.text || ""
+    } catch {
       return ""
     }
   }
@@ -57,12 +34,7 @@ export default function App() {
     setResult(null)
 
     try {
-      console.log("STARTING GENERATION")
-
-      // 🔥 ensure JD parsing gets valid input
       const jdStruct = await parseJD(jd, callClaude)
-
-      console.log("JD STRUCT:", jdStruct)
 
       const output = await generateResume(
         resume,
@@ -72,16 +44,41 @@ export default function App() {
         callClaude
       )
 
-      console.log("RESULT:", output)
-
       setResult(output)
     } catch (e) {
-      console.error(e)
       setError("Generation failed")
     } finally {
       setLoading(false)
     }
   }
+
+  // 🔥 NEW: Categorize results
+  const getBreakdown = () => {
+    if (!result?.keywords || !result?.explain?.semanticReasons) return null
+
+    const matched = []
+    const partial = []
+    const missing = []
+
+    result.keywords.forEach((req, i) => {
+      const reason = result.explain.semanticReasons[i] || ""
+
+      if (reason.toLowerCase().includes("strong")) {
+        matched.push(req)
+      } else if (
+        reason.toLowerCase().includes("weak") ||
+        reason.toLowerCase().includes("loose")
+      ) {
+        partial.push(req)
+      } else {
+        missing.push(req)
+      }
+    })
+
+    return { matched, partial, missing }
+  }
+
+  const breakdown = getBreakdown()
 
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: "0 auto" }}>
@@ -130,9 +127,41 @@ export default function App() {
             {Math.round((result.explain?.coverage || 0) * 100)}%
           </div>
 
-          {result.explain?.semanticReasons?.length > 0 && (
-            <div style={{ marginTop: 6 }}>
-              {result.explain.semanticReasons.slice(0, 3).join(" | ")}
+          {/* 🔥 NEW EXPLAINABILITY UI */}
+          {breakdown && (
+            <div style={{ marginTop: 20 }}>
+              {breakdown.matched.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <strong style={{ color: "green" }}>Matched</strong>
+                  <ul>
+                    {breakdown.matched.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {breakdown.partial.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <strong style={{ color: "orange" }}>Partial</strong>
+                  <ul>
+                    {breakdown.partial.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {breakdown.missing.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  <strong style={{ color: "red" }}>Missing</strong>
+                  <ul>
+                    {breakdown.missing.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
 
