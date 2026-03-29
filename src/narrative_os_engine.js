@@ -1,32 +1,48 @@
 // --- EMBEDDINGS ---
 async function getEmbedding(text) {
-  const res = await fetch("/.netlify/functions/embeddings", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ input: text })
-  })
-  const data = await res.json()
-  return data.embedding
+  try {
+    const res = await fetch("/.netlify/functions/embeddings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ input: text })
+    })
+
+    const data = await res.json()
+    return data?.embedding || null
+  } catch {
+    return null
+  }
 }
 
+// --- COSINE SIMILARITY ---
 function cosineSimilarity(a, b) {
-  let dot = 0, magA = 0, magB = 0
+  if (!a || !b || a.length !== b.length) return 0
+
+  let dot = 0
+  let magA = 0
+  let magB = 0
+
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i]
     magA += a[i] * a[i]
     magB += b[i] * b[i]
   }
+
+  if (!magA || !magB) return 0
+
   return dot / (Math.sqrt(magA) * Math.sqrt(magB))
 }
 
 // --- JD PARSING ---
 export async function parseJD(jd, callClaude) {
-  const res = await callClaude(
-    "Extract must-have requirements as JSON: { must_have: [] }",
-    jd
-  )
-
   try {
+    const res = await callClaude(
+      "Extract must-have requirements as JSON: { must_have: [] }",
+      jd
+    )
+
     const match = res.match(/\{[\s\S]*\}/)
     return match ? JSON.parse(match[0]) : { must_have: [] }
   } catch {
@@ -34,30 +50,63 @@ export async function parseJD(jd, callClaude) {
   }
 }
 
-// --- HYBRID VALIDATION ---
+// --- HYBRID VALIDATION (chunked matching) ---
 async function validateHybrid(resume, jdStruct, callClaude) {
-  const resumeEmb = await getEmbedding(resume)
+  const requirements =
+    (jdStruct && jdStruct.must_have) ? jdStruct.must_have : []
+
+  if (!requirements.length) {
+    return { satisfied: [], reasons: [] }
+  }
+
+  // Split resume into chunks (critical fix)
+  const resumeChunks = resume
+    .split("\n")
+    .map(s => s.trim())
+    .filter(Boolean)
+
+  const resumeEmbeddings = []
+
+  for (const chunk of resumeChunks) {
+    const emb = await getEmbedding(chunk)
+    if (emb) resumeEmbeddings.push(emb)
+  }
 
   const satisfied = []
   const reasons = []
 
- for (const req of (jdStruct && jdStruct.must_have) ? jdStruct.must_have : []) {
+  for (const req of requirements) {
     const reqEmb = await getEmbedding(req)
-    const score = cosineSimilarity(resumeEmb, reqEmb)
 
-    if (score > 0.82) {
+    if (!reqEmb || !resumeEmbeddings.length) {
+      satisfied.push(false)
+      reasons.push("Embedding failure")
+      continue
+    }
+
+    // Find best matching chunk
+    let bestScore = 0
+
+    for (const emb of resumeEmbeddings) {
+      const score = cosineSimilarity(emb, reqEmb)
+      if (score > bestScore) bestScore = score
+    }
+
+    if (bestScore > 0.82) {
       satisfied.push(true)
       reasons.push("Strong semantic match")
-    } else if (score < 0.65) {
+    } else if (bestScore < 0.65) {
       satisfied.push(false)
       reasons.push("Low similarity")
     } else {
-      // fallback to LLM
+      // LLM fallback
       const check = await callClaude(
         "Answer ONLY true or false: does resume satisfy requirement?",
         `Requirement: ${req}\nResume:\n${resume}`
       )
+
       const isMatch = check.toLowerCase().includes("true")
+
       satisfied.push(isMatch)
       reasons.push("LLM fallback")
     }
@@ -66,11 +115,11 @@ async function validateHybrid(resume, jdStruct, callClaude) {
   return { satisfied, reasons }
 }
 
-// --- GENERATION (with regeneration loop) ---
+// --- GENERATION WITH LOOP ---
 export async function generateResume(base, jd, stories, jdStruct, callClaude) {
   let best = ""
   let bestScore = 0
-  let bestExplain = null
+  let bestExplain = { coverage: 0, semanticReasons: [] }
 
   for (let i = 0; i < 3; i++) {
     const res = await callClaude(
@@ -87,17 +136,17 @@ export async function generateResume(base, jd, stories, jdStruct, callClaude) {
     const coverage = satisfiedCount / total
     const score = Math.round(coverage * 10)
 
-    // track best attempt
+    // Track best attempt
     if (score > bestScore) {
       best = res
       bestScore = score
       bestExplain = {
         coverage,
-        semanticReasons: semantic.reasons
+        semanticReasons: semantic.reasons || []
       }
     }
 
-    // ✅ early exit if good enough
+    // Early exit if strong match
     if (score >= 7 && coverage >= 0.7) {
       return {
         best: res,
@@ -106,20 +155,20 @@ export async function generateResume(base, jd, stories, jdStruct, callClaude) {
         jdStruct,
         explain: {
           coverage,
-          semanticReasons: semantic.reasons
+          semanticReasons: semantic.reasons || []
         },
         reject: false
       }
     }
   }
 
-  // ❌ fallback (best attempt)
+  // Fallback (best attempt)
   return {
     best,
     bestScore,
     keywords: jdStruct?.must_have || [],
     jdStruct,
-    explain: bestExplain || { coverage: 0, semanticReasons: [] },
+    explain: bestExplain,
     reject: bestScore < 6
   }
 }
