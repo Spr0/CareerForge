@@ -1,4 +1,4 @@
-export async function handler(event) {
+exports.handler = async function (event) {
   try {
     const { system, user } = JSON.parse(event.body || "{}")
 
