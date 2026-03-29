@@ -1,10 +1,11 @@
 exports.handler = async function (event) {
   try {
     const body = JSON.parse(event.body || "{}")
+    const input = body.input
 
-    if (!body.input) {
+    if (!input) {
       return {
-        statusCode: 400,
+        statusCode: 200,
         body: JSON.stringify({ error: "Missing input" })
       }
     }
@@ -17,23 +18,20 @@ exports.handler = async function (event) {
       },
       body: JSON.stringify({
         model: "text-embedding-3-small",
-        input: body.input
+        input
       })
     })
 
     const data = await response.json()
 
-    const embedding = data?.data?.[0]?.embedding
-
-    if (!embedding || !Array.isArray(embedding)) {
+    if (data?.error) {
       return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: "Invalid embedding response",
-          debug: data
-        })
+        statusCode: 200,
+        body: JSON.stringify({ error: data.error.message })
       }
     }
+
+    const embedding = data?.data?.[0]?.embedding
 
     return {
       statusCode: 200,
@@ -42,10 +40,8 @@ exports.handler = async function (event) {
 
   } catch (e) {
     return {
-      statusCode: 500,
-      body: JSON.stringify({
-        error: e.message || "Embedding error"
-      })
+      statusCode: 200,
+      body: JSON.stringify({ error: e.message })
     }
   }
 }
