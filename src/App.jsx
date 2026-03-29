@@ -230,11 +230,17 @@ Rules:
 - Bullets starting with dash (-)
 - Quantified achievements where present in the source
 - Do not invent facts — only use what exists in the base resume and strategy
-PAGE LIMIT — STRICT 2 PAGES:
-- Total bullet count across all roles: 14–16 maximum. Senior/recent roles get more bullets; older roles get fewer.
+PAGE LIMIT — DENSE 2 PAGES:
+- Target a full, dense 2 pages. Do not leave white space on the table — the goal is maximum signal within 2 pages, not brevity for its own sake.
+- Bullet distribution by role (total 20–22 bullets across all roles):
+  - Cypress Creek Renewables (VP): 6–7 bullets
+  - EDF Renewables (Sr Director): 5–6 bullets
+  - Percipio Consulting (Sr Manager): 3–4 bullets
+  - Nike (Director): 2–3 bullets
+  - Intel Corporation (Sr Program Manager): 2 bullets
 - Roles before Intel Corporation (Apr 2013) must be EXCLUDED entirely — do not include Proudcloud or Bookmans Entertainment Exchange.
 - Certifications section: output as a single compact line using pipe separators, e.g. "PMP | SAFe SPC | LSSBB | CSM | CSPO | PMI-ACP | ITIL v4 | Cynefin CAP"
-- Keep section spacing tight. Every line must earn its place.
+- Every bullet must be substantive — quantified impact or named capability. No filler.
 PROJECTS SECTION:
 - After PROFESSIONAL EXPERIENCE and before EDUCATION, insert a section titled SELECTED PROJECTS
 - Include exactly these three entries, each as a single dash bullet:
@@ -820,12 +826,7 @@ async function buildFinalResumeText(baseResume, strategy, jd) {
   return callClaude(
     PROMPTS.resumeRender(),
     `Base Resume:\n${stripPreIntelRoles(baseResume)}\n\nApproved Strategy:\n${JSON.stringify(strategy, null, 2)}\n\nJob Description:\n${jd}`,
-    2000
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 7. SHARED STYLES
+    2700
 // ─────────────────────────────────────────────────────────────────────────────
 
 const S = {
