@@ -54,11 +54,17 @@ export default function App() {
         callClaude
       )
 
-      setOutput(result?.best || "")
-      setScore(result?.bestScore ?? null)
-      setExplain(
-        result?.explain || { coverage: 0, semanticReasons: [] }
-      )
+      if (result?.reject) {
+  setError("Low match — resume not generated")
+  setOutput("")
+  setScore(result?.bestScore ?? null)
+  setExplain(result?.explain || { coverage: 0, semanticReasons: [] })
+  return
+}
+
+setOutput(result?.best || "")
+setScore(result?.bestScore ?? null)
+setExplain(result?.explain || { coverage: 0, semanticReasons: [] })
 
     } catch (e) {
       setError(e.message || "Failed")
