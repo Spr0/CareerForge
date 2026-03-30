@@ -15,24 +15,28 @@ const GENERIC_PHRASES = [
 const CAPABILITY_RULES = [
   {
     name: "PROGRAM_DELIVERY",
-    signals: ["program", "delivery", "roadmap", "execution"]
+    signals: ["program", "delivery", "roadmap", "execution"],
+    guidance: "Clarify ownership of delivery, scope, and measurable outcomes."
   },
   {
     name: "DEPENDENCY_MANAGEMENT",
-    signals: ["dependency", "dependencies", "blockers"]
+    signals: ["dependency", "dependencies", "blockers"],
+    guidance: "Show how dependencies were identified, managed, and resolved."
   },
   {
     name: "STAKEHOLDER_MANAGEMENT",
-    signals: ["stakeholder", "executive", "alignment"]
+    signals: ["stakeholder", "executive", "alignment"],
+    guidance: "Highlight stakeholder groups, influence, and alignment outcomes."
   },
   {
     name: "PROCESS_OPTIMIZATION",
-    signals: ["optimize", "improve", "efficiency", "process"]
+    signals: ["optimize", "improve", "efficiency", "process"],
+    guidance: "Quantify improvements and describe what changed and why."
   }
 ];
 
 // ==============================
-// UTIL: COSINE SIMILARITY
+// UTIL
 // ==============================
 
 function cosineSimilarity(a, b) {
@@ -47,10 +51,6 @@ function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-// ==============================
-// UTIL: GENERIC DETECTION
-// ==============================
-
 function isGenericBullet(text) {
   const lower = text.toLowerCase();
   return GENERIC_PHRASES.some(p => lower.includes(p));
@@ -63,17 +63,23 @@ function isGenericBullet(text) {
 function extractCapabilities(text) {
   const lower = text.toLowerCase();
 
-  return CAPABILITY_RULES.map(rule => {
+  const caps = CAPABILITY_RULES.map(rule => {
     const matches = rule.signals.filter(s => lower.includes(s));
     return {
       name: rule.name,
-      score: matches.length / rule.signals.length
+      score: matches.length / rule.signals.length,
+      guidance: rule.guidance
     };
   }).filter(c => c.score > 0);
+
+  // sort strongest first
+  caps.sort((a, b) => b.score - a.score);
+
+  return caps;
 }
 
 // ==============================
-// KEYWORD SCORE (lightweight)
+// KEYWORD SCORE
 // ==============================
 
 function keywordScore(req, bullet) {
@@ -112,9 +118,75 @@ function capabilityScore(reqCaps, bullet) {
     if (cap.name === "PROGRAM_DELIVERY" && text.includes("program")) {
       score += 0.3;
     }
+
+    if (cap.name === "PROCESS_OPTIMIZATION" && text.includes("improv")) {
+      score += 0.3;
+    }
   }
 
   return Math.min(score, 1);
+}
+
+// ==============================
+// GAP ANALYSIS (NEW)
+// ==============================
+
+function analyzeGaps(reqCaps, bullet) {
+  const text = bullet.toLowerCase();
+
+  const missing = [];
+
+  for (const cap of reqCaps) {
+    if (cap.name === "DEPENDENCY_MANAGEMENT" && !text.includes("depend")) {
+      missing.push("dependency management");
+    }
+
+    if (cap.name === "STAKEHOLDER_MANAGEMENT" && !text.includes("stakeholder")) {
+      missing.push("stakeholder scope");
+    }
+
+    if (cap.name === "PROGRAM_DELIVERY" && !text.includes("program")) {
+      missing.push("program ownership");
+    }
+
+    if (cap.name === "PROCESS_OPTIMIZATION" && !text.includes("improv")) {
+      missing.push("quantified improvements");
+    }
+  }
+
+  return missing;
+}
+
+// ==============================
+// SCORE DELTA ESTIMATION (NEW)
+// ==============================
+
+function estimateScoreDelta(missing) {
+  let delta = 0;
+
+  for (const gap of missing) {
+    if (gap.includes("dependency")) delta += 0.15;
+    if (gap.includes("stakeholder")) delta += 0.1;
+    if (gap.includes("program")) delta += 0.1;
+    if (gap.includes("improvement")) delta += 0.1;
+  }
+
+  return Math.min(delta, 0.5);
+}
+
+// ==============================
+// REWRITE GUIDANCE (NEW)
+// ==============================
+
+function buildRewriteGuidance(requirement, bullet, missing, capability) {
+  return {
+    instruction: `Rewrite this bullet to better align with the requirement.`,
+    requirement,
+    currentBullet: bullet,
+    improveBy: missing,
+    guidance: capability?.guidance || "Improve specificity and alignment.",
+    exampleFocus: `Ensure the bullet explicitly demonstrates: ${missing.join(", ")}`
+  };
 }
 
 // ==============================
@@ -127,7 +199,7 @@ export async function runNarrativeOS({
   openai
 }) {
   // ------------------------------
-  // STEP 1: SPLIT INPUTS
+  // INPUT PARSING
   // ------------------------------
 
   const requirements = jobDescription
@@ -139,7 +211,7 @@ export async function runNarrativeOS({
     .filter(b => b.trim().startsWith("-"));
 
   // ------------------------------
-  // STEP 2: EMBEDDINGS (with cache)
+  // EMBEDDINGS
   // ------------------------------
 
   const cache = new Map();
@@ -168,11 +240,10 @@ export async function runNarrativeOS({
   }
 
   // ------------------------------
-  // STEP 3: SCORING
+  // SCORING
   // ------------------------------
 
   const bulletUsage = {};
-
   const results = [];
 
   for (let i = 0; i < requirements.length; i++) {
@@ -180,6 +251,7 @@ export async function runNarrativeOS({
     const reqEmbedding = reqEmbeddings[i];
 
     const reqCaps = extractCapabilities(req);
+    const primaryCap = reqCaps[0];
 
     const ranked = [];
 
@@ -187,16 +259,10 @@ export async function runNarrativeOS({
       const bullet = bullets[j];
       const bulletEmbedding = bulletEmbeddings[j];
 
-      // --- embedding ---
       const embScore = cosineSimilarity(reqEmbedding, bulletEmbedding);
-
-      // --- capability ---
       const capScore = capabilityScore(reqCaps, bullet);
-
-      // --- keyword ---
       const keyScore = keywordScore(req, bullet);
 
-      // --- penalties ---
       let penalty = 0;
 
       if (bulletUsage[j]) {
@@ -207,12 +273,14 @@ export async function runNarrativeOS({
         penalty += 0.2;
       }
 
-      // --- final ---
       const finalScore =
         (0.5 * embScore) +
         (0.3 * capScore) +
         (0.2 * keyScore) -
         penalty;
+
+      const missing = analyzeGaps(reqCaps, bullet);
+      const delta = estimateScoreDelta(missing);
 
       ranked.push({
         bulletId: j,
@@ -223,27 +291,41 @@ export async function runNarrativeOS({
           capability: capScore,
           keyword: keyScore,
           penalty: penalty
-        }
+        },
+        gaps: missing,
+        estimatedImprovement: delta
       });
     }
 
-    // sort
     ranked.sort((a, b) => b.score - a.score);
 
-    // mark usage
     const best = ranked[0];
     bulletUsage[best.bulletId] =
       (bulletUsage[best.bulletId] || 0) + 1;
 
+    const rewriteGuidance = buildRewriteGuidance(
+      req,
+      best.text,
+      best.gaps,
+      primaryCap
+    );
+
     results.push({
       requirement: req,
+      capability: primaryCap?.name || "GENERAL",
       bestBulletId: best.bulletId,
-      rankedBullets: ranked.slice(0, 5)
+      rankedBullets: ranked.slice(0, 5),
+      recommendation: {
+        bestBullet: best.text,
+        gaps: best.gaps,
+        estimatedScoreIncrease: best.estimatedImprovement,
+        rewriteGuidance
+      }
     });
   }
 
   // ------------------------------
-  // STEP 4: SCORING SUMMARY
+  // FINAL SCORE
   // ------------------------------
 
   let covered = 0;
@@ -255,12 +337,7 @@ export async function runNarrativeOS({
   }
 
   const coverage = covered / requirements.length;
-
   const score = Math.round(coverage * 10);
-
-  // ------------------------------
-  // FINAL OUTPUT
-  // ------------------------------
 
   return {
     score,
