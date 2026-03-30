@@ -9,6 +9,10 @@ function percent(score) {
 }
 
 export default function App() {
+  const [resumeText, setResumeText] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const [data, setData] = useState({
     score: 0,
     coverage: 0,
@@ -23,12 +27,17 @@ export default function App() {
   };
 
   const analyze = async () => {
+    setLoading(true);
+
     try {
       const res = await fetch("/.netlify/functions/generate", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          resumeText: document.getElementById("resume").value,
-          jobDescription: document.getElementById("jd").value,
+          resumeText,
+          jobDescription,
         }),
       });
 
@@ -44,6 +53,8 @@ export default function App() {
       });
 
     } catch (e) {
+      console.error("Analyze failed:", e);
+
       setData({
         score: 0,
         coverage: 0,
@@ -51,6 +62,8 @@ export default function App() {
         error: true,
       });
     }
+
+    setLoading(false);
   };
 
   const safeRequirements = Array.isArray(data?.requirements)
@@ -61,19 +74,44 @@ export default function App() {
     <div style={{ padding: 20 }}>
       <h1>NarrativeOS</h1>
 
-      <textarea id="resume" placeholder="Resume" rows={6} style={{ width: "100%" }} />
-      <textarea id="jd" placeholder="Job Description" rows={6} style={{ width: "100%", marginTop: 10 }} />
+      {/* RESUME */}
+      <textarea
+        placeholder="Paste Resume"
+        rows={6}
+        style={{ width: "100%" }}
+        value={resumeText}
+        onChange={(e) => setResumeText(e.target.value)}
+      />
 
-      <button onClick={analyze} style={{ marginTop: 10 }}>
-        Analyze
+      {/* JOB DESCRIPTION */}
+      <textarea
+        placeholder="Paste Job Description"
+        rows={6}
+        style={{ width: "100%", marginTop: 10 }}
+        value={jobDescription}
+        onChange={(e) => setJobDescription(e.target.value)}
+      />
+
+      {/* BUTTON */}
+      <button
+        onClick={analyze}
+        disabled={loading}
+        style={{ marginTop: 10 }}
+      >
+        {loading ? "Analyzing..." : "Analyze"}
       </button>
 
-      <h2>Score: {data.score}/10</h2>
-
+      {/* ERROR */}
       {data.error && (
-        <p style={{ color: "red" }}>Something went wrong</p>
+        <p style={{ color: "red" }}>
+          Something went wrong. Try again.
+        </p>
       )}
 
+      {/* SCORE */}
+      <h2>Score: {data.score}/10</h2>
+
+      {/* RESULTS */}
       {safeRequirements.map((req, i) => {
         const ranked = Array.isArray(req?.rankedBullets)
           ? req.rankedBullets
@@ -82,8 +120,18 @@ export default function App() {
         const best = ranked[0];
 
         return (
-          <div key={i} style={{ border: "1px solid #ccc", marginTop: 10, padding: 10 }}>
-            <div onClick={() => toggle(i)} style={{ cursor: "pointer" }}>
+          <div
+            key={i}
+            style={{
+              border: "1px solid #ccc",
+              marginTop: 10,
+              padding: 10,
+            }}
+          >
+            <div
+              onClick={() => toggle(i)}
+              style={{ cursor: "pointer" }}
+            >
               <strong>{clean(req.requirement)}</strong>
             </div>
 
@@ -95,7 +143,9 @@ export default function App() {
                   <>
                     <p><strong>Best Evidence</strong></p>
                     <p>{clean(best.text)}</p>
-                    <p>Strength: {percent(best.score)}/100</p>
+                    <p>
+                      Strength: {percent(best.score)}/100
+                    </p>
                   </>
                 )}
               </>
