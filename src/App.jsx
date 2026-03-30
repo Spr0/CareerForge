@@ -28,7 +28,6 @@ export default function App() {
       });
 
       const data = await response.json();
-
       console.log("RESPONSE:", data);
 
       setResult(data);
@@ -77,21 +76,38 @@ export default function App() {
           </ul>
 
           <h3>Experience</h3>
-          {result.roles?.map((r, i) => (
-            <div key={i}>
-              <strong>
-                {r.title} — {r.company}
-              </strong>
-              <ul>
-                {r.bullets?.map((b, j) => (
-                  <li key={j}>{b}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {result.roles?.length > 0 ? (
+            result.roles.map((r, i) => (
+              <div key={i}>
+                <strong>
+                  {r.title} — {r.company}
+                </strong>
+                <ul>
+                  {r.bullets?.map((b, j) => (
+                    <li key={j}>{b}</li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          ) : (
+            <p>No roles parsed</p>
+          )}
 
           <h3>Education</h3>
-          <p>{result.education}</p>
+
+          {Array.isArray(result.education) ? (
+            <ul>
+              {result.education.map((edu, i) => (
+                <li key={i}>
+                  {edu.degree || ""}{" "}
+                  {edu.field ? `in ${edu.field}` : ""} —{" "}
+                  {edu.institution || ""}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>{result.education}</p>
+          )}
         </div>
       )}
 
