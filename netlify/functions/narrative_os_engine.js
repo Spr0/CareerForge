@@ -11,15 +11,15 @@ async function generateNarrativeOSResume({
   resumeData,
   jobRequirements
 }) {
+  const sections = splitSections(resumeData);
+
   const parsed = await parseResume(resumeData);
 
-  const roles = normalizeRoles(parsed.roles, resumeData);
+  const roles = normalizeRoles(parsed.roles, sections.experience);
 
-  const skills = normalizeSkills(parsed.skills, resumeData);
+  const skills = normalizeSkills(parsed.skills, sections.skills);
 
-  const education = parsed.education?.length
-    ? parsed.education
-    : extractEducation(resumeData);
+  const education = normalizeEducation(parsed.education, sections.education);
 
   const cleanedRequirements = cleanRequirements(jobRequirements);
 
@@ -31,7 +31,7 @@ async function generateNarrativeOSResume({
   const summary = buildSummary(roles, skills);
 
   return {
-    header: parsed.header || resumeData.split("\n")[0],
+    header: parsed.header || sections.header,
     summary,
     skills,
     roles,
@@ -41,16 +41,47 @@ async function generateNarrativeOSResume({
 }
 
 /**
+ * 🔥 SPLIT INTO SECTIONS (CRITICAL FIX)
+ */
+function splitSections(text) {
+  const lines = text.split("\n");
+
+  let current = "header";
+
+  const sections = {
+    header: [],
+    skills: [],
+    experience: [],
+    education: []
+  };
+
+  for (let line of lines) {
+    const l = line.toLowerCase();
+
+    if (l.includes("skills")) current = "skills";
+    else if (l.includes("experience")) current = "experience";
+    else if (l.includes("education")) current = "education";
+
+    sections[current].push(line);
+  }
+
+  return {
+    header: sections.header.join(" "),
+    skills: sections.skills,
+    experience: sections.experience,
+    education: sections.education
+  };
+}
+
+/**
  * PARSER (unchanged)
  */
 async function parseResume(rawText) {
-  let parsed = {};
-
   try {
     const res = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0,
-      max_tokens: 600,
+      max_tokens: 500,
       messages: [{
         role: "user",
         content: `
@@ -70,86 +101,48 @@ ${rawText}
       }]
     });
 
-    parsed = JSON.parse(extractJSON(res.choices[0].message.content));
-  } catch {}
-
-  return {
-    header: parsed.header || rawText.split("\n")[0],
-    skills: parsed.skills || [],
-    roles: parsed.roles || [],
-    education: parsed.education || []
-  };
+    return JSON.parse(extractJSON(res.choices[0].message.content));
+  } catch {
+    return {};
+  }
 }
 
 /**
- * 🔥 ROLE NORMALIZATION (CRITICAL FIX)
+ * 🔥 SKILLS (STRICT)
  */
-function normalizeRoles(roles = [], rawText) {
-  let final = roles;
-
-  // fallback if roles weak
-  if (!roles.length || roles.some(r => !r.bullets || !r.bullets.length)) {
-    final = extractRoles(rawText);
-  }
-
-  return final.slice(0, 3).map(r => ({
-    title: r.title || "",
-    company: r.company || "",
-    dates: r.dates || "",
-    bullets: (r.bullets || [])
-      .filter(b => b.length > 20)
-      .slice(0, 4)
-  }));
-}
-
-/**
- * 🔥 SKILL CLEANING (FIXES YOUR MAIN ISSUE)
- */
-function normalizeSkills(skills = [], rawText) {
-  let base = skills;
-
-  // fallback if bad
-  if (!skills.length || skills.some(s => s.length > 80)) {
-    base = extractSkills(rawText);
-  }
+function normalizeSkills(llmSkills = [], sectionLines = []) {
+  let base = llmSkills.length ? llmSkills : sectionLines;
 
   return base
     .flatMap(s => s.split("|"))
     .map(s => s.trim())
     .filter(s =>
       s.length > 2 &&
-      s.length < 40 &&        // 🔥 removes paragraphs
-      !s.includes(".")        // 🔥 removes sentences
+      s.length < 40 &&
+      !s.match(/\d{3}/) && // remove phone
+      !s.includes(",") &&  // remove addresses
+      !s.includes(".")     // remove sentences
     )
     .slice(0, 10);
 }
 
 /**
- * FALLBACK SKILLS
+ * 🔥 ROLES (SECTION-BOUND)
  */
-function extractSkills(text) {
-  return text
-    .split("\n")
-    .filter(line =>
-      line.includes("|") ||
-      line.toLowerCase().includes("sap") ||
-      line.toLowerCase().includes("net") ||
-      line.toLowerCase().includes("salesforce")
-    )
-    .slice(0, 6);
-}
+function normalizeRoles(llmRoles = [], experienceLines = []) {
+  if (llmRoles.length && llmRoles.some(r => r.bullets?.length)) {
+    return llmRoles.slice(0, 3).map(r => ({
+      ...r,
+      bullets: r.bullets.slice(0, 4)
+    }));
+  }
 
-/**
- * FALLBACK ROLES
- */
-function extractRoles(text) {
-  const lines = text.split("\n");
-
+  // fallback using experience section only
   const roles = [];
   let current = null;
 
-  for (let line of lines) {
-    if (line.includes("|") && line.match(/[A-Z]/)) {
+  for (let line of experienceLines) {
+    if (line.includes("|")) {
       if (current) roles.push(current);
 
       const parts = line.split("|");
@@ -166,22 +159,25 @@ function extractRoles(text) {
 
   if (current) roles.push(current);
 
-  return roles;
+  return roles.slice(0, 3);
 }
 
 /**
- * EDUCATION
+ * 🔥 EDUCATION (STRICT FIX)
  */
-function extractEducation(text) {
-  return text
-    .split("\n")
-    .filter(l =>
-      l.toLowerCase().includes("university") ||
-      l.toLowerCase().includes("mba") ||
-      l.toLowerCase().includes("ba")
+function normalizeEducation(llmEdu = [], sectionLines = []) {
+  let base = llmEdu.length ? llmEdu : sectionLines;
+
+  return base
+    .filter(e =>
+      e.toLowerCase().includes("university") ||
+      e.toLowerCase().includes("mba") ||
+      e.toLowerCase().includes("ba")
     )
-    .slice(0, 2)
-    .map(e => ({ degree: e }));
+    .map(e => ({
+      degree: typeof e === "string" ? e : e.degree
+    }))
+    .slice(0, 2);
 }
 
 /**
@@ -195,7 +191,7 @@ function cleanRequirements(reqs = []) {
 }
 
 /**
- * SCORING (unchanged)
+ * SCORING
  */
 function analyzeRequirements(resume, requirements = []) {
   const text = normalizeText([
@@ -227,7 +223,7 @@ function analyzeRequirements(resume, requirements = []) {
 }
 
 /**
- * 🔥 CLEAN SUMMARY (FIXED)
+ * SUMMARY
  */
 function buildSummary(roles, skills) {
   const roleTitles = roles.map(r => r.title).slice(0, 2).join(", ");
