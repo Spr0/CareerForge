@@ -1,89 +1,64 @@
-import { runNarrativeOS } from "./narrative_os_engine.js";
-
-function safeResponse(data = {}) {
-  return {
-    score: 0,
-    coverage: 0,
-    requirements: [],
-    error: false,
-    message: "",
-    ...data,
-  };
-}
-
 export async function handler(event) {
   try {
-    if (event.httpMethod !== "POST") {
-      return {
-        statusCode: 200,
-        body: JSON.stringify(
-          safeResponse({ error: true, message: "POST only" })
-        ),
-      };
-    }
+    const body = JSON.parse(event.body || "{}");
 
-    let body = {};
+    if (body.mode === "gap") {
+      const prompt = `
+You are a senior recruiter evaluating ONE requirement.
 
-    try {
-      body = JSON.parse(event.body || "{}");
-    } catch (e) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify(
-          safeResponse({ error: true, message: "Invalid JSON" })
-        ),
-      };
-    }
+RULES:
+- Only flag a gap if it is clearly missing
+- If transferable experience exists → NOT a gap
+- Be concise and practical
 
-    let result;
+Return JSON ONLY:
 
-    try {
-      result = await runNarrativeOS({
-        resumeText: body.resumeText || "",
-        jobDescription: body.jobDescription || "",
-      });
-    } catch (engineError) {
-      console.error("ENGINE CRASH:", engineError);
+{
+  "isGap": true/false,
+  "summary": "short evidence summary",
+  "gap": "missing piece (if real)",
+  "fix": "how to address or rewrite resume"
+}
 
-      return {
-        statusCode: 200,
-        body: JSON.stringify(
-          safeResponse({
-            error: true,
-            message: "Engine failed safely",
-          })
-        ),
-      };
-    }
+Requirement:
+${body.requirement}
 
-    if (!result || typeof result !== "object") {
-      return {
-        statusCode: 200,
-        body: JSON.stringify(
-          safeResponse({
-            error: true,
-            message: "Invalid engine output",
-          })
-        ),
-      };
-    }
+Resume:
+${body.resumeText}
+`;
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(safeResponse(result)),
-    };
-
-  } catch (fatal) {
-    console.error("FATAL ERROR:", fatal);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(
-        safeResponse({
-          error: true,
-          message: "Unexpected failure",
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": process.env.ANTHROPIC_API_KEY,
+          "content-type": "application/json",
+          "anthropic-version": "2023-06-01"
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5",
+          max_tokens: 500,
+          messages: [{ role: "user", content: prompt }]
         })
-      ),
+      });
+
+      const data = await res.json();
+
+      const text = data.content?.[0]?.text || "{}";
+
+      const match = text.match(/\{[\s\S]*\}/);
+
+      return {
+        statusCode: 200,
+        body: match ? match[0] : "{}"
+      };
+    }
+
+    return { statusCode: 400, body: "Invalid mode" };
+
+  } catch (e) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: e.message })
     };
   }
 }
