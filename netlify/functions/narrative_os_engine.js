@@ -1,187 +1,138 @@
-// narrative_os_engine.js
+// NarrativeOS Engine vNext — Hybrid Scoring + True Gap Reasoning
 
-function safeArray(arr) {
-  return Array.isArray(arr) ? arr : [];
+// ─────────────────────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────────────────────
+
+const STOPWORDS = [
+  "address", "phone", "email", "linkedin",
+  "anjali", "recruiter", "pyramid consulting",
+  "please review", "forward your resume"
+];
+
+const CAPABILITY_MAP = {
+  PROGRAM_DELIVERY: ["delivery", "implementation", "execution", "erp", "program"],
+  STAKEHOLDER: ["stakeholder", "executive", "c-suite", "board"],
+  GOVERNANCE: ["governance", "risk", "compliance", "controls"],
+  TECHNICAL: ["sap", "netsuite", "salesforce", "platform"],
+  TRANSFORMATION: ["transformation", "migration", "modernization"]
+};
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────
+
+function cleanText(text = "") {
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/<[^>]*>/g, "")
+    .trim();
 }
 
-function clean(text = "") {
-  return text.replace(/^com\s+/i, "").trim();
+function isGarbage(text = "") {
+  const t = text.toLowerCase();
+  return STOPWORDS.some(w => t.includes(w)) || t.length < 30;
 }
 
-// ==============================
-// REQUIREMENTS (AND/OR AWARE)
-// ==============================
+function detectCapability(req) {
+  const lower = req.toLowerCase();
+  for (const [cap, words] of Object.entries(CAPABILITY_MAP)) {
+    if (words.some(w => lower.includes(w))) return cap;
+  }
+  return "GENERAL";
+}
 
-function extractRequirements(text = "") {
-  const lines = text
-    .split("\n")
-    .map(r => clean(r))
-    .filter(r =>
-      r.length > 30 &&
-      !/responsibilities$/i.test(r)
-    );
+function keywordScore(req, resume) {
+  const words = req.toLowerCase().split(/\W+/).filter(w => w.length > 4);
+  let hits = 0;
 
-  return lines.slice(0, 15).map(line => {
-    const lower = line.toLowerCase();
-
-    let type = "STANDARD";
-
-    if (lower.includes(" and ")) type = "REQUIRED";
-    if (lower.includes(" or ")) type = "OPTIONAL";
-
-    return {
-      text: line,
-      type,
-      weight:
-        type === "REQUIRED" ? 1.2 :
-        type === "OPTIONAL" ? 0.8 :
-        1.0
-    };
+  words.forEach(w => {
+    if (resume.toLowerCase().includes(w)) hits++;
   });
+
+  return Math.min(1, hits / (words.length || 1));
 }
 
-// ==============================
-// BULLETS
-// ==============================
+// ─────────────────────────────────────────────────────────────
+// LLM GAP EXTRACTION (THE IMPORTANT PART)
+// ─────────────────────────────────────────────────────────────
 
-function extractBullets(text = "") {
-  const lines = text.split("\n").map(l => clean(l)).filter(Boolean);
-
-  let bullets = lines.filter(l =>
-    l.startsWith("-") ||
-    l.startsWith("•") ||
-    l.startsWith("*")
-  );
-
-  bullets = bullets.map(b => b.replace(/^[-•*]\s*/, ""));
-
-  if (bullets.length === 0) {
-    bullets = text
-      .split(/[.!?]/)
-      .map(s => clean(s))
-      .filter(s => s.length > 40);
-  }
-
-  return safeArray(bullets).slice(0, 20);
-}
-
-// ==============================
-// SCORING (BALANCED + CONTINUOUS)
-// ==============================
-
-function scoreBullet(req, bullet) {
-  const r = req.toLowerCase();
-  const b = bullet.toLowerCase();
-
-  let score = 0.3; // base
-
-  let signalCount = 0;
-
-  if (b.includes("program")) {
-    score += 0.12;
-    signalCount++;
-  }
-
-  if (b.includes("delivery")) {
-    score += 0.12;
-    signalCount++;
-  }
-
-  if (b.includes("stakeholder")) {
-    score += 0.08;
-    signalCount++;
-  }
-
-  if (b.includes("dependency")) {
-    score += 0.08;
-    signalCount++;
-  }
-
-  // keyword overlap
-  const words = r.split(/\W+/).filter(w => w.length > 5);
-  const matches = words.filter(w => b.includes(w)).length;
-
-  score += Math.min(matches * 0.05, 0.25);
-
-  // multi-signal bonus
-  if (signalCount >= 2) {
-    score += 0.08;
-  }
-
-  return Math.max(0, Math.min(score, 1));
-}
-
-// ==============================
-// MAIN ENGINE
-// ==============================
-
-export async function runNarrativeOS({
-  resumeText = "",
-  jobDescription = ""
-}) {
+async function extractGapWithLLM(requirement, resumeText) {
   try {
-    const requirements = extractRequirements(jobDescription);
-    const bullets = extractBullets(resumeText);
+    const res = await fetch("/.netlify/functions/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "gap",
+        requirement,
+        resumeText: resumeText.slice(0, 1500)
+      })
+    });
 
-    const results = [];
+    const data = await res.json();
 
-    let totalWeight = 0;
-    let weightedScoreSum = 0;
+    return data || null;
+  } catch {
+    return null;
+  }
+}
 
-    for (const reqObj of requirements) {
-      const { text: req, weight, type } = reqObj;
+// ─────────────────────────────────────────────────────────────
+// CORE ENGINE
+// ─────────────────────────────────────────────────────────────
 
-      const ranked = safeArray(bullets).map((b, i) => ({
-        bulletId: i,
-        text: b,
-        score: scoreBullet(req, b),
-      }));
+export async function analyzeJob(jobText, resumeText) {
+  const cleanedJD = cleanText(jobText);
 
-      ranked.sort((a, b) => b.score - a.score);
+  const rawRequirements = cleanedJD
+    .split(/\n|\.|•|-/)
+    .map(r => r.trim())
+    .filter(r => r.length > 40)
+    .filter(r => !isGarbage(r));
 
-      const bestScore = ranked[0]?.score || 0;
+  const requirements = rawRequirements.slice(0, 12);
 
-      totalWeight += weight;
-      weightedScoreSum += bestScore * weight;
+  const results = [];
 
-      results.push({
-        requirement: req,
-        type,
-        weight,
-        capability: "GENERAL",
-        rankedBullets: ranked.slice(0, 5),
-        recommendation: ranked[0] || null,
-      });
+  for (const req of requirements) {
+    const capability = detectCapability(req);
+
+    const baseScore = keywordScore(req, resumeText);
+
+    // Normalize to real range (prevents inflated 80s)
+    let score = Math.round(40 + baseScore * 50); // 40–90 realistic
+
+    // Get intelligent gap
+    const gap = await extractGapWithLLM(req, resumeText);
+
+    if (gap?.isGap) {
+      score -= 15;
+    } else if (baseScore > 0.7) {
+      score += 5;
     }
 
-    // ==============================
-    // AVERAGE-BASED SCORING (FIX)
-    // ==============================
+    score = Math.max(0, Math.min(100, score));
 
-    const averageScore =
-      totalWeight > 0 ? weightedScoreSum / totalWeight : 0;
-
-    // slight compression (prevents easy 10s)
-    const adjusted = Math.pow(averageScore, 1.15);
-
-    const finalScore = Math.min(
-      10,
-      Math.round(adjusted * 10)
-    );
-
-    return {
-      score: finalScore,
-      coverage: averageScore,
-      requirements: safeArray(results),
-    };
-
-  } catch (e) {
-    console.error("ENGINE FAIL:", e);
-
-    return {
-      score: 0,
-      coverage: 0,
-      requirements: [],
-    };
+    results.push({
+      requirement: req,
+      capability,
+      score,
+      gap: gap?.gap || null,
+      fix: gap?.fix || null,
+      summary: gap?.summary || null
+    });
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // FINAL SCORE (FIXED)
+  // ─────────────────────────────────────────────────────────────
+
+  const avg = results.reduce((a, r) => a + r.score, 0) / (results.length || 1);
+
+  const finalScore = Math.round(avg / 10); // converts to 1–10 properly
+
+  return {
+    score: finalScore,
+    requirements: results
+  };
 }
