@@ -64,7 +64,7 @@ export async function parseJD(jd, callClaude) {
   }
 }
 
-// --- VALIDATION (FAST, EMBEDDINGS ONLY) ---
+// --- VALIDATION ---
 async function validate(resume, jdStruct) {
   const requirements = jdStruct?.must_have || []
   if (!requirements.length) return { weights: [], reasons: [] }
@@ -88,7 +88,6 @@ async function validate(resume, jdStruct) {
       if (s > best) best = s
     }
 
-    // --- CALIBRATED THRESHOLDS ---
     if (best > 0.75) {
       weights.push(1)
       reasons.push("Strong")
@@ -107,35 +106,42 @@ async function validate(resume, jdStruct) {
   return { weights, reasons }
 }
 
-// --- GENERATION (STRICT + LENGTH CONTROL) ---
+// --- GENERATION (STRUCTURE-FIRST, NO TRUNCATION) ---
 export async function generateResume(base, jd, stories, jdStruct, callClaude) {
   const res = await callClaude(
-    "You are a resume editor. You MUST produce a complete, finished resume within strict length limits.",
+    "You are a resume editor. You MUST produce a COMPLETE resume with ALL sections present.",
     `Original Resume:
 ${base.slice(0, 2000)}
 
 Job Requirements:
 ${(jdStruct?.must_have || []).join("\n")}
 
-STRICT RULES:
-- MAX length: ~650–800 words total (fits ~2 pages)
-- You MUST complete all sections (no truncation)
-- Prioritize most relevant experience
-- Limit to:
-  - Executive Summary (3–4 lines)
-  - Core Competencies (8–12 bullets MAX)
-  - Professional Experience (ONLY 3 roles, 4–6 bullets each)
-- If needed, CUT less relevant content to stay within length
-- DO NOT add technologies or experience not in the original resume
+YOU MUST FOLLOW THIS EXACT STRUCTURE:
+
+1. NAME + CONTACT
+2. EXECUTIVE SUMMARY (max 4 lines)
+3. CORE COMPETENCIES (max 10 bullets)
+4. PROFESSIONAL EXPERIENCE (exactly 3 roles, max 4 bullets each)
+5. EDUCATION
+6. CERTIFICATIONS (if present)
+
+CRITICAL RULES:
+- You MUST include ALL sections (no omissions)
+- If space is tight, SHORTEN bullets — do NOT remove sections
+- NEVER cut off mid-section
+- Prefer shorter bullets over incomplete sections
+- TOTAL LENGTH: keep concise (~650–750 words)
+
+TRUTH RULES:
+- DO NOT add technologies not in original resume
 - DO NOT fabricate experience
+- ONLY rephrase or reorganize
 
 GOAL:
-Make the resume stronger and more aligned WITHOUT exceeding length.
-
-Return a COMPLETE, finished resume.`
+Produce a COMPLETE, structured, finished resume — even if concise.`
   )
 
-  // --- VALIDATE ORIGINAL VS GENERATED ---
+  // --- VALIDATION ---
   const truth = await validate(base, jdStruct)
   const gen = await validate(res, jdStruct)
 
@@ -147,7 +153,7 @@ Return a COMPLETE, finished resume.`
   // --- BALANCED SCORING ---
   let adjusted = (genScore * 0.7) + (truthScore * 0.3)
 
-  // --- LIGHT PENALTY FOR TOP REQUIREMENTS ---
+  // --- LIGHT PENALTY ---
   const critical = jdStruct?.must_have?.slice(0, 2) || []
   critical.forEach((_, i) => {
     if ((truth.weights[i] || 0) === 0) {
@@ -155,7 +161,7 @@ Return a COMPLETE, finished resume.`
     }
   })
 
-  // --- FLOOR (PREVENT ZERO COLLAPSE) ---
+  // --- FLOOR ---
   adjusted = Math.max(adjusted, 0.2)
 
   const coverage = adjusted / total
