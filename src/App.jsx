@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 function App() {
   const [resumeInput, setResumeInput] = useState("");
@@ -7,6 +7,11 @@ function App() {
 
   const [selectedTrace, setSelectedTrace] = useState(null);
   const [selectedBullet, setSelectedBullet] = useState(null);
+
+  const [changedBullet, setChangedBullet] = useState(null);
+  const [changeInfo, setChangeInfo] = useState(null);
+
+  const bulletRefs = useRef({});
 
   function extractRequirements(text) {
     return text
@@ -29,10 +34,13 @@ function App() {
     setResult(data);
     setSelectedTrace(null);
     setSelectedBullet(null);
+    setChangeInfo(null);
   };
 
   const handleFix = async () => {
     if (!selectedBullet || !selectedTrace) return;
+
+    const oldScore = result.analysis.score;
 
     const res = await fetch("/.netlify/functions/generate", {
       method: "POST",
@@ -58,10 +66,41 @@ function App() {
       })
     }));
 
+    // re-score
+    const rescore = await fetch("/.netlify/functions/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        resume: resumeInput,
+        requirements: extractRequirements(jdInput)
+      })
+    });
+
+    const rescored = await rescore.json();
+
+    const newScore = rescored.analysis.score;
+
     setResult({
-      ...result,
+      ...rescored,
       roles: updatedRoles
     });
+
+    const key = `${selectedBullet.roleIndex}-${selectedBullet.bulletIndex}`;
+
+    setChangedBullet(key);
+
+    setChangeInfo({
+      before: selectedBullet.text,
+      after: data.rewritten,
+      delta: (newScore - oldScore).toFixed(1)
+    });
+
+    // 🔥 scroll into view
+    setTimeout(() => {
+      bulletRefs.current[key]?.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+    }, 100);
   };
 
   return (
@@ -93,7 +132,6 @@ function App() {
 
           <h3>Score: {result.analysis.score} / 10</h3>
 
-          {/* 🔥 REQUIREMENTS WITH RADIO SELECT */}
           <h4>⚠️ Partial (select one)</h4>
           <ul style={{ listStyle: "none", padding: 0 }}>
             {result.analysis.partial.map((req) => {
@@ -118,32 +156,18 @@ function App() {
                     border: isSelected
                       ? "2px solid #0077ff"
                       : "1px solid #ddd",
-                    borderRadius: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10
+                    borderRadius: 6
                   }}
                 >
-                  {/* 🔥 RADIO INDICATOR */}
-                  <span>
-                    {isSelected ? "🔘" : "⚪"}
-                  </span>
-
-                  <span>{req}</span>
+                  {isSelected ? "🔘" : "⚪"} {req}
                 </li>
               );
             })}
           </ul>
 
-          {/* TRACE PANEL */}
           {selectedTrace && (
             <div style={{ marginTop: 20 }}>
-              <h4>Selected Requirement</h4>
-              <p style={{ fontStyle: "italic" }}>
-                {selectedTrace.requirement}
-              </p>
-
-              <h4>Select a bullet to improve</h4>
+              <h4>Select a bullet</h4>
 
               {selectedTrace.evidence.map((e, i) => (
                 <p
@@ -151,13 +175,9 @@ function App() {
                   onClick={() => setSelectedBullet(e)}
                   style={{
                     cursor: "pointer",
-                    padding: 6,
-                    marginBottom: 6,
                     background:
-                      selectedBullet === e
-                        ? "#e3f2fd"
-                        : "#f9f9f9",
-                    borderRadius: 4
+                      selectedBullet === e ? "#e3f2fd" : "#f9f9f9",
+                    padding: 6
                   }}
                 >
                   • {e.text}
@@ -167,29 +187,51 @@ function App() {
               <button
                 onClick={handleFix}
                 disabled={!selectedBullet}
-                style={{
-                  marginTop: 10,
-                  background: selectedBullet ? "#0077ff" : "#ccc",
-                  color: "white",
-                  padding: "8px 12px",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: selectedBullet ? "pointer" : "not-allowed"
-                }}
+                style={{ marginTop: 10 }}
               >
                 🔧 Fix selected bullet
               </button>
             </div>
           )}
 
+          {/* 🔥 CHANGE PANEL */}
+          {changeInfo && (
+            <div style={{
+              marginTop: 20,
+              padding: 10,
+              border: "1px solid #ccc",
+              background: "#fff8e1"
+            }}>
+              <h4>Updated</h4>
+              <p><strong>Before:</strong> {changeInfo.before}</p>
+              <p><strong>After:</strong> {changeInfo.after}</p>
+              <p>Score change: {changeInfo.delta}</p>
+            </div>
+          )}
+
           <h3>Experience</h3>
-          {result.roles.map((r, i) => (
-            <div key={i}>
+          {result.roles.map((r, ri) => (
+            <div key={ri}>
               <strong>{r.title}</strong>
               <ul>
-                {r.bullets.map((b, j) => (
-                  <li key={j}>{b}</li>
-                ))}
+                {r.bullets.map((b, bi) => {
+                  const key = `${ri}-${bi}`;
+                  return (
+                    <li
+                      key={bi}
+                      ref={el => (bulletRefs.current[key] = el)}
+                      style={{
+                        background:
+                          changedBullet === key
+                            ? "#fff59d"
+                            : "transparent",
+                        transition: "0.3s"
+                      }}
+                    >
+                      {b}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
