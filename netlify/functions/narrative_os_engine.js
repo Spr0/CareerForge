@@ -3,7 +3,7 @@ function normalizeText(text = "") {
 }
 
 /**
- * 🧠 MAIN
+ * 🧠 MAIN ENTRY
  */
 async function generateNarrativeOSResume({
   resumeData = "",
@@ -27,7 +27,7 @@ async function generateNarrativeOSResume({
 }
 
 /**
- * 🧱 SAFE PARSER (deterministic > smart)
+ * 🧱 PARSER (STABLE + DEFENSIVE)
  */
 function parseResume(text) {
   const lines = text
@@ -35,10 +35,8 @@ function parseResume(text) {
     .map(l => l.trim())
     .filter(Boolean);
 
-  const header = lines[0] || "Candidate";
-
   return {
-    header,
+    header: lines[0] || "Candidate",
     summary: extractSummary(lines),
     skills: extractSkills(lines),
     roles: extractRoles(lines),
@@ -47,14 +45,14 @@ function parseResume(text) {
 }
 
 /**
- * 🔹 SUMMARY = first long paragraph
+ * 🔹 SUMMARY
  */
 function extractSummary(lines) {
   return lines.find(l => l.length > 80) || "";
 }
 
 /**
- * 🔹 SKILLS = short clean lines only
+ * 🔹 SKILLS (clean, short lines only)
  */
 function extractSkills(lines) {
   return lines
@@ -68,47 +66,44 @@ function extractSkills(lines) {
 }
 
 /**
- * 🔹 ROLES (STRICT + SAFE)
+ * 🔹 ROLES (STRICT)
  */
 function extractRoles(lines) {
   const roles = [];
-
-  let currentRole = null;
+  let current = null;
 
   for (let line of lines) {
-    // 👉 ROLE HEADERS (must look like a job)
     const isRoleHeader =
       line.includes("—") ||
       (line.includes("|") && line.match(/\d{4}/));
 
     if (isRoleHeader) {
-      if (currentRole) roles.push(currentRole);
+      if (current) roles.push(current);
 
-      currentRole = {
+      current = {
         title: line,
         bullets: []
       };
       continue;
     }
 
-    // 👉 BULLETS (strict filter)
+    // bullet filter
     if (
-      currentRole &&
+      current &&
       line.length > 40 &&
       line.length < 180 &&
       !line.includes("@") &&
       !line.toLowerCase().includes("summary") &&
       !line.toLowerCase().includes("competencies") &&
       !line.toLowerCase().includes("skills") &&
-      currentRole.bullets.length < 4
+      current.bullets.length < 4
     ) {
-      currentRole.bullets.push(line);
+      current.bullets.push(line);
     }
   }
 
-  if (currentRole) roles.push(currentRole);
+  if (current) roles.push(current);
 
-  // 👉 HARD GUARANTEE
   return roles.slice(0, 3);
 }
 
@@ -131,12 +126,23 @@ function extractEducation(lines) {
 }
 
 /**
- * 🧠 MATCHING (simple + reliable)
+ * 🧠 MATCHING (IMPROVED + BALANCED)
  */
 function analyzeRequirementsWithTrace(resume, requirements = []) {
   const partial = [];
   const missing = [];
   const trace = [];
+
+  const STOPWORDS = new Set([
+    "the","and","with","that","this","from","including",
+    "across","within","ensure","drive","support","lead",
+    "role","client","seeking","ideal","candidate","will",
+    "provide","overall","alignment"
+  ]);
+
+  const GENERIC = new Set([
+    "program","management","delivery","governance"
+  ]);
 
   const allBullets = resume.roles.flatMap((r, ri) =>
     r.bullets.map((b, bi) => ({
@@ -149,34 +155,76 @@ function analyzeRequirementsWithTrace(resume, requirements = []) {
 
   for (let req of requirements) {
     const r = normalizeText(req);
-    const words = r.split(" ").filter(w => w.length > 4);
+
+    const words = r
+      .split(" ")
+      .filter(w =>
+        w.length > 4 &&
+        !STOPWORDS.has(w)
+      );
 
     const scored = allBullets.map(b => {
       let score = 0;
 
       for (let w of words) {
-        if (b.norm.includes(w)) score += 2;
+        if (b.norm.includes(w)) {
+          if (GENERIC.has(w)) {
+            score += 0.5;
+          } else {
+            score += 2;
+          }
+        }
       }
 
-      if (b.norm.includes("program")) score += 1;
-      if (b.norm.includes("governance")) score += 2;
+      // intent boosts
+      if (r.includes("steering") && b.norm.includes("executive")) {
+        score += 3;
+      }
+
+      if (r.includes("dependencies") && b.norm.includes("integration")) {
+        score += 3;
+      }
+
+      if (r.includes("servicenow") && b.norm.includes("erp")) {
+        score += 2;
+      }
+
+      // penalize generic-heavy bullets
+      const genericHits = ["program","delivery","governance"]
+        .filter(g => b.norm.includes(g)).length;
+
+      if (genericHits >= 2) score -= 1;
+
+      if (score < 2) score = 0;
 
       return { ...b, score };
     });
 
-    const best = scored
-      .sort((a, b) => b.score - a.score)
-      .filter(s => s.score > 1);
+    const sorted = scored.sort((a, b) => b.score - a.score);
 
-    if (best.length) {
+    // prevent same bullet dominating
+    const unique = [];
+    const seen = new Set();
+
+    for (let s of sorted) {
+      if (s.score === 0) continue;
+
+      if (!seen.has(s.text)) {
+        unique.push(s);
+        seen.add(s.text);
+      }
+
+      if (unique.length === 2) break;
+    }
+
+    if (unique.length > 0) {
       partial.push(req);
 
       trace.push({
         requirement: req,
         status: "partial",
-        evidence: best.slice(0, 2)
+        evidence: unique
       });
-
     } else {
       missing.push(req);
 
@@ -189,8 +237,15 @@ function analyzeRequirementsWithTrace(resume, requirements = []) {
   }
 
   const total = requirements.length || 1;
-  const coverage = Math.round((partial.length / total) * 100);
-  const score = Math.round((coverage / 10) * 10) / 10;
+
+  const coverage = Math.round(
+    (partial.length / total) * 100
+  );
+
+  const score = Math.min(
+    9,
+    Math.round((coverage / 10) * 10) / 10
+  );
 
   return {
     score,
