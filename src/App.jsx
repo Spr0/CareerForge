@@ -6,7 +6,10 @@ function App() {
   const [result, setResult] = useState(null);
 
   const [selectedTrace, setSelectedTrace] = useState(null);
+
+  const [mode, setMode] = useState("suggested"); // suggested | all | custom
   const [selectedBullet, setSelectedBullet] = useState(null);
+  const [customBullet, setCustomBullet] = useState("");
 
   function extractRequirements(text) {
     return text
@@ -27,36 +30,51 @@ function App() {
 
     const data = await res.json();
     setResult(data);
+
     setSelectedTrace(null);
     setSelectedBullet(null);
+    setCustomBullet("");
   };
 
   const handleFix = async () => {
-    if (!selectedBullet || !selectedTrace) return;
+    let bulletText = "";
+
+    if (mode === "custom") {
+      bulletText = customBullet;
+    } else if (selectedBullet) {
+      bulletText = selectedBullet.text;
+    }
+
+    if (!bulletText || !selectedTrace) return;
 
     const res = await fetch("/.netlify/functions/generate", {
       method: "POST",
       body: JSON.stringify({
         mode: "fix",
-        bullet: selectedBullet.text,
+        bullet: bulletText,
         requirement: selectedTrace.requirement
       })
     });
 
     const data = await res.json();
 
-    const updatedRoles = result.roles.map((r, ri) => ({
-      ...r,
-      bullets: r.bullets.map((b, bi) => {
-        if (
-          ri === selectedBullet.roleIndex &&
-          bi === selectedBullet.bulletIndex
-        ) {
-          return data.rewritten;
-        }
-        return b;
-      })
-    }));
+    // replace if existing bullet
+    let updatedRoles = result.roles;
+
+    if (mode !== "custom") {
+      updatedRoles = result.roles.map((r, ri) => ({
+        ...r,
+        bullets: r.bullets.map((b, bi) => {
+          if (
+            ri === selectedBullet.roleIndex &&
+            bi === selectedBullet.bulletIndex
+          ) {
+            return data.rewritten;
+          }
+          return b;
+        })
+      }));
+    }
 
     setResult({
       ...result,
@@ -64,7 +82,17 @@ function App() {
     });
 
     setSelectedBullet(null);
+    setCustomBullet("");
   };
+
+  const allBullets =
+    result?.roles.flatMap((r, ri) =>
+      r.bullets.map((b, bi) => ({
+        text: b,
+        roleIndex: ri,
+        bulletIndex: bi
+      }))
+    ) || [];
 
   return (
     <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
@@ -96,15 +124,12 @@ function App() {
           <h3>Score: {result.analysis.score} / 10</h3>
 
           {/* STEP 1 */}
-          <h3 style={{ marginTop: 20 }}>Step 1: Select a requirement</h3>
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {result.analysis.partial.map((req) => {
+          <h3>Step 1: Select requirement</h3>
+          <ul>
+            {result.analysis.partial.map(req => {
               const traceItem = result.analysis.trace.find(
                 t => t.requirement === req
               );
-
-              const isSelected =
-                selectedTrace?.requirement === req;
 
               return (
                 <li
@@ -113,18 +138,10 @@ function App() {
                     setSelectedTrace(traceItem);
                     setSelectedBullet(null);
                   }}
-                  style={{
-                    cursor: "pointer",
-                    marginBottom: 8,
-                    padding: 10,
-                    border: isSelected
-                      ? "2px solid #0077ff"
-                      : "1px solid #ddd",
-                    borderRadius: 6,
-                    background: isSelected ? "#e3f2fd" : "white"
-                  }}
+                  style={{ cursor: "pointer" }}
                 >
-                  {isSelected ? "✔ " : "○ "} {req}
+                  {selectedTrace?.requirement === req ? "✔ " : "○ "}
+                  {req}
                 </li>
               );
             })}
@@ -132,59 +149,74 @@ function App() {
 
           {/* STEP 2 */}
           {selectedTrace && (
-            <div style={{ marginTop: 20 }}>
-              <h3>Step 2: Choose a bullet to improve</h3>
+            <div>
+              <h3>Step 2: Choose how to improve</h3>
 
-              {selectedTrace.evidence.map((e, i) => {
-                const isSelected = selectedBullet === e;
+              <div style={{ marginBottom: 10 }}>
+                <button onClick={() => setMode("suggested")}>
+                  Suggested
+                </button>
+                <button onClick={() => setMode("all")}>
+                  All bullets
+                </button>
+                <button onClick={() => setMode("custom")}>
+                  Write your own
+                </button>
+              </div>
 
-                return (
+              {/* Suggested */}
+              {mode === "suggested" &&
+                selectedTrace.evidence.map((e, i) => (
                   <div
                     key={i}
                     onClick={() => setSelectedBullet(e)}
                     style={{
                       cursor: "pointer",
-                      padding: 10,
-                      marginBottom: 8,
-                      border: isSelected
-                        ? "2px solid #0077ff"
-                        : "1px solid #ddd",
-                      borderRadius: 6,
-                      background: isSelected ? "#e8f5e9" : "#fafafa"
+                      padding: 6,
+                      background:
+                        selectedBullet === e ? "#e3f2fd" : "#fafafa"
                     }}
                   >
-                    {isSelected ? "✔ " : "○ "} {e.text}
+                    {e.text}
                   </div>
-                );
-              })}
+                ))}
+
+              {/* All bullets */}
+              {mode === "all" &&
+                allBullets.map((b, i) => (
+                  <div
+                    key={i}
+                    onClick={() => setSelectedBullet(b)}
+                    style={{
+                      cursor: "pointer",
+                      padding: 6,
+                      background:
+                        selectedBullet === b ? "#e3f2fd" : "#fafafa"
+                    }}
+                  >
+                    {b.text}
+                  </div>
+                ))}
+
+              {/* Custom */}
+              {mode === "custom" && (
+                <textarea
+                  rows={4}
+                  style={{ width: "100%" }}
+                  placeholder="Write or paste your own bullet..."
+                  value={customBullet}
+                  onChange={(e) => setCustomBullet(e.target.value)}
+                />
+              )}
             </div>
           )}
 
           {/* STEP 3 */}
           {selectedTrace && (
             <div style={{ marginTop: 20 }}>
-              <h3>Step 3: Improve bullet</h3>
-
-              <button
-                onClick={handleFix}
-                disabled={!selectedBullet}
-                style={{
-                  background: selectedBullet ? "#0077ff" : "#ccc",
-                  color: "white",
-                  padding: "10px 14px",
-                  border: "none",
-                  borderRadius: 6,
-                  cursor: selectedBullet ? "pointer" : "not-allowed"
-                }}
-              >
-                🔧 Improve selected bullet
+              <button onClick={handleFix}>
+                🔧 Improve bullet
               </button>
-
-              {!selectedBullet && (
-                <p style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
-                  Select a bullet above to enable improvement
-                </p>
-              )}
             </div>
           )}
 
