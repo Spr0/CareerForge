@@ -26,7 +26,7 @@ export async function handler(event) {
 
     try {
       body = JSON.parse(event.body || "{}");
-    } catch {
+    } catch (e) {
       return {
         statusCode: 200,
         body: JSON.stringify(
@@ -35,25 +35,53 @@ export async function handler(event) {
       };
     }
 
-    const result = await runNarrativeOS({
-      resumeText: body.resumeText || "",
-      jobDescription: body.jobDescription || "",
-    });
+    let result;
+
+    try {
+      result = await runNarrativeOS({
+        resumeText: body.resumeText || "",
+        jobDescription: body.jobDescription || "",
+      });
+    } catch (engineError) {
+      console.error("ENGINE CRASH:", engineError);
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify(
+          safeResponse({
+            error: true,
+            message: "Engine failed safely",
+          })
+        ),
+      };
+    }
+
+    if (!result || typeof result !== "object") {
+      return {
+        statusCode: 200,
+        body: JSON.stringify(
+          safeResponse({
+            error: true,
+            message: "Invalid engine output",
+          })
+        ),
+      };
+    }
 
     return {
       statusCode: 200,
       body: JSON.stringify(safeResponse(result)),
     };
 
-  } catch (err) {
-    console.error("FATAL:", err);
+  } catch (fatal) {
+    console.error("FATAL ERROR:", fatal);
 
     return {
       statusCode: 200,
       body: JSON.stringify(
         safeResponse({
           error: true,
-          message: "Server failure",
+          message: "Unexpected failure",
         })
       ),
     };
