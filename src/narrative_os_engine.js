@@ -1,4 +1,3 @@
-console.log("🚀 NEW ENGINE RUNNING")
 // --- SAFE FETCH ---
 async function safeJsonFetch(url, body) {
   try {
@@ -9,7 +8,6 @@ async function safeJsonFetch(url, body) {
     })
 
     const text = await res.text()
-
     try {
       return JSON.parse(text)
     } catch {
@@ -46,7 +44,7 @@ function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(magA) * Math.sqrt(magB))
 }
 
-// --- JD PARSE ---
+// --- PARSE JD ---
 export async function parseJD(jd, callClaude) {
   try {
     const res = await callClaude(
@@ -61,14 +59,14 @@ export async function parseJD(jd, callClaude) {
   }
 }
 
-// --- VALIDATION ---
+// --- VALIDATE ---
 async function validate(resume, jdStruct) {
   const requirements = jdStruct?.must_have || []
   if (!requirements.length) return { weights: [], reasons: [] }
 
-  const resumeChunks = resume.split("\n").filter(Boolean)
+  const chunks = resume.split("\n").filter(Boolean)
 
-  const resumeEmb = (await getEmbeddingsBatch(resumeChunks)).filter(Boolean)
+  const resumeEmb = (await getEmbeddingsBatch(chunks)).filter(Boolean)
   const reqEmb = await getEmbeddingsBatch(requirements)
 
   const weights = []
@@ -100,49 +98,76 @@ async function validate(resume, jdStruct) {
   return { weights, reasons }
 }
 
-// --- SECTION GENERATORS ---
-async function generateSection(title, instructions, base, jdStruct, callClaude) {
+// --- GENERATE SIMPLE SECTION ---
+async function genSection(title, instruction, base, jdStruct, callClaude) {
   return await callClaude(
-    `Write ONLY the ${title} section of a resume. Be concise. Do not invent experience.`,
+    `Write ONLY the ${title} section. Be concise. Do not invent experience.`,
     `Resume:
-${base.slice(0, 1500)}
+${base.slice(0, 1200)}
 
 Requirements:
 ${(jdStruct?.must_have || []).join("\n")}
 
-${instructions}`
+${instruction}`
   )
 }
 
-// --- MAIN GENERATION ---
+// --- GENERATE SINGLE ROLE ---
+async function genRole(roleIndex, base, jdStruct, callClaude) {
+  return await callClaude(
+    "Extract and rewrite ONE role from the resume. Do not invent content.",
+    `Resume:
+${base}
+
+Task:
+- Select the ${roleIndex} most recent role
+- Rewrite it with:
+  - Title
+  - Company
+  - Dates
+  - MAX 4 bullets
+- Keep concise
+- Do NOT include other roles`
+  )
+}
+
+// --- MAIN ---
 export async function generateResume(base, jd, stories, jdStruct, callClaude) {
-  const summary = await generateSection(
+
+  console.log("🚀 NEW ENGINE RUNNING")
+
+  const summary = await genSection(
     "Executive Summary",
-    "3-4 lines max. Focus on leadership, scope, and relevance.",
+    "3–4 lines max. Focus on leadership + scope.",
     base,
     jdStruct,
     callClaude
   )
 
-  const competencies = await generateSection(
+  const skills = await genSection(
     "Core Competencies",
-    "8-10 bullet points max. Use only existing skills.",
+    "8–10 bullets max. Use existing skills only.",
     base,
     jdStruct,
     callClaude
   )
 
-  const experience = await generateSection(
-    "Professional Experience",
-    "Top 3 roles only. 4 bullets per role max. Keep concise.",
-    base,
-    jdStruct,
-    callClaude
-  )
+  // 🔥 FIX: PER-ROLE GENERATION
+  const role1 = await genRole(1, base, jdStruct, callClaude)
+  const role2 = await genRole(2, base, jdStruct, callClaude)
+  const role3 = await genRole(3, base, jdStruct, callClaude)
 
-  const education = await generateSection(
+  const experience = `
+${role1}
+
+${role2}
+
+${role3}
+`
+
+  const edu = await genSection(
     "Education and Certifications",
-    "Include education and certifications if present. Be brief.",
+    "Include education + certs if present. Keep short.",
     base,
     jdStruct,
     callClaude
@@ -153,11 +178,12 @@ ${base.split("\n")[0]}
 
 ${summary}
 
-${competencies}
+${skills}
 
+PROFESSIONAL EXPERIENCE
 ${experience}
 
-${education}
+${edu}
 `
 
   // --- VALIDATE ---
