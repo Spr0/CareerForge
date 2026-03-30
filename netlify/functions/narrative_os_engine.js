@@ -1,14 +1,8 @@
 const OpenAI = require("openai");
 
-let openai;
-
-try {
-  openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-  });
-} catch (e) {
-  console.error("OpenAI INIT ERROR:", e);
-}
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 /**
  * ENTRY
@@ -19,13 +13,11 @@ async function generateNarrativeOSResume({
 }) {
   console.log("⚙️ ENGINE START");
 
-  const normalized = await normalizeResume(resumeData);
+  const normalized = await parseResume(resumeData);
 
-  const requirementMap = mapRequirementsToResume(jobRequirements);
+  const roles = enforceRoles(normalized.roles);
 
-  const roles = await buildRoles(normalized.roles, requirementMap);
-
-  const summary = await safeSummary(normalized, jobRequirements);
+  const summary = await generateSummary(normalized, jobRequirements);
 
   return {
     header: normalized.header || "Candidate",
@@ -37,59 +29,89 @@ async function generateNarrativeOSResume({
 }
 
 /**
- * NORMALIZE
+ * 🔥 STRONG PARSER
  */
-async function normalizeResume(resume) {
-  if (typeof resume !== "string") return resume;
-
-  return await parseResume(resume);
-}
-
-/**
- * PARSE RESUME (SAFE)
- */
-async function parseResume(raw) {
+async function parseResume(rawText) {
   try {
     const prompt = `
-Extract structured resume JSON.
+You are a resume parser.
 
-RULES:
-- No hallucination
-- Max 3 roles
-- Max 4 bullets per role
+STRICT RULES:
+- Extract REAL content only (no placeholders)
+- DO NOT write generic summaries
+- DO NOT invent experience
+- ALWAYS extract at least 1 role if any experience exists
 
-Return ONLY JSON.
+FORMAT (VALID JSON ONLY):
+{
+  "header": "name",
+  "skills": ["skill1", "skill2"],
+  "roles": [
+    {
+      "title": "",
+      "company": "",
+      "dates": "",
+      "bullets": ["", "", ""]
+    }
+  ],
+  "education": [
+    {
+      "degree": "",
+      "field": "",
+      "institution": ""
+    }
+  ]
+}
 
 RESUME:
-${raw}
+${rawText}
 `;
 
     const res = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 0.2,
+      temperature: 0,
       messages: [{ role: "user", content: prompt }]
     });
 
-    const text = res.choices?.[0]?.message?.content || "{}";
-
+    const text = res.choices[0].message.content;
     const json = extractJSON(text);
 
     return JSON.parse(json);
   } catch (e) {
-    console.error("PARSE FAIL:", e);
+    console.error("PARSE ERROR:", e);
 
     return {
-      header: raw.split("\n")[0] || "Candidate",
-      summary: "",
+      header: rawText.split("\n")[0] || "Candidate",
       skills: [],
       roles: [],
-      education: ""
+      education: []
     };
   }
 }
 
 /**
- * SAFE JSON EXTRACT
+ * ENSURE ROLES EXIST
+ */
+function enforceRoles(roles = []) {
+  if (!roles.length) {
+    return [
+      {
+        title: "Experience",
+        company: "",
+        dates: "",
+        bullets: ["Experience details not parsed"]
+      }
+    ];
+  }
+
+  return roles.slice(0, 3).map((role) => ({
+    ...role,
+    bullets: (role.bullets || []).slice(0, 4)
+  }));
+}
+
+/**
+ * CLEAN JSON
  */
 function extractJSON(text) {
   const match = text.match(/\{[\s\S]*\}/);
@@ -97,94 +119,36 @@ function extractJSON(text) {
 }
 
 /**
- * REQUIREMENTS (TEMP LOGIC)
+ * REAL SUMMARY (NO GENERIC FILLER)
  */
-function mapRequirementsToResume(reqs) {
-  return (reqs || []).map((r) => ({
-    text: r,
-    status: "missing"
-  }));
-}
-
-/**
- * BUILD ROLES (SAFE + GAP)
- */
-async function buildRoles(roles = [], requirements = []) {
-  const final = [];
-  let gapIndex = 0;
-
-  for (let role of roles.slice(0, 3)) {
-    let bullets = (role.bullets || []).slice(0, 4);
-
-    while (bullets.length < 4 && gapIndex < requirements.length) {
-      const gap = requirements[gapIndex];
-
-      const bullet = await safeBullet(role, gap);
-
-      if (bullet) bullets.push(bullet);
-
-      gapIndex++;
-    }
-
-    final.push({
-      title: role.title || "",
-      company: role.company || "",
-      dates: role.dates || "",
-      bullets: bullets.slice(0, 4)
-    });
-  }
-
-  return final;
-}
-
-/**
- * SAFE BULLET
- */
-async function safeBullet(role, requirement) {
+async function generateSummary(resume, jobRequirements) {
   try {
     const prompt = `
-Write ONE resume bullet.
+Write a concise professional summary using ONLY real experience.
 
-- No hallucination
-- Max 20 words
+RULES:
+- Max 60 words
+- No placeholders like [your industry]
+- No generic fluff
+- Use actual roles and skills
 
-ROLE:
-${role.title}
+ROLES:
+${resume.roles?.map(r => r.title).join(", ")}
 
-REQUIREMENT:
-${requirement.text}
+SKILLS:
+${resume.skills?.join(", ")}
+
+TARGET JOB:
+${jobRequirements?.slice(0, 5).join(", ")}
 `;
 
     const res = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 0.2,
+      temperature: 0.3,
       messages: [{ role: "user", content: prompt }]
     });
 
-    return res.choices?.[0]?.message?.content?.trim() || null;
-  } catch (e) {
-    console.error("BULLET FAIL:", e);
-    return null;
-  }
-}
-
-/**
- * SAFE SUMMARY
- */
-async function safeSummary(resume, reqs) {
-  try {
-    const res = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      temperature: 0.3,
-      messages: [
-        {
-          role: "user",
-          content: `Write a short professional summary.`
-        }
-      ]
-    });
-
-    return res.choices?.[0]?.message?.content || "";
+    return res.choices[0].message.content.trim();
   } catch {
     return "";
   }
