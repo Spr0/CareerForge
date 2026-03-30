@@ -11,13 +11,13 @@ async function generateNarrativeOSResume({
   resumeData,
   jobRequirements
 }) {
-  console.log("⚙️ ENGINE START");
-
   const normalized = await parseResume(resumeData);
 
   const roles = enforceRoles(normalized.roles);
 
-  const analysis = analyzeRequirements(normalized, jobRequirements);
+  const cleanedRequirements = cleanRequirements(jobRequirements);
+
+  const analysis = analyzeRequirements(normalized, cleanedRequirements);
 
   const summary = buildSummary(normalized);
 
@@ -32,32 +32,23 @@ async function generateNarrativeOSResume({
 }
 
 /**
- * 🔥 FAST PARSER (single LLM call)
+ * PARSER (unchanged stable)
  */
 async function parseResume(rawText) {
   try {
     const prompt = `
-Extract structured resume data.
+Extract resume JSON.
 
 RULES:
 - No hallucination
-- Extract real roles, skills, education
 - Max 3 roles
 - Max 4 bullets per role
-- SHORT output
 
-FORMAT (JSON ONLY):
+FORMAT:
 {
   "header": "",
   "skills": [],
-  "roles": [
-    {
-      "title": "",
-      "company": "",
-      "dates": "",
-      "bullets": []
-    }
-  ],
+  "roles": [],
   "education": []
 }
 
@@ -68,17 +59,13 @@ ${rawText}
     const res = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0,
-      max_tokens: 700, // 🔥 prevents long responses
+      max_tokens: 700,
       messages: [{ role: "user", content: prompt }]
     });
 
     const text = res.choices[0].message.content;
-    const json = extractJSON(text);
-
-    return JSON.parse(json);
-  } catch (e) {
-    console.error("PARSE ERROR:", e);
-
+    return JSON.parse(extractJSON(text));
+  } catch {
     return {
       header: rawText.split("\n")[0] || "Candidate",
       skills: [],
@@ -86,6 +73,102 @@ ${rawText}
       education: []
     };
   }
+}
+
+/**
+ * CLEAN JD (🔥 CRITICAL)
+ */
+function cleanRequirements(reqs = []) {
+  return reqs
+    .map(r => r.trim())
+    .filter(r =>
+      r.length > 20 &&
+      !r.toLowerCase().includes("apply") &&
+      !r.toLowerCase().includes("linkedin") &&
+      !r.toLowerCase().includes("people") &&
+      !r.toLowerCase().includes("location") &&
+      !r.toLowerCase().includes("click")
+    )
+    .slice(0, 10);
+}
+
+/**
+ * SMART SCORING (🔥 MAJOR UPGRADE)
+ */
+function analyzeRequirements(resume, requirements = []) {
+  const resumeText = normalizeText([
+    ...(resume.skills || []),
+    ...(resume.roles || []).flatMap(r => r.bullets || [])
+  ].join(" "));
+
+  const matched = [];
+  const partial = [];
+  const missing = [];
+
+  for (let req of requirements) {
+    const r = normalizeText(req);
+
+    if (isStrongMatch(r, resumeText)) {
+      matched.push(req);
+    } else if (isWeakMatch(r, resumeText)) {
+      partial.push(req);
+    } else {
+      missing.push(req);
+    }
+  }
+
+  const total = requirements.length || 1;
+
+  const coverage = Math.round(
+    ((matched.length + partial.length * 0.6) / total) * 100
+  );
+
+  const score = Math.round((coverage / 10) * 10) / 10;
+
+  return {
+    score,
+    coverage,
+    matched,
+    partial,
+    missing
+  };
+}
+
+/**
+ * TEXT NORMALIZATION
+ */
+function normalizeText(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * STRONG MATCH
+ */
+function isStrongMatch(req, text) {
+  return text.includes(req);
+}
+
+/**
+ * WEAK MATCH (🔥 smarter)
+ */
+function isWeakMatch(req, text) {
+  const words = req.split(" ").filter(w => w.length > 4);
+  const matches = words.filter(w => text.includes(w));
+
+  return matches.length >= Math.ceil(words.length / 2);
+}
+
+/**
+ * SUMMARY (fast)
+ */
+function buildSummary(resume) {
+  const roles = resume.roles?.map(r => r.title).join(", ");
+  const skills = resume.skills?.slice(0, 5).join(", ");
+
+  return `${roles} professional with experience in ${skills}.`;
 }
 
 /**
@@ -103,70 +186,14 @@ function enforceRoles(roles = []) {
     ];
   }
 
-  return roles.slice(0, 3).map((role) => ({
-    ...role,
-    bullets: (role.bullets || []).slice(0, 4)
+  return roles.slice(0, 3).map(r => ({
+    ...r,
+    bullets: (r.bullets || []).slice(0, 4)
   }));
 }
 
 /**
- * 🔥 INSTANT SUMMARY (no LLM)
- */
-function buildSummary(resume) {
-  const roles = resume.roles?.map(r => r.title).join(", ") || "";
-  const skills = resume.skills?.slice(0, 5).join(", ") || "";
-
-  return `${roles} professional with experience in ${skills}.`;
-}
-
-/**
- * SCORING
- */
-function analyzeRequirements(resume, requirements = []) {
-  const resumeText = [
-    ...(resume.skills || []),
-    ...(resume.roles || []).flatMap(r => r.bullets || [])
-  ].join(" ").toLowerCase();
-
-  const matched = [];
-  const partial = [];
-  const missing = [];
-
-  for (let req of requirements) {
-    const r = req.toLowerCase();
-
-    if (resumeText.includes(r)) {
-      matched.push(req);
-    } else if (hasPartialMatch(r, resumeText)) {
-      partial.push(req);
-    } else {
-      missing.push(req);
-    }
-  }
-
-  const total = requirements.length || 1;
-  const coverage = Math.round(((matched.length + partial.length * 0.5) / total) * 100);
-  const score = Math.round((coverage / 10) * 10) / 10;
-
-  return {
-    score,
-    coverage,
-    matched,
-    partial,
-    missing
-  };
-}
-
-/**
- * PARTIAL MATCH
- */
-function hasPartialMatch(req, text) {
-  const words = req.split(" ").filter(w => w.length > 4);
-  return words.some(w => text.includes(w));
-}
-
-/**
- * JSON CLEAN
+ * JSON EXTRACT
  */
 function extractJSON(text) {
   const match = text.match(/\{[\s\S]*\}/);
