@@ -19,9 +19,9 @@ async function safeJsonFetch(url, body) {
   }
 }
 
-// --- EMBEDDINGS (BATCH) ---
+// --- EMBEDDINGS ---
 async function getEmbeddingsBatch(texts) {
-  if (!texts || !texts.length) return []
+  if (!texts?.length) return []
 
   const data = await safeJsonFetch("/.netlify/functions/embeddings", {
     input: texts
@@ -30,14 +30,11 @@ async function getEmbeddingsBatch(texts) {
   return data?.embeddings || []
 }
 
-// --- COSINE SIMILARITY ---
+// --- COSINE ---
 function cosineSimilarity(a, b) {
   if (!a || !b || a.length !== b.length) return 0
 
-  let dot = 0
-  let magA = 0
-  let magB = 0
-
+  let dot = 0, magA = 0, magB = 0
   for (let i = 0; i < a.length; i++) {
     dot += a[i] * b[i]
     magA += a[i] * a[i]
@@ -45,11 +42,10 @@ function cosineSimilarity(a, b) {
   }
 
   if (!magA || !magB) return 0
-
   return dot / (Math.sqrt(magA) * Math.sqrt(magB))
 }
 
-// --- JD PARSING ---
+// --- JD PARSE ---
 export async function parseJD(jd, callClaude) {
   try {
     const res = await callClaude(
@@ -69,10 +65,7 @@ async function validate(resume, jdStruct) {
   const requirements = jdStruct?.must_have || []
   if (!requirements.length) return { weights: [], reasons: [] }
 
-  const resumeChunks = resume
-    .split("\n")
-    .map(s => s.trim())
-    .filter(Boolean)
+  const resumeChunks = resume.split("\n").filter(Boolean)
 
   const resumeEmb = (await getEmbeddingsBatch(resumeChunks)).filter(Boolean)
   const reqEmb = await getEmbeddingsBatch(requirements)
@@ -106,69 +99,88 @@ async function validate(resume, jdStruct) {
   return { weights, reasons }
 }
 
-// --- GENERATION (STRUCTURE-FIRST, NO TRUNCATION) ---
-export async function generateResume(base, jd, stories, jdStruct, callClaude) {
-  const res = await callClaude(
-    "You are a resume editor. You MUST produce a COMPLETE resume with ALL sections present.",
-    `Original Resume:
-${base.slice(0, 2000)}
+// --- SECTION GENERATORS ---
+async function generateSection(title, instructions, base, jdStruct, callClaude) {
+  return await callClaude(
+    `Write ONLY the ${title} section of a resume. Be concise. Do not invent experience.`,
+    `Resume:
+${base.slice(0, 1500)}
 
-Job Requirements:
+Requirements:
 ${(jdStruct?.must_have || []).join("\n")}
 
-YOU MUST FOLLOW THIS EXACT STRUCTURE:
+${instructions}`
+  )
+}
 
-1. NAME + CONTACT
-2. EXECUTIVE SUMMARY (max 4 lines)
-3. CORE COMPETENCIES (max 10 bullets)
-4. PROFESSIONAL EXPERIENCE (exactly 3 roles, max 4 bullets each)
-5. EDUCATION
-6. CERTIFICATIONS (if present)
-
-CRITICAL RULES:
-- You MUST include ALL sections (no omissions)
-- If space is tight, SHORTEN bullets — do NOT remove sections
-- NEVER cut off mid-section
-- Prefer shorter bullets over incomplete sections
-- TOTAL LENGTH: keep concise (~650–750 words)
-
-TRUTH RULES:
-- DO NOT add technologies not in original resume
-- DO NOT fabricate experience
-- ONLY rephrase or reorganize
-
-GOAL:
-Produce a COMPLETE, structured, finished resume — even if concise.`
+// --- MAIN GENERATION ---
+export async function generateResume(base, jd, stories, jdStruct, callClaude) {
+  const summary = await generateSection(
+    "Executive Summary",
+    "3-4 lines max. Focus on leadership, scope, and relevance.",
+    base,
+    jdStruct,
+    callClaude
   )
 
-  // --- VALIDATION ---
+  const competencies = await generateSection(
+    "Core Competencies",
+    "8-10 bullet points max. Use only existing skills.",
+    base,
+    jdStruct,
+    callClaude
+  )
+
+  const experience = await generateSection(
+    "Professional Experience",
+    "Top 3 roles only. 4 bullets per role max. Keep concise.",
+    base,
+    jdStruct,
+    callClaude
+  )
+
+  const education = await generateSection(
+    "Education and Certifications",
+    "Include education and certifications if present. Be brief.",
+    base,
+    jdStruct,
+    callClaude
+  )
+
+  const finalResume = `
+${base.split("\n")[0]}
+
+${summary}
+
+${competencies}
+
+${experience}
+
+${education}
+`
+
+  // --- VALIDATE ---
   const truth = await validate(base, jdStruct)
-  const gen = await validate(res, jdStruct)
+  const gen = await validate(finalResume, jdStruct)
 
   const total = gen.weights.length || 1
-
   const genScore = gen.weights.reduce((a, b) => a + b, 0)
   const truthScore = truth.weights.reduce((a, b) => a + b, 0)
 
-  // --- BALANCED SCORING ---
   let adjusted = (genScore * 0.7) + (truthScore * 0.3)
 
-  // --- LIGHT PENALTY ---
   const critical = jdStruct?.must_have?.slice(0, 2) || []
   critical.forEach((_, i) => {
-    if ((truth.weights[i] || 0) === 0) {
-      adjusted -= 0.3
-    }
+    if ((truth.weights[i] || 0) === 0) adjusted -= 0.3
   })
 
-  // --- FLOOR ---
   adjusted = Math.max(adjusted, 0.2)
 
   const coverage = adjusted / total
   const score = Math.round(coverage * 10)
 
   return {
-    best: res,
+    best: finalResume,
     bestScore: score,
     keywords: jdStruct?.must_have || [],
     jdStruct,
