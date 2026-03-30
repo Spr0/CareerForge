@@ -44,6 +44,21 @@ function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(magA) * Math.sqrt(magB))
 }
 
+// --- CLEAN BULLETS (HARD LIMIT) ---
+function limitBullets(text, max = 4) {
+  if (!text) return ""
+
+  const lines = text.split("\n")
+  const bullets = lines.filter(l => l.trim().startsWith("-"))
+
+  const trimmed = bullets.slice(0, max)
+
+  return lines
+    .filter(l => !l.trim().startsWith("-"))
+    .concat(trimmed)
+    .join("\n")
+}
+
 // --- PARSE JD ---
 export async function parseJD(jd, callClaude) {
   try {
@@ -61,18 +76,17 @@ export async function parseJD(jd, callClaude) {
 
 // --- VALIDATE ---
 async function validate(resume, jdStruct) {
-  const requirements = jdStruct?.must_have || []
-  if (!requirements.length) return { weights: [], reasons: [] }
+  const reqs = jdStruct?.must_have || []
+  if (!reqs.length) return { weights: [], reasons: [] }
 
   const chunks = resume.split("\n").filter(Boolean)
-
   const resumeEmb = (await getEmbeddingsBatch(chunks)).filter(Boolean)
-  const reqEmb = await getEmbeddingsBatch(requirements)
+  const reqEmb = await getEmbeddingsBatch(reqs)
 
   const weights = []
   const reasons = []
 
-  for (let i = 0; i < requirements.length; i++) {
+  for (let i = 0; i < reqs.length; i++) {
     let best = 0
 
     for (const r of resumeEmb) {
@@ -98,113 +112,89 @@ async function validate(resume, jdStruct) {
   return { weights, reasons }
 }
 
-// --- GENERATE SIMPLE SECTION ---
-async function genSection(title, instruction, base, jdStruct, callClaude) {
-  return await callClaude(
-    `Write ONLY the ${title} section. Be concise. Do not invent experience.`,
-    `Resume:
-${base.slice(0, 1200)}
-
-Requirements:
-${(jdStruct?.must_have || []).join("\n")}
-
-${instruction}`
-  )
-}
-
-// --- GENERATE SINGLE ROLE ---
-async function genRole(roleIndex, base, jdStruct, callClaude) {
-  return await callClaude(
-    "Extract and rewrite ONE role from the resume. Do not invent content.",
+// --- GENERATE ROLE ---
+async function genRole(index, base, callClaude) {
+  const raw = await callClaude(
+    "Extract ONE role. Max 4 bullets. Do not invent.",
     `Resume:
 ${base}
 
-Task:
-- Select the ${roleIndex} most recent role
-- Rewrite it with:
-  - Title
-  - Company
-  - Dates
-  - MAX 4 bullets
-- Keep concise
-- Do NOT include other roles`
+Return ONLY the ${index} most recent role.`
+  )
+
+  return limitBullets(raw, 4)
+}
+
+// --- GENERATE SECTION ---
+async function genSection(title, instruction, base, callClaude) {
+  return await callClaude(
+    `Write ${title}. Keep concise.`,
+    `Resume:
+${base}
+
+${instruction}`
   )
 }
 
 // --- MAIN ---
 export async function generateResume(base, jd, stories, jdStruct, callClaude) {
 
-  console.log("🚀 NEW ENGINE RUNNING")
+  console.log("🚀 FINAL ENGINE")
 
   const summary = await genSection(
     "Executive Summary",
-    "3–4 lines max. Focus on leadership + scope.",
+    "Max 4 lines",
     base,
-    jdStruct,
     callClaude
   )
 
   const skills = await genSection(
     "Core Competencies",
-    "8–10 bullets max. Use existing skills only.",
+    "Max 10 bullets",
     base,
-    jdStruct,
     callClaude
   )
 
-  // 🔥 FIX: PER-ROLE GENERATION
-  const role1 = await genRole(1, base, jdStruct, callClaude)
-  const role2 = await genRole(2, base, jdStruct, callClaude)
-  const role3 = await genRole(3, base, jdStruct, callClaude)
+  const role1 = await genRole(1, base, callClaude)
+  const role2 = await genRole(2, base, callClaude)
+  const role3 = await genRole(3, base, callClaude)
 
-  const experience = `
+  const edu = await genSection(
+    "Education and Certifications",
+    "Keep short",
+    base,
+    callClaude
+  )
+
+  // 🔥 HARD STRUCTURE (always present)
+  const finalResume = `
+${base.split("\n")[0]}
+
+EXECUTIVE SUMMARY
+${summary}
+
+CORE COMPETENCIES
+${skills}
+
+PROFESSIONAL EXPERIENCE
 ${role1}
 
 ${role2}
 
 ${role3}
-`
 
-  const edu = await genSection(
-    "Education and Certifications",
-    "Include education + certs if present. Keep short.",
-    base,
-    jdStruct,
-    callClaude
-  )
-
-  const finalResume = `
-${base.split("\n")[0]}
-
-${summary}
-
-${skills}
-
-PROFESSIONAL EXPERIENCE
-${experience}
-
+EDUCATION & CERTIFICATIONS
 ${edu}
 `
 
-  // --- VALIDATE ---
   const truth = await validate(base, jdStruct)
   const gen = await validate(finalResume, jdStruct)
 
   const total = gen.weights.length || 1
-  const genScore = gen.weights.reduce((a, b) => a + b, 0)
-  const truthScore = truth.weights.reduce((a, b) => a + b, 0)
-
-  let adjusted = (genScore * 0.7) + (truthScore * 0.3)
-
-  const critical = jdStruct?.must_have?.slice(0, 2) || []
-  critical.forEach((_, i) => {
-    if ((truth.weights[i] || 0) === 0) adjusted -= 0.3
-  })
-
-  adjusted = Math.max(adjusted, 0.2)
-
-  const coverage = adjusted / total
-  const score = Math.round(coverage * 10)
+  const score = Math.round(
+    ((gen.weights.reduce((a, b) => a + b, 0) * 0.7 +
+      truth.weights.reduce((a, b) => a + b, 0) * 0.3) / total) * 10
+  )
 
   return {
     best: finalResume,
@@ -212,7 +202,7 @@ ${edu}
     keywords: jdStruct?.must_have || [],
     jdStruct,
     explain: {
-      coverage,
+      coverage: score / 10,
       semanticReasons: gen.reasons
     },
     reject: score < 4
