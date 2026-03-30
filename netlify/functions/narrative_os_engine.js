@@ -1,9 +1,5 @@
 // narrative_os_engine.js
 
-// ==============================
-// CONFIG
-// ==============================
-
 const GENERIC_PHRASES = [
   "program governance",
   "stakeholders",
@@ -36,27 +32,37 @@ const CAPABILITY_RULES = [
 ];
 
 // ==============================
-// SAFE UTILITIES
+// SAFE PARSING (FIXED)
+// ==============================
+
+function extractBullets(text = "") {
+  const lines = text.split("\n").map(l => l.trim());
+
+  // bullet formats
+  const bullets = lines.filter(l =>
+    l.startsWith("-") ||
+    l.startsWith("•") ||
+    l.startsWith("*")
+  );
+
+  if (bullets.length > 0) {
+    return bullets.map(b => b.replace(/^[-•*]\s*/, ""));
+  }
+
+  // fallback: split into sentences
+  return text
+    .split(/[.!?]/)
+    .map(s => s.trim())
+    .filter(s => s.length > 30)
+    .slice(0, 20);
+}
+
+// ==============================
+// UTIL
 // ==============================
 
 function safeArray(arr) {
   return Array.isArray(arr) ? arr : [];
-}
-
-function cosineSimilarity(a, b) {
-  try {
-    let dot = 0, normA = 0, normB = 0;
-
-    for (let i = 0; i < a.length; i++) {
-      dot += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-  } catch {
-    return 0;
-  }
 }
 
 function isGenericBullet(text = "") {
@@ -174,72 +180,25 @@ function buildRewriteGuidance(requirement, bullet, missing, capability) {
 }
 
 // ==============================
-// SAFE EMBEDDING (FALLBACK)
-// ==============================
-
-async function getEmbeddingSafe(text, openai) {
-  try {
-    if (!openai) return null;
-
-    const res = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: text,
-    });
-
-    return res.data[0].embedding;
-  } catch (e) {
-    console.error("Embedding failed:", e.message);
-    return null;
-  }
-}
-
-// ==============================
 // MAIN ENGINE
 // ==============================
 
 export async function runNarrativeOS({
   resumeText = "",
-  jobDescription = "",
-  openai
+  jobDescription = ""
 }) {
   try {
-    // ------------------------------
-    // PARSE INPUT
-    // ------------------------------
-
     const requirements = jobDescription
       .split("\n")
       .filter(r => r.trim().length > 20);
 
-    const bullets = resumeText
-      .split("\n")
-      .filter(b => b.trim().startsWith("-"));
-
-    // ------------------------------
-    // EMBEDDINGS (SAFE)
-    // ------------------------------
-
-    const reqEmbeddings = [];
-    for (const r of requirements) {
-      reqEmbeddings.push(await getEmbeddingSafe(r, openai));
-    }
-
-    const bulletEmbeddings = [];
-    for (const b of bullets) {
-      bulletEmbeddings.push(await getEmbeddingSafe(b, openai));
-    }
-
-    // ------------------------------
-    // SCORING
-    // ------------------------------
+    const bullets = extractBullets(resumeText);
 
     const bulletUsage = {};
     const results = [];
 
     for (let i = 0; i < requirements.length; i++) {
       const req = requirements[i];
-      const reqEmbedding = reqEmbeddings[i];
-
       const reqCaps = extractCapabilities(req);
       const primaryCap = reqCaps[0];
 
@@ -247,31 +206,18 @@ export async function runNarrativeOS({
 
       for (let j = 0; j < bullets.length; j++) {
         const bullet = bullets[j];
-        const bulletEmbedding = bulletEmbeddings[j];
-
-        let embScore = 0;
-
-        if (reqEmbedding && bulletEmbedding) {
-          embScore = cosineSimilarity(reqEmbedding, bulletEmbedding);
-        }
 
         const capScore = capabilityScore(reqCaps, bullet);
         const keyScore = keywordScore(req, bullet);
 
         let penalty = 0;
 
-        if (bulletUsage[j]) {
-          penalty += 0.15 * bulletUsage[j];
-        }
-
-        if (isGenericBullet(bullet)) {
-          penalty += 0.2;
-        }
+        if (bulletUsage[j]) penalty += 0.15 * bulletUsage[j];
+        if (isGenericBullet(bullet)) penalty += 0.2;
 
         const finalScore =
-          (0.5 * embScore) +
-          (0.3 * capScore) +
-          (0.2 * keyScore) -
+          (0.6 * capScore) +
+          (0.4 * keyScore) -
           penalty;
 
         const missing = analyzeGaps(reqCaps, bullet);
@@ -282,7 +228,6 @@ export async function runNarrativeOS({
           text: bullet,
           score: finalScore,
           breakdown: {
-            embedding: embScore,
             capability: capScore,
             keyword: keyScore,
             penalty
@@ -322,12 +267,8 @@ export async function runNarrativeOS({
       });
     }
 
-    // ------------------------------
-    // FINAL SCORE
-    // ------------------------------
-
     const covered = results.filter(
-      r => r?.rankedBullets?.[0]?.score > 0.5
+      r => r?.rankedBullets?.[0]?.score > 0.4
     ).length;
 
     const coverage = requirements.length
@@ -339,11 +280,11 @@ export async function runNarrativeOS({
     return {
       score,
       coverage,
-      requirements: safeArray(results)
+      requirements: results
     };
 
-  } catch (fatal) {
-    console.error("ENGINE FATAL:", fatal);
+  } catch (e) {
+    console.error("ENGINE ERROR:", e);
 
     return {
       score: 0,
