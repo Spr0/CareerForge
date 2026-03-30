@@ -1,38 +1,8 @@
 import { useState } from "react";
-
-// ✅ INLINE IMPORT SAFETY (no tree-shaking issues)
 import * as Engine from "./narrative_os_engine.js";
 
 function safeArray(arr) {
   return Array.isArray(arr) ? arr : [];
-}
-
-function RequirementCard({ item }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div style={{ border: "1px solid #ddd", padding: 12, marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <div style={{ fontWeight: 600 }}>{item.requirement}</div>
-        <div>{item.score}</div>
-      </div>
-
-      <div style={{ fontSize: 13, color: "#666" }}>
-        {item.summary || "No strong evidence"}
-      </div>
-
-      <button onClick={() => setOpen(!open)}>
-        {open ? "Hide" : "Details"}
-      </button>
-
-      {open && (
-        <div>
-          {item.gap && <div><b>Gap:</b> {item.gap}</div>}
-          {item.fix && <div><b>Fix:</b> {item.fix}</div>}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function App() {
@@ -43,13 +13,24 @@ export default function App() {
 
   const analyze = async () => {
     setLoading(true);
+    setResult(null);
 
     try {
+      console.log("Running analysis...");
+
       const data = await Engine.analyzeJob(jd, resume);
+
+      console.log("RESULT:", data);
+
       setResult(data);
+
     } catch (e) {
-      console.error(e);
-      setResult({ error: true });
+      console.error("Analyze failed:", e);
+
+      setResult({
+        error: true,
+        message: e.message || "Unknown error"
+      });
     }
 
     setLoading(false);
@@ -77,10 +58,28 @@ export default function App() {
         {loading ? "Analyzing..." : "Analyze"}
       </button>
 
-      {result?.score && <h2>Score: {result.score}/10</h2>}
+      {/* ERROR */}
+      {result?.error && (
+        <div style={{ color: "red", marginTop: 10 }}>
+          Error: {result.message || "Something went wrong"}
+        </div>
+      )}
 
+      {/* SCORE */}
+      {result?.score !== undefined && (
+        <h2>Score: {result.score}/10</h2>
+      )}
+
+      {/* RESULTS */}
       {safeArray(result?.requirements).map((r, i) => (
-        <RequirementCard key={i} item={r} />
+        <div key={i} style={{ border: "1px solid #ccc", marginTop: 10, padding: 10 }}>
+          <strong>{r.requirement}</strong>
+          <div>Strength: {r.score}</div>
+          <div>{r.summary}</div>
+
+          {r.gap && <div style={{ color: "red" }}>Gap: {r.gap}</div>}
+          {r.fix && <div style={{ color: "green" }}>Fix: {r.fix}</div>}
+        </div>
       ))}
     </div>
   );
