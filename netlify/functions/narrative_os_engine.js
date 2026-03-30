@@ -21,75 +21,80 @@ const CAPABILITY_RULES = [
   {
     name: "DEPENDENCY_MANAGEMENT",
     signals: ["dependency", "dependencies", "blockers"],
-    guidance: "Show how dependencies were identified, managed, and resolved."
+    guidance: "Show how dependencies were identified and resolved."
   },
   {
     name: "STAKEHOLDER_MANAGEMENT",
     signals: ["stakeholder", "executive", "alignment"],
-    guidance: "Highlight stakeholder groups, influence, and alignment outcomes."
+    guidance: "Highlight stakeholder groups and alignment outcomes."
   },
   {
     name: "PROCESS_OPTIMIZATION",
     signals: ["optimize", "improve", "efficiency", "process"],
-    guidance: "Quantify improvements and describe what changed and why."
+    guidance: "Quantify improvements and impact."
   }
 ];
 
 // ==============================
-// UTIL
+// SAFE UTILITIES
 // ==============================
 
-function cosineSimilarity(a, b) {
-  let dot = 0, normA = 0, normB = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+function safeArray(arr) {
+  return Array.isArray(arr) ? arr : [];
 }
 
-function isGenericBullet(text) {
+function cosineSimilarity(a, b) {
+  try {
+    let dot = 0, normA = 0, normB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+
+    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+  } catch {
+    return 0;
+  }
+}
+
+function isGenericBullet(text = "") {
   const lower = text.toLowerCase();
   return GENERIC_PHRASES.some(p => lower.includes(p));
 }
 
 // ==============================
-// CAPABILITY EXTRACTION
+// CAPABILITIES
 // ==============================
 
-function extractCapabilities(text) {
+function extractCapabilities(text = "") {
   const lower = text.toLowerCase();
 
-  const caps = CAPABILITY_RULES.map(rule => {
+  return CAPABILITY_RULES.map(rule => {
     const matches = rule.signals.filter(s => lower.includes(s));
     return {
       name: rule.name,
       score: matches.length / rule.signals.length,
       guidance: rule.guidance
     };
-  }).filter(c => c.score > 0);
-
-  // sort strongest first
-  caps.sort((a, b) => b.score - a.score);
-
-  return caps;
+  })
+    .filter(c => c.score > 0)
+    .sort((a, b) => b.score - a.score);
 }
 
 // ==============================
-// KEYWORD SCORE
+// SCORING
 // ==============================
 
-function keywordScore(req, bullet) {
+function keywordScore(req = "", bullet = "") {
   const reqWords = req.toLowerCase().split(/\W+/);
-  const bulletWords = bullet.toLowerCase();
+  const bulletText = bullet.toLowerCase();
 
   let matches = 0;
 
   for (const w of reqWords) {
-    if (w.length > 4 && bulletWords.includes(w)) {
+    if (w.length > 4 && bulletText.includes(w)) {
       matches++;
     }
   }
@@ -97,28 +102,20 @@ function keywordScore(req, bullet) {
   return Math.min(matches / 5, 1);
 }
 
-// ==============================
-// CAPABILITY SCORE
-// ==============================
-
-function capabilityScore(reqCaps, bullet) {
+function capabilityScore(reqCaps, bullet = "") {
   const text = bullet.toLowerCase();
-
   let score = 0;
 
   for (const cap of reqCaps) {
     if (cap.name === "DEPENDENCY_MANAGEMENT" && text.includes("depend")) {
       score += 0.4;
     }
-
     if (cap.name === "STAKEHOLDER_MANAGEMENT" && text.includes("stakeholder")) {
       score += 0.3;
     }
-
     if (cap.name === "PROGRAM_DELIVERY" && text.includes("program")) {
       score += 0.3;
     }
-
     if (cap.name === "PROCESS_OPTIMIZATION" && text.includes("improv")) {
       score += 0.3;
     }
@@ -128,27 +125,23 @@ function capabilityScore(reqCaps, bullet) {
 }
 
 // ==============================
-// GAP ANALYSIS (NEW)
+// GAP + GUIDANCE
 // ==============================
 
-function analyzeGaps(reqCaps, bullet) {
+function analyzeGaps(reqCaps, bullet = "") {
   const text = bullet.toLowerCase();
-
   const missing = [];
 
   for (const cap of reqCaps) {
     if (cap.name === "DEPENDENCY_MANAGEMENT" && !text.includes("depend")) {
       missing.push("dependency management");
     }
-
     if (cap.name === "STAKEHOLDER_MANAGEMENT" && !text.includes("stakeholder")) {
       missing.push("stakeholder scope");
     }
-
     if (cap.name === "PROGRAM_DELIVERY" && !text.includes("program")) {
       missing.push("program ownership");
     }
-
     if (cap.name === "PROCESS_OPTIMIZATION" && !text.includes("improv")) {
       missing.push("quantified improvements");
     }
@@ -156,10 +149,6 @@ function analyzeGaps(reqCaps, bullet) {
 
   return missing;
 }
-
-// ==============================
-// SCORE DELTA ESTIMATION (NEW)
-// ==============================
 
 function estimateScoreDelta(missing) {
   let delta = 0;
@@ -174,19 +163,34 @@ function estimateScoreDelta(missing) {
   return Math.min(delta, 0.5);
 }
 
-// ==============================
-// REWRITE GUIDANCE (NEW)
-// ==============================
-
 function buildRewriteGuidance(requirement, bullet, missing, capability) {
   return {
-    instruction: `Rewrite this bullet to better align with the requirement.`,
     requirement,
     currentBullet: bullet,
     improveBy: missing,
-    guidance: capability?.guidance || "Improve specificity and alignment.",
-    exampleFocus: `Ensure the bullet explicitly demonstrates: ${missing.join(", ")}`
+    guidance: capability?.guidance || "Improve clarity and specificity.",
+    exampleFocus: `Add: ${missing.join(", ")}`
   };
+}
+
+// ==============================
+// SAFE EMBEDDING (FALLBACK)
+// ==============================
+
+async function getEmbeddingSafe(text, openai) {
+  try {
+    if (!openai) return null;
+
+    const res = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: text,
+    });
+
+    return res.data[0].embedding;
+  } catch (e) {
+    console.error("Embedding failed:", e.message);
+    return null;
+  }
 }
 
 // ==============================
@@ -194,154 +198,157 @@ function buildRewriteGuidance(requirement, bullet, missing, capability) {
 // ==============================
 
 export async function runNarrativeOS({
-  resumeText,
-  jobDescription,
+  resumeText = "",
+  jobDescription = "",
   openai
 }) {
-  // ------------------------------
-  // INPUT PARSING
-  // ------------------------------
+  try {
+    // ------------------------------
+    // PARSE INPUT
+    // ------------------------------
 
-  const requirements = jobDescription
-    .split("\n")
-    .filter(r => r.trim().length > 20);
+    const requirements = jobDescription
+      .split("\n")
+      .filter(r => r.trim().length > 20);
 
-  const bullets = resumeText
-    .split("\n")
-    .filter(b => b.trim().startsWith("-"));
+    const bullets = resumeText
+      .split("\n")
+      .filter(b => b.trim().startsWith("-"));
 
-  // ------------------------------
-  // EMBEDDINGS
-  // ------------------------------
+    // ------------------------------
+    // EMBEDDINGS (SAFE)
+    // ------------------------------
 
-  const cache = new Map();
+    const reqEmbeddings = [];
+    for (const r of requirements) {
+      reqEmbeddings.push(await getEmbeddingSafe(r, openai));
+    }
 
-  async function getEmbedding(text) {
-    if (cache.has(text)) return cache.get(text);
+    const bulletEmbeddings = [];
+    for (const b of bullets) {
+      bulletEmbeddings.push(await getEmbeddingSafe(b, openai));
+    }
 
-    const res = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: text,
-    });
+    // ------------------------------
+    // SCORING
+    // ------------------------------
 
-    const emb = res.data[0].embedding;
-    cache.set(text, emb);
-    return emb;
-  }
+    const bulletUsage = {};
+    const results = [];
 
-  const reqEmbeddings = [];
-  for (const r of requirements) {
-    reqEmbeddings.push(await getEmbedding(r));
-  }
+    for (let i = 0; i < requirements.length; i++) {
+      const req = requirements[i];
+      const reqEmbedding = reqEmbeddings[i];
 
-  const bulletEmbeddings = [];
-  for (const b of bullets) {
-    bulletEmbeddings.push(await getEmbedding(b));
-  }
+      const reqCaps = extractCapabilities(req);
+      const primaryCap = reqCaps[0];
 
-  // ------------------------------
-  // SCORING
-  // ------------------------------
+      const ranked = [];
 
-  const bulletUsage = {};
-  const results = [];
+      for (let j = 0; j < bullets.length; j++) {
+        const bullet = bullets[j];
+        const bulletEmbedding = bulletEmbeddings[j];
 
-  for (let i = 0; i < requirements.length; i++) {
-    const req = requirements[i];
-    const reqEmbedding = reqEmbeddings[i];
+        let embScore = 0;
 
-    const reqCaps = extractCapabilities(req);
-    const primaryCap = reqCaps[0];
+        if (reqEmbedding && bulletEmbedding) {
+          embScore = cosineSimilarity(reqEmbedding, bulletEmbedding);
+        }
 
-    const ranked = [];
+        const capScore = capabilityScore(reqCaps, bullet);
+        const keyScore = keywordScore(req, bullet);
 
-    for (let j = 0; j < bullets.length; j++) {
-      const bullet = bullets[j];
-      const bulletEmbedding = bulletEmbeddings[j];
+        let penalty = 0;
 
-      const embScore = cosineSimilarity(reqEmbedding, bulletEmbedding);
-      const capScore = capabilityScore(reqCaps, bullet);
-      const keyScore = keywordScore(req, bullet);
+        if (bulletUsage[j]) {
+          penalty += 0.15 * bulletUsage[j];
+        }
 
-      let penalty = 0;
+        if (isGenericBullet(bullet)) {
+          penalty += 0.2;
+        }
 
-      if (bulletUsage[j]) {
-        penalty += 0.15 * bulletUsage[j];
+        const finalScore =
+          (0.5 * embScore) +
+          (0.3 * capScore) +
+          (0.2 * keyScore) -
+          penalty;
+
+        const missing = analyzeGaps(reqCaps, bullet);
+        const delta = estimateScoreDelta(missing);
+
+        ranked.push({
+          bulletId: j,
+          text: bullet,
+          score: finalScore,
+          breakdown: {
+            embedding: embScore,
+            capability: capScore,
+            keyword: keyScore,
+            penalty
+          },
+          gaps: missing,
+          estimatedImprovement: delta
+        });
       }
 
-      if (isGenericBullet(bullet)) {
-        penalty += 0.2;
+      ranked.sort((a, b) => b.score - a.score);
+
+      const best = ranked[0];
+
+      if (best) {
+        bulletUsage[best.bulletId] =
+          (bulletUsage[best.bulletId] || 0) + 1;
       }
 
-      const finalScore =
-        (0.5 * embScore) +
-        (0.3 * capScore) +
-        (0.2 * keyScore) -
-        penalty;
-
-      const missing = analyzeGaps(reqCaps, bullet);
-      const delta = estimateScoreDelta(missing);
-
-      ranked.push({
-        bulletId: j,
-        text: bullet,
-        score: finalScore,
-        breakdown: {
-          embedding: embScore,
-          capability: capScore,
-          keyword: keyScore,
-          penalty: penalty
-        },
-        gaps: missing,
-        estimatedImprovement: delta
+      results.push({
+        requirement: req,
+        capability: primaryCap?.name || "GENERAL",
+        bestBulletId: best?.bulletId ?? null,
+        rankedBullets: safeArray(ranked).slice(0, 5),
+        recommendation: best
+          ? {
+              bestBullet: best.text,
+              gaps: best.gaps,
+              estimatedScoreIncrease: best.estimatedImprovement,
+              rewriteGuidance: buildRewriteGuidance(
+                req,
+                best.text,
+                best.gaps,
+                primaryCap
+              )
+            }
+          : null
       });
     }
 
-    ranked.sort((a, b) => b.score - a.score);
+    // ------------------------------
+    // FINAL SCORE
+    // ------------------------------
 
-    const best = ranked[0];
-    bulletUsage[best.bulletId] =
-      (bulletUsage[best.bulletId] || 0) + 1;
+    const covered = results.filter(
+      r => r?.rankedBullets?.[0]?.score > 0.5
+    ).length;
 
-    const rewriteGuidance = buildRewriteGuidance(
-      req,
-      best.text,
-      best.gaps,
-      primaryCap
-    );
+    const coverage = requirements.length
+      ? covered / requirements.length
+      : 0;
 
-    results.push({
-      requirement: req,
-      capability: primaryCap?.name || "GENERAL",
-      bestBulletId: best.bulletId,
-      rankedBullets: ranked.slice(0, 5),
-      recommendation: {
-        bestBullet: best.text,
-        gaps: best.gaps,
-        estimatedScoreIncrease: best.estimatedImprovement,
-        rewriteGuidance
-      }
-    });
+    const score = Math.round(coverage * 10);
+
+    return {
+      score,
+      coverage,
+      requirements: safeArray(results)
+    };
+
+  } catch (fatal) {
+    console.error("ENGINE FATAL:", fatal);
+
+    return {
+      score: 0,
+      coverage: 0,
+      requirements: []
+    };
   }
-
-  // ------------------------------
-  // FINAL SCORE
-  // ------------------------------
-
-  let covered = 0;
-
-  for (const r of results) {
-    if (r.rankedBullets[0].score > 0.5) {
-      covered++;
-    }
-  }
-
-  const coverage = covered / requirements.length;
-  const score = Math.round(coverage * 10);
-
-  return {
-    score,
-    coverage,
-    requirements: results
-  };
 }
