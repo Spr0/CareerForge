@@ -6,6 +6,14 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  function extractRequirements(text) {
+    return text
+      .split(/[\n•\-]/)
+      .map((t) => t.trim())
+      .filter((t) => t.length > 20)
+      .slice(0, 15);
+  }
+
   const handleGenerate = async () => {
     setLoading(true);
     setResult(null);
@@ -14,19 +22,18 @@ export default function App() {
       const response = await fetch("/.netlify/functions/generate", {
         method: "POST",
         body: JSON.stringify({
-          resume: resumeInput, // ✅ RAW TEXT
-          requirements: jdInput.split("\n").filter(Boolean)
+          resume: resumeInput,
+          requirements: extractRequirements(jdInput)
         })
       });
 
       const data = await response.json();
 
-      if (data.error) {
-        alert(data.error);
-      } else {
-        setResult(data);
-      }
+      console.log("RESPONSE:", data);
+
+      setResult(data);
     } catch (err) {
+      console.error(err);
       alert("Something went wrong");
     }
 
@@ -34,18 +41,18 @@ export default function App() {
   };
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial" }}>
+    <div style={{ padding: 20 }}>
       <h1>NarrativeOS</h1>
 
-      <h3>Paste Resume</h3>
+      <h3>Resume</h3>
       <textarea
-        rows={12}
+        rows={10}
         style={{ width: "100%" }}
         value={resumeInput}
         onChange={(e) => setResumeInput(e.target.value)}
       />
 
-      <h3>Job Requirements (one per line)</h3>
+      <h3>Job Description</h3>
       <textarea
         rows={6}
         style={{ width: "100%" }}
@@ -54,30 +61,29 @@ export default function App() {
       />
 
       <button onClick={handleGenerate} disabled={loading}>
-        {loading ? "Generating..." : "Generate Resume"}
+        {loading ? "Generating..." : "Generate"}
       </button>
 
-      {result && (
-        <div style={{ marginTop: 30 }}>
+      {result && !result.error && (
+        <div style={{ marginTop: 20 }}>
           <h2>{result.header}</h2>
           <p>{result.summary}</p>
 
           <h3>Skills</h3>
           <ul>
-            {result.skills.map((s, i) => (
+            {result.skills?.map((s, i) => (
               <li key={i}>{s}</li>
             ))}
           </ul>
 
           <h3>Experience</h3>
-          {result.roles.map((role, i) => (
+          {result.roles?.map((r, i) => (
             <div key={i}>
               <strong>
-                {role.title} — {role.company}
+                {r.title} — {r.company}
               </strong>
-              <div>{role.dates}</div>
               <ul>
-                {role.bullets.map((b, j) => (
+                {r.bullets?.map((b, j) => (
                   <li key={j}>{b}</li>
                 ))}
               </ul>
@@ -86,6 +92,12 @@ export default function App() {
 
           <h3>Education</h3>
           <p>{result.education}</p>
+        </div>
+      )}
+
+      {result?.error && (
+        <div style={{ color: "red", marginTop: 20 }}>
+          Error: {result.message}
         </div>
       )}
     </div>
