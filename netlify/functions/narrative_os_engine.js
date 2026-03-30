@@ -1,264 +1,270 @@
-function normalizeText(text = "") {
-  return text.toLowerCase();
+// narrative_os_engine.js
+
+// ==============================
+// CONFIG
+// ==============================
+
+const GENERIC_PHRASES = [
+  "program governance",
+  "stakeholders",
+  "cross-functional",
+  "delivery excellence",
+  "strategic alignment"
+];
+
+const CAPABILITY_RULES = [
+  {
+    name: "PROGRAM_DELIVERY",
+    signals: ["program", "delivery", "roadmap", "execution"]
+  },
+  {
+    name: "DEPENDENCY_MANAGEMENT",
+    signals: ["dependency", "dependencies", "blockers"]
+  },
+  {
+    name: "STAKEHOLDER_MANAGEMENT",
+    signals: ["stakeholder", "executive", "alignment"]
+  },
+  {
+    name: "PROCESS_OPTIMIZATION",
+    signals: ["optimize", "improve", "efficiency", "process"]
+  }
+];
+
+// ==============================
+// UTIL: COSINE SIMILARITY
+// ==============================
+
+function cosineSimilarity(a, b) {
+  let dot = 0, normA = 0, normB = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-/**
- * 🧠 MAIN ENTRY
- */
-async function generateNarrativeOSResume({
-  resumeData = "",
-  jobRequirements = []
-}) {
-  const resume = parseResume(resumeData);
+// ==============================
+// UTIL: GENERIC DETECTION
+// ==============================
 
-  const analysis = analyzeRequirementsWithTrace(
-    resume,
-    jobRequirements
-  );
-
-  return {
-    header: resume.header,
-    summary: resume.summary,
-    skills: resume.skills,
-    roles: resume.roles,
-    education: resume.education,
-    analysis
-  };
+function isGenericBullet(text) {
+  const lower = text.toLowerCase();
+  return GENERIC_PHRASES.some(p => lower.includes(p));
 }
 
-/**
- * 🧱 PARSER (STABLE + DEFENSIVE)
- */
-function parseResume(text) {
-  const lines = text
-    .split("\n")
-    .map(l => l.trim())
-    .filter(Boolean);
+// ==============================
+// CAPABILITY EXTRACTION
+// ==============================
 
-  return {
-    header: lines[0] || "Candidate",
-    summary: extractSummary(lines),
-    skills: extractSkills(lines),
-    roles: extractRoles(lines),
-    education: extractEducation(lines)
-  };
+function extractCapabilities(text) {
+  const lower = text.toLowerCase();
+
+  return CAPABILITY_RULES.map(rule => {
+    const matches = rule.signals.filter(s => lower.includes(s));
+    return {
+      name: rule.name,
+      score: matches.length / rule.signals.length
+    };
+  }).filter(c => c.score > 0);
 }
 
-/**
- * 🔹 SUMMARY
- */
-function extractSummary(lines) {
-  return lines.find(l => l.length > 80) || "";
-}
+// ==============================
+// KEYWORD SCORE (lightweight)
+// ==============================
 
-/**
- * 🔹 SKILLS (clean, short lines only)
- */
-function extractSkills(lines) {
-  return lines
-    .filter(l =>
-      l.length < 60 &&
-      !l.includes("@") &&
-      !l.includes("|") &&
-      !l.match(/\d{4}/)
-    )
-    .slice(0, 8);
-}
+function keywordScore(req, bullet) {
+  const reqWords = req.toLowerCase().split(/\W+/);
+  const bulletWords = bullet.toLowerCase();
 
-/**
- * 🔹 ROLES (STRICT)
- */
-function extractRoles(lines) {
-  const roles = [];
-  let current = null;
+  let matches = 0;
 
-  for (let line of lines) {
-    const isRoleHeader =
-      line.includes("—") ||
-      (line.includes("|") && line.match(/\d{4}/));
-
-    if (isRoleHeader) {
-      if (current) roles.push(current);
-
-      current = {
-        title: line,
-        bullets: []
-      };
-      continue;
-    }
-
-    // bullet filter
-    if (
-      current &&
-      line.length > 40 &&
-      line.length < 180 &&
-      !line.includes("@") &&
-      !line.toLowerCase().includes("summary") &&
-      !line.toLowerCase().includes("competencies") &&
-      !line.toLowerCase().includes("skills") &&
-      current.bullets.length < 4
-    ) {
-      current.bullets.push(line);
+  for (const w of reqWords) {
+    if (w.length > 4 && bulletWords.includes(w)) {
+      matches++;
     }
   }
 
-  if (current) roles.push(current);
-
-  return roles.slice(0, 3);
+  return Math.min(matches / 5, 1);
 }
 
-/**
- * 🔹 EDUCATION
- */
-function extractEducation(lines) {
-  return lines
-    .filter(l =>
-      l.toLowerCase().includes("university") ||
-      l.toLowerCase().includes("mba") ||
-      l.toLowerCase().includes("ba")
-    )
-    .map(l => ({
-      degree: l,
-      field: "",
-      institution: ""
-    }))
-    .slice(0, 2);
+// ==============================
+// CAPABILITY SCORE
+// ==============================
+
+function capabilityScore(reqCaps, bullet) {
+  const text = bullet.toLowerCase();
+
+  let score = 0;
+
+  for (const cap of reqCaps) {
+    if (cap.name === "DEPENDENCY_MANAGEMENT" && text.includes("depend")) {
+      score += 0.4;
+    }
+
+    if (cap.name === "STAKEHOLDER_MANAGEMENT" && text.includes("stakeholder")) {
+      score += 0.3;
+    }
+
+    if (cap.name === "PROGRAM_DELIVERY" && text.includes("program")) {
+      score += 0.3;
+    }
+  }
+
+  return Math.min(score, 1);
 }
 
-/**
- * 🧠 MATCHING (IMPROVED + BALANCED)
- */
-function analyzeRequirementsWithTrace(resume, requirements = []) {
-  const partial = [];
-  const missing = [];
-  const trace = [];
+// ==============================
+// MAIN ENGINE
+// ==============================
 
-  const STOPWORDS = new Set([
-    "the","and","with","that","this","from","including",
-    "across","within","ensure","drive","support","lead",
-    "role","client","seeking","ideal","candidate","will",
-    "provide","overall","alignment"
-  ]);
+export async function runNarrativeOS({
+  resumeText,
+  jobDescription,
+  openai
+}) {
+  // ------------------------------
+  // STEP 1: SPLIT INPUTS
+  // ------------------------------
 
-  const GENERIC = new Set([
-    "program","management","delivery","governance"
-  ]);
+  const requirements = jobDescription
+    .split("\n")
+    .filter(r => r.trim().length > 20);
 
-  const allBullets = resume.roles.flatMap((r, ri) =>
-    r.bullets.map((b, bi) => ({
-      text: b,
-      roleIndex: ri,
-      bulletIndex: bi,
-      norm: normalizeText(b)
-    }))
-  );
+  const bullets = resumeText
+    .split("\n")
+    .filter(b => b.trim().startsWith("-"));
 
-  for (let req of requirements) {
-    const r = normalizeText(req);
+  // ------------------------------
+  // STEP 2: EMBEDDINGS (with cache)
+  // ------------------------------
 
-    const words = r
-      .split(" ")
-      .filter(w =>
-        w.length > 4 &&
-        !STOPWORDS.has(w)
-      );
+  const cache = new Map();
 
-    const scored = allBullets.map(b => {
-      let score = 0;
+  async function getEmbedding(text) {
+    if (cache.has(text)) return cache.get(text);
 
-      for (let w of words) {
-        if (b.norm.includes(w)) {
-          if (GENERIC.has(w)) {
-            score += 0.5;
-          } else {
-            score += 2;
-          }
-        }
-      }
-
-      // intent boosts
-      if (r.includes("steering") && b.norm.includes("executive")) {
-        score += 3;
-      }
-
-      if (r.includes("dependencies") && b.norm.includes("integration")) {
-        score += 3;
-      }
-
-      if (r.includes("servicenow") && b.norm.includes("erp")) {
-        score += 2;
-      }
-
-      // penalize generic-heavy bullets
-      const genericHits = ["program","delivery","governance"]
-        .filter(g => b.norm.includes(g)).length;
-
-      if (genericHits >= 2) score -= 1;
-
-      if (score < 2) score = 0;
-
-      return { ...b, score };
+    const res = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: text,
     });
 
-    const sorted = scored.sort((a, b) => b.score - a.score);
+    const emb = res.data[0].embedding;
+    cache.set(text, emb);
+    return emb;
+  }
 
-    // prevent same bullet dominating
-    const unique = [];
-    const seen = new Set();
+  const reqEmbeddings = [];
+  for (const r of requirements) {
+    reqEmbeddings.push(await getEmbedding(r));
+  }
 
-    for (let s of sorted) {
-      if (s.score === 0) continue;
+  const bulletEmbeddings = [];
+  for (const b of bullets) {
+    bulletEmbeddings.push(await getEmbedding(b));
+  }
 
-      if (!seen.has(s.text)) {
-        unique.push(s);
-        seen.add(s.text);
+  // ------------------------------
+  // STEP 3: SCORING
+  // ------------------------------
+
+  const bulletUsage = {};
+
+  const results = [];
+
+  for (let i = 0; i < requirements.length; i++) {
+    const req = requirements[i];
+    const reqEmbedding = reqEmbeddings[i];
+
+    const reqCaps = extractCapabilities(req);
+
+    const ranked = [];
+
+    for (let j = 0; j < bullets.length; j++) {
+      const bullet = bullets[j];
+      const bulletEmbedding = bulletEmbeddings[j];
+
+      // --- embedding ---
+      const embScore = cosineSimilarity(reqEmbedding, bulletEmbedding);
+
+      // --- capability ---
+      const capScore = capabilityScore(reqCaps, bullet);
+
+      // --- keyword ---
+      const keyScore = keywordScore(req, bullet);
+
+      // --- penalties ---
+      let penalty = 0;
+
+      if (bulletUsage[j]) {
+        penalty += 0.15 * bulletUsage[j];
       }
 
-      if (unique.length === 2) break;
+      if (isGenericBullet(bullet)) {
+        penalty += 0.2;
+      }
+
+      // --- final ---
+      const finalScore =
+        (0.5 * embScore) +
+        (0.3 * capScore) +
+        (0.2 * keyScore) -
+        penalty;
+
+      ranked.push({
+        bulletId: j,
+        text: bullet,
+        score: finalScore,
+        breakdown: {
+          embedding: embScore,
+          capability: capScore,
+          keyword: keyScore,
+          penalty: penalty
+        }
+      });
     }
 
-    if (unique.length > 0) {
-      partial.push(req);
+    // sort
+    ranked.sort((a, b) => b.score - a.score);
 
-      trace.push({
-        requirement: req,
-        status: "partial",
-        evidence: unique
-      });
-    } else {
-      missing.push(req);
+    // mark usage
+    const best = ranked[0];
+    bulletUsage[best.bulletId] =
+      (bulletUsage[best.bulletId] || 0) + 1;
 
-      trace.push({
-        requirement: req,
-        status: "missing",
-        evidence: []
-      });
+    results.push({
+      requirement: req,
+      bestBulletId: best.bulletId,
+      rankedBullets: ranked.slice(0, 5)
+    });
+  }
+
+  // ------------------------------
+  // STEP 4: SCORING SUMMARY
+  // ------------------------------
+
+  let covered = 0;
+
+  for (const r of results) {
+    if (r.rankedBullets[0].score > 0.5) {
+      covered++;
     }
   }
 
-  const total = requirements.length || 1;
+  const coverage = covered / requirements.length;
 
-  const coverage = Math.round(
-    (partial.length / total) * 100
-  );
+  const score = Math.round(coverage * 10);
 
-  const score = Math.min(
-    9,
-    Math.round((coverage / 10) * 10) / 10
-  );
+  // ------------------------------
+  // FINAL OUTPUT
+  // ------------------------------
 
   return {
     score,
     coverage,
-    partial,
-    missing,
-    trace
+    requirements: results
   };
 }
-
-/**
- * ✅ EXPORT (CRITICAL)
- */
-module.exports = {
-  generateNarrativeOSResume
-};
