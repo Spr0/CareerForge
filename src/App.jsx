@@ -8,10 +8,10 @@ export default function App() {
 
   function extractRequirements(text) {
     return text
-      .split(/[\n•\-]/)
+      .split(/\n|•|\-|\./)
       .map((t) => t.trim())
-      .filter((t) => t.length > 20)
-      .slice(0, 15);
+      .filter((t) => t.length > 25)
+      .slice(0, 12);
   }
 
   const handleGenerate = async () => {
@@ -60,13 +60,42 @@ export default function App() {
       />
 
       <button onClick={handleGenerate} disabled={loading}>
-        {loading ? "Generating..." : "Generate"}
+        {loading ? "Analyzing..." : "Analyze Resume"}
       </button>
 
       {result && !result.error && (
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 30 }}>
           <h2>{result.header}</h2>
           <p>{result.summary}</p>
+
+          {/* 🔥 SCORE */}
+          {result.analysis && (
+            <div style={{ marginTop: 20 }}>
+              <h3>Score: {result.analysis.score} / 10</h3>
+              <p>Coverage: {result.analysis.coverage}%</p>
+
+              <h4>✅ Matched</h4>
+              <ul>
+                {result.analysis.matched.map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
+              </ul>
+
+              <h4>⚠️ Partial</h4>
+              <ul>
+                {result.analysis.partial.map((p, i) => (
+                  <li key={i}>{p}</li>
+                ))}
+              </ul>
+
+              <h4>❌ Missing</h4>
+              <ul>
+                {result.analysis.missing.map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <h3>Skills</h3>
           <ul>
@@ -76,44 +105,27 @@ export default function App() {
           </ul>
 
           <h3>Experience</h3>
-          {result.roles?.length > 0 ? (
-            result.roles.map((r, i) => (
-              <div key={i}>
-                <strong>
-                  {r.title} — {r.company}
-                </strong>
-                <ul>
-                  {r.bullets?.map((b, j) => (
-                    <li key={j}>{b}</li>
-                  ))}
-                </ul>
-              </div>
-            ))
-          ) : (
-            <p>No roles parsed</p>
-          )}
+          {result.roles?.map((r, i) => (
+            <div key={i}>
+              <strong>
+                {r.title} — {r.company}
+              </strong>
+              <ul>
+                {r.bullets?.map((b, j) => (
+                  <li key={j}>{b}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
 
           <h3>Education</h3>
-
-          {Array.isArray(result.education) ? (
-            <ul>
-              {result.education.map((edu, i) => (
-                <li key={i}>
-                  {edu.degree || ""}{" "}
-                  {edu.field ? `in ${edu.field}` : ""} —{" "}
-                  {edu.institution || ""}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>{result.education}</p>
-          )}
-        </div>
-      )}
-
-      {result?.error && (
-        <div style={{ color: "red", marginTop: 20 }}>
-          Error: {result.message}
+          <ul>
+            {result.education?.map((e, i) => (
+              <li key={i}>
+                {e.degree} {e.field ? `in ${e.field}` : ""} — {e.institution}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>
