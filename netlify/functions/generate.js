@@ -1,9 +1,4 @@
-import OpenAI from "openai";
 import { runNarrativeOS } from "./narrative_os_engine.js";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 function safeResponse(data = {}) {
   return {
@@ -27,12 +22,22 @@ export async function handler(event) {
       };
     }
 
-    const body = JSON.parse(event.body || "{}");
+    let body = {};
+
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch {
+      return {
+        statusCode: 200,
+        body: JSON.stringify(
+          safeResponse({ error: true, message: "Invalid JSON" })
+        ),
+      };
+    }
 
     const result = await runNarrativeOS({
       resumeText: body.resumeText || "",
       jobDescription: body.jobDescription || "",
-      openai,
     });
 
     return {
