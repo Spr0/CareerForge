@@ -7,7 +7,6 @@ function App() {
 
   const [selectedTrace, setSelectedTrace] = useState(null);
   const [selectedBullet, setSelectedBullet] = useState(null);
-  const [beforeAfter, setBeforeAfter] = useState(null);
 
   function extractRequirements(text) {
     return text
@@ -28,7 +27,8 @@ function App() {
 
     const data = await res.json();
     setResult(data);
-    setBeforeAfter(null);
+    setSelectedTrace(null);
+    setSelectedBullet(null);
   };
 
   const handleFix = async () => {
@@ -45,7 +45,6 @@ function App() {
 
     const data = await res.json();
 
-    // update roles
     const updatedRoles = result.roles.map((r, ri) => ({
       ...r,
       bullets: r.bullets.map((b, bi) => {
@@ -59,46 +58,28 @@ function App() {
       })
     }));
 
-    // 🔥 re-score automatically
-    const rescore = await fetch("/.netlify/functions/generate", {
-      method: "POST",
-      body: JSON.stringify({
-        resume: resumeInput,
-        requirements: extractRequirements(jdInput)
-      })
-    });
-
-    const rescored = await rescore.json();
-
-    setBeforeAfter({
-      before: selectedBullet.text,
-      after: data.rewritten,
-      oldScore: result.analysis.score,
-      newScore: rescored.analysis.score
-    });
-
     setResult({
-      ...rescored,
+      ...result,
       roles: updatedRoles
     });
-
-    setSelectedBullet(null);
   };
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 20, maxWidth: 900, margin: "0 auto" }}>
       <h1>NarrativeOS</h1>
 
+      <label><strong>Paste Resume</strong></label>
       <textarea
         rows={10}
-        style={{ width: "100%" }}
+        style={{ width: "100%", marginBottom: 10 }}
         value={resumeInput}
         onChange={(e) => setResumeInput(e.target.value)}
       />
 
+      <label><strong>Paste Job Description</strong></label>
       <textarea
         rows={6}
-        style={{ width: "100%", marginTop: 10 }}
+        style={{ width: "100%", marginBottom: 10 }}
         value={jdInput}
         onChange={(e) => setJdInput(e.target.value)}
       />
@@ -110,16 +91,18 @@ function App() {
           <h2>{result.header}</h2>
           <p>{result.summary}</p>
 
-          <h3>
-            Score: {result.analysis.score} / 10
-          </h3>
+          <h3>Score: {result.analysis.score} / 10</h3>
 
-          <h4>⚠️ Partial</h4>
-          <ul>
+          {/* 🔥 REQUIREMENTS WITH RADIO SELECT */}
+          <h4>⚠️ Partial (select one)</h4>
+          <ul style={{ listStyle: "none", padding: 0 }}>
             {result.analysis.partial.map((req) => {
               const traceItem = result.analysis.trace.find(
                 t => t.requirement === req
               );
+
+              const isSelected =
+                selectedTrace?.requirement === req;
 
               return (
                 <li
@@ -128,17 +111,39 @@ function App() {
                     setSelectedTrace(traceItem);
                     setSelectedBullet(null);
                   }}
-                  style={{ cursor: "pointer", marginBottom: 6 }}
+                  style={{
+                    cursor: "pointer",
+                    marginBottom: 8,
+                    padding: 8,
+                    border: isSelected
+                      ? "2px solid #0077ff"
+                      : "1px solid #ddd",
+                    borderRadius: 6,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10
+                  }}
                 >
-                  {req}
+                  {/* 🔥 RADIO INDICATOR */}
+                  <span>
+                    {isSelected ? "🔘" : "⚪"}
+                  </span>
+
+                  <span>{req}</span>
                 </li>
               );
             })}
           </ul>
 
+          {/* TRACE PANEL */}
           {selectedTrace && (
             <div style={{ marginTop: 20 }}>
-              <h4>Evidence (click one)</h4>
+              <h4>Selected Requirement</h4>
+              <p style={{ fontStyle: "italic" }}>
+                {selectedTrace.requirement}
+              </p>
+
+              <h4>Select a bullet to improve</h4>
 
               {selectedTrace.evidence.map((e, i) => (
                 <p
@@ -146,9 +151,13 @@ function App() {
                   onClick={() => setSelectedBullet(e)}
                   style={{
                     cursor: "pointer",
+                    padding: 6,
+                    marginBottom: 6,
                     background:
-                      selectedBullet === e ? "#e0f7fa" : "transparent",
-                    padding: 4
+                      selectedBullet === e
+                        ? "#e3f2fd"
+                        : "#f9f9f9",
+                    borderRadius: 4
                   }}
                 >
                   • {e.text}
@@ -158,21 +167,18 @@ function App() {
               <button
                 onClick={handleFix}
                 disabled={!selectedBullet}
-                style={{ marginTop: 10 }}
+                style={{
+                  marginTop: 10,
+                  background: selectedBullet ? "#0077ff" : "#ccc",
+                  color: "white",
+                  padding: "8px 12px",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: selectedBullet ? "pointer" : "not-allowed"
+                }}
               >
                 🔧 Fix selected bullet
               </button>
-            </div>
-          )}
-
-          {beforeAfter && (
-            <div style={{ marginTop: 20, border: "1px solid #ccc", padding: 10 }}>
-              <h4>Change</h4>
-              <p><strong>Before:</strong> {beforeAfter.before}</p>
-              <p><strong>After:</strong> {beforeAfter.after}</p>
-              <p>
-                Score: {beforeAfter.oldScore} → {beforeAfter.newScore}
-              </p>
             </div>
           )}
 
