@@ -9,23 +9,18 @@ function clean(text = "") {
 }
 
 // ==============================
-// REQUIREMENTS (FILTER STRONG ONLY)
+// REQUIREMENTS
 // ==============================
 
 function extractRequirements(text = "") {
-  try {
-    return text
-      .split("\n")
-      .map(r => clean(r))
-      .filter(r =>
-        r.length > 30 &&
-        !/responsibilities$/i.test(r) &&
-        !/summary$/i.test(r)
-      )
-      .slice(0, 15);
-  } catch {
-    return [];
-  }
+  return text
+    .split("\n")
+    .map(r => clean(r))
+    .filter(r =>
+      r.length > 30 &&
+      !/responsibilities$/i.test(r)
+    )
+    .slice(0, 12);
 }
 
 // ==============================
@@ -33,59 +28,99 @@ function extractRequirements(text = "") {
 // ==============================
 
 function extractBullets(text = "") {
-  try {
-    const lines = text.split("\n").map(l => clean(l)).filter(Boolean);
+  const lines = text.split("\n").map(l => clean(l)).filter(Boolean);
 
-    let bullets = lines.filter(l =>
-      l.startsWith("-") ||
-      l.startsWith("•") ||
-      l.startsWith("*")
-    );
+  let bullets = lines.filter(l =>
+    l.startsWith("-") ||
+    l.startsWith("•") ||
+    l.startsWith("*")
+  );
 
-    bullets = bullets.map(b => b.replace(/^[-•*]\s*/, ""));
+  bullets = bullets.map(b => b.replace(/^[-•*]\s*/, ""));
 
-    if (bullets.length === 0) {
-      bullets = text
-        .split(/[.!?]/)
-        .map(s => clean(s))
-        .filter(s => s.length > 40);
-    }
-
-    return safeArray(bullets).slice(0, 20);
-
-  } catch {
-    return [];
+  if (bullets.length === 0) {
+    bullets = text
+      .split(/[.!?]/)
+      .map(s => clean(s))
+      .filter(s => s.length > 40);
   }
+
+  return safeArray(bullets).slice(0, 20);
 }
 
 // ==============================
-// SCORING (IMPROVED)
+// GENERIC PENALTY
+// ==============================
+
+function genericPenalty(text = "") {
+  const t = text.toLowerCase();
+
+  let penalty = 0;
+
+  if (t.includes("responsible for")) penalty += 0.15;
+  if (t.includes("led")) penalty += 0.05;
+  if (t.includes("managed")) penalty += 0.05;
+
+  if (
+    t.includes("program") &&
+    t.includes("delivery") &&
+    !t.match(/\d/)
+  ) {
+    penalty += 0.2; // generic leadership fluff
+  }
+
+  return penalty;
+}
+
+// ==============================
+// SCORING (FIXED DISTRIBUTION)
 // ==============================
 
 function scoreBullet(req, bullet) {
-  try {
-    const r = req.toLowerCase();
-    const b = bullet.toLowerCase();
+  const r = req.toLowerCase();
+  const b = bullet.toLowerCase();
 
-    let score = 0;
+  let score = 0;
 
-    // capability signals (strong weight)
-    if (b.includes("program")) score += 0.25;
-    if (b.includes("delivery")) score += 0.25;
-    if (b.includes("stakeholder")) score += 0.2;
-    if (b.includes("dependency")) score += 0.2;
+  let signalCount = 0;
 
-    // keyword overlap
-    const words = r.split(/\W+/).filter(w => w.length > 5);
-    const matches = words.filter(w => b.includes(w)).length;
-
-    score += Math.min(matches * 0.08, 0.3);
-
-    return Math.min(score, 1);
-
-  } catch {
-    return 0;
+  // capability signals (lower weights)
+  if (b.includes("program")) {
+    score += 0.15;
+    signalCount++;
   }
+
+  if (b.includes("delivery")) {
+    score += 0.15;
+    signalCount++;
+  }
+
+  if (b.includes("stakeholder")) {
+    score += 0.1;
+    signalCount++;
+  }
+
+  if (b.includes("dependency")) {
+    score += 0.1;
+    signalCount++;
+  }
+
+  // keyword overlap (reduced)
+  const words = r.split(/\W+/).filter(w => w.length > 6);
+  const matches = words.filter(w => b.includes(w)).length;
+
+  score += Math.min(matches * 0.05, 0.2);
+
+  // require multiple signals for high score
+  if (signalCount >= 3) {
+    score += 0.15;
+  }
+
+  // penalty
+  score -= genericPenalty(b);
+
+  // clamp
+  return Math.max(0, Math.min(score, 1));
 }
 
 // ==============================
@@ -123,25 +158,23 @@ export async function runNarrativeOS({
     // REALISTIC SCORING
     // ==============================
 
-    const strongMatches = results.filter(
-      r => r?.rankedBullets?.[0]?.score >= 0.65
+    const strong = results.filter(
+      r => r?.rankedBullets?.[0]?.score >= 0.75
     ).length;
 
-    const mediumMatches = results.filter(
+    const medium = results.filter(
       r => {
         const s = r?.rankedBullets?.[0]?.score || 0;
-        return s >= 0.45 && s < 0.65;
+        return s >= 0.55 && s < 0.75;
       }
     ).length;
 
     const total = results.length || 1;
 
-    // weighted coverage
-    const weightedCoverage =
-      (strongMatches * 1.0 + mediumMatches * 0.5) / total;
+    const weighted =
+      (strong * 1.0 + medium * 0.5) / total;
 
-    // compression (harder to reach 10)
-    const compressed = Math.pow(weightedCoverage, 0.8);
+    const compressed = Math.pow(weighted, 1.2);
 
     const finalScore = Math.min(
       10,
@@ -150,7 +183,7 @@ export async function runNarrativeOS({
 
     return {
       score: finalScore,
-      coverage: weightedCoverage,
+      coverage: weighted,
       requirements: safeArray(results),
     };
 
