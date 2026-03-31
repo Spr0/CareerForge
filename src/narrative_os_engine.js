@@ -1,45 +1,40 @@
-// NarrativeOS Engine — Stable + Clean Matching (No LLM yet)
+// NarrativeOS — Stable Baseline Engine (No LLM, Clean Parsing)
 
-// ─────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────
-
-function safeArray(arr) {
-  return Array.isArray(arr) ? arr : [];
-}
-
-function clean(text = "") {
+function cleanLine(text = "") {
   return text.replace(/\s+/g, " ").trim();
 }
 
-// ─────────────────────────────────────────
-// FILTER JUNK (CRITICAL FIX)
-// ─────────────────────────────────────────
-
-function isJunk(line = "") {
+function isNoise(line = "") {
   const l = line.toLowerCase();
 
   return (
+    // contact / links
     l.includes("@") ||
-    l.includes("linkedin") ||
     l.includes("http") ||
-    l.includes("bellingham") ||
-    l.match(/\d{3}[-\s]?\d{3}/) || // phone
-    l.split("|").length > 3 ||     // contact line
+    l.includes("linkedin") ||
+
+    // recruiter-style fluff (generic, not hardcoded names)
+    l.includes("i came across") ||
+    l.includes("please send") ||
+    l.includes("forward your resume") ||
+    l.includes("immediate consideration") ||
+    l.includes("job boards") ||
+
+    // too short
     l.length < 40
   );
 }
 
 // ─────────────────────────────────────────
-// REQUIREMENTS
+// REQUIREMENTS (JOB DESCRIPTION)
 // ─────────────────────────────────────────
 
 function extractRequirements(text = "") {
   try {
     return text
-      .split(/\n|\.|•|-/)
-      .map(r => clean(r))
-      .filter(r => r.length > 40)
+      .split(/\n|\./)
+      .map(cleanLine)
+      .filter(l => !isNoise(l))
       .slice(0, 10);
   } catch {
     return [];
@@ -54,8 +49,8 @@ function extractBullets(text = "") {
   try {
     return text
       .split("\n")
-      .map(l => clean(l))
-      .filter(l => !isJunk(l)) // ✅ removes headers/contact
+      .map(cleanLine)
+      .filter(l => !isNoise(l))
       .slice(0, 25);
   } catch {
     return [];
@@ -63,7 +58,7 @@ function extractBullets(text = "") {
 }
 
 // ─────────────────────────────────────────
-// BETTER SCORING (NON-DUMB)
+// MATCHING (SIMPLE + HONEST)
 // ─────────────────────────────────────────
 
 function score(req, bullet) {
@@ -71,26 +66,26 @@ function score(req, bullet) {
     const r = req.toLowerCase();
     const b = bullet.toLowerCase();
 
-    let score = 0;
+    let s = 0;
 
-    // Core signals
-    if (b.includes("erp")) score += 0.25;
-    if (b.includes("program")) score += 0.2;
-    if (b.includes("delivery")) score += 0.2;
-    if (b.includes("stakeholder")) score += 0.15;
-    if (b.includes("transformation")) score += 0.15;
+    // high-signal keywords
+    if (b.includes("erp")) s += 0.25;
+    if (b.includes("program")) s += 0.2;
+    if (b.includes("delivery")) s += 0.2;
+    if (b.includes("stakeholder")) s += 0.15;
+    if (b.includes("transformation")) s += 0.15;
 
-    // Fuzzy overlap
-    const rWords = r.split(" ").filter(w => w.length > 4);
+    // overlap
+    const words = r.split(/\W+/).filter(w => w.length > 5);
     let overlap = 0;
 
-    rWords.forEach(w => {
+    words.forEach(w => {
       if (b.includes(w)) overlap++;
     });
 
-    score += overlap * 0.05;
+    s += Math.min(overlap * 0.05, 0.25);
 
-    return Math.min(1, score);
+    return Math.min(1, s);
 
   } catch {
     return 0;
@@ -98,19 +93,19 @@ function score(req, bullet) {
 }
 
 // ─────────────────────────────────────────
-// SUMMARIZE EVIDENCE (UX FIX)
+// SUMMARY (UX FIX)
 // ─────────────────────────────────────────
 
-function summarizeBullet(bullet = "") {
-  if (!bullet) return "";
+function summarize(text = "") {
+  if (!text) return "";
 
-  let summary = bullet.split(";")[0];
+  let s = text.split(";")[0];
 
-  if (summary.length > 140) {
-    summary = summary.slice(0, 140) + "...";
+  if (s.length > 140) {
+    s = s.slice(0, 140) + "...";
   }
 
-  return summary;
+  return s;
 }
 
 // ─────────────────────────────────────────
@@ -142,12 +137,12 @@ export async function analyzeJob(jobText = "", resumeText = "") {
       results.push({
         requirement: req,
         score: strength,
-        summary: summarizeBullet(bestBullet),
+        summary: summarize(bestBullet),
         gap: bestScore < 0.45
-          ? "Evidence not clearly demonstrated"
+          ? "Not clearly demonstrated"
           : null,
         fix: bestScore < 0.45
-          ? "Make impact explicit (scale, stakeholders, measurable results)"
+          ? "Add measurable outcomes, scope, or stakeholder impact"
           : null
       });
     }
@@ -158,7 +153,7 @@ export async function analyzeJob(jobText = "", resumeText = "") {
 
     return {
       score: Math.round(avg / 10),
-      requirements: safeArray(results)
+      requirements: results
     };
 
   } catch (e) {
