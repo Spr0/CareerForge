@@ -19,15 +19,16 @@ const COMPETENCIES = [
   "Agile/Delivery","Governance","Vendor Management","Strategy","Stakeholder",
 ];
 
-const STAGES = ["Radar","Applied","Screening","Interview","Offer","Pass"];
+const STAGES = ["Considering","Applied","Screening","Hiring Manager","Panel","Exec","Rejected"];
 
 const STAGE_COLORS = {
-  Radar:     { bg: "rgba(99,140,255,0.12)",  border: "#4f6ef7", text: "#8aacff" },
-  Applied:   { bg: "rgba(251,191,36,0.10)",  border: "#d97706", text: "#fbbf24" },
-  Screening: { bg: "rgba(168,85,247,0.10)",  border: "#9333ea", text: "#c084fc" },
-  Interview: { bg: "rgba(34,197,94,0.10)",   border: "#16a34a", text: "#4ade80" },
-  Offer:     { bg: "rgba(20,184,166,0.10)",  border: "#0d9488", text: "#2dd4bf" },
-  Pass:      { bg: "rgba(100,116,139,0.10)", border: "#475569", text: "#94a3b8" },
+  Considering:    { bg: "rgba(99,140,255,0.12)",  border: "#4f6ef7", text: "#8aacff" },
+  Applied:        { bg: "rgba(251,191,36,0.10)",  border: "#d97706", text: "#fbbf24" },
+  Screening:      { bg: "rgba(168,85,247,0.10)",  border: "#9333ea", text: "#c084fc" },
+  "Hiring Manager":{ bg: "rgba(34,197,94,0.10)", border: "#16a34a", text: "#4ade80" },
+  Panel:          { bg: "rgba(20,184,166,0.10)",  border: "#0d9488", text: "#2dd4bf" },
+  Exec:           { bg: "rgba(251,146,60,0.10)",  border: "#ea580c", text: "#fb923c" },
+  Rejected:       { bg: "rgba(100,116,139,0.10)", border: "#475569", text: "#94a3b8" },
 };
 
 const RESUME_TYPES = [
@@ -382,29 +383,103 @@ CRITICAL FORMATTING:
   interviewPrep: (profile, stories, round) => {
     const tc = tierContext(profile);
     const storyCtx = stories.length > 0
-      ? stories.map(s => `"${s.title}": ${s.result}`).join("\n")
-      : "No interview stories added yet — prep from resume context.";
+      ? stories.map(s => `"${s.title}": ${s.hook || s.result}`).join("\n")
+      : "No stories added — draw from resume context.";
     const profileCtx = [
+      profile.name  && `Name: ${profile.name}`,
       profile.title && `Title: ${profile.title}`,
       profile.background && `Background: ${profile.background}`,
-      profile.resumeText && `Resume context: ${profile.resumeText.slice(0, 600)}`,
+      profile.resumeText && `Resume (partial): ${profile.resumeText.slice(0, 600)}`,
     ].filter(Boolean).join("\n");
-    return `You are an interview coach preparing ${profile.name || "this candidate"} for a ${round} interview.
-${profileCtx}
 
+    return `You are a senior interview coach. Produce a cockpit-style prep sheet for a ${round} interview.
+${profileCtx}
 CANDIDATE LEVEL: ${profile.profileTier || "senior"}
 ${tc.voice}
-${tc.questions}
+Story bank (proof+potential hooks): ${storyCtx}
 
-Stories: ${storyCtx}
+CRITICAL: Return ONLY a valid JSON object. No preamble. No markdown fences. No commentary.
 
-Generate:
-1. LIKELY QUESTIONS — 8 questions this interviewer will probably ask, calibrated to candidate level and round
-2. ANGLE FOR EACH — the specific story or proof point to lead with, and the key message to land
-3. TRICKY QUESTIONS — 3 harder questions (gaps, concerns, failures) with suggested honest framings
-4. QUESTIONS TO ASK — 4 sharp questions the candidate should ask the interviewer
+{
+  "header": {
+    "name": "${profile.name || "Candidate"}",
+    "company": "[company from JD]",
+    "role": "[role title from JD]",
+    "round": "${round}",
+    "logistics": "[comp range if stated | reporting line | location/hybrid — pipe separated, omit unknowns]"
+  },
+  "coreStory": [
+    "[career throughline in 4-6 words]",
+    "[Most recent company]: [key proof point with number]",
+    "[Prior company]: [key proof point with number]",
+    "[What I do]: [3 phrases separated by | characters]"
+  ],
+  "fitAtGlance": {
+    "strengths": ["[specific match referencing company or project and metric]", "[...]", "[...]", "[...]"],
+    "gaps": ["[honest gap with a framing hint appended after a dash]"]
+  },
+  "objection": {
+    "concern": "[Most likely objection — phrased as what the interviewer is REALLY asking in caps]",
+    "doNotSay": ["[phrase to avoid]", "[phrase to avoid]"],
+    "sayThis": "[One or two scripted sentences. Calm. Decided. Not defensive. Not hedging.]"
+  },
+  "competencyGrid": [
+    { "label": "[JD SKILL CLUSTER 1 IN ALL CAPS]", "bullets": ["[candidate proof point]", "[candidate proof point]", "[candidate proof point]"] },
+    { "label": "[JD SKILL CLUSTER 2 IN ALL CAPS]", "bullets": ["[candidate proof point]", "[candidate proof point]", "[candidate proof point]"] },
+    { "label": "[JD SKILL CLUSTER 3 IN ALL CAPS]", "bullets": ["[candidate proof point]", "[candidate proof point]", "[candidate proof point]"] }
+  ],
+  "openerLeft": {
+    "tellMeAboutYourself": "[3-4 keyword anchors — no full sentences]",
+    "whyCompany": "[2-3 specific phrases about THIS role — not generic]",
+    "partnershipAngle": "[2-3 phrases on how they add value to this hiring manager]"
+  },
+  "openerRight": {
+    "governancePhilosophy": "[Lead phrase + 2 supporting phrases]",
+    "keyExperience": "[Single most relevant proof point with metric]",
+    "frameYourSearch": "[1-2 phrases — deliberate, not reactive framing]"
+  },
+  "domainGap": {
+    "label": "[DOMAIN GAP — name the specific domain]",
+    "bullets": ["[how to acknowledge directly]", "[how to map to known pattern from their background]", "[bridge phrase — domain changes, operating model does not]"]
+  },
+  "watchThese": [
+    "[specific behavior to avoid — start with Do not]",
+    "[specific behavior to avoid]",
+    "[specific behavior to avoid]",
+    "[mindset reminder — last item, no Do not prefix]"
+  ],
+  "thirtysixtynety": {
+    "thirty": ["Listen & Map", "[specific action 1]", "[specific action 2]"],
+    "sixty": ["Structure & Align", "[specific action 1]", "[specific action 2]"],
+    "ninety": ["Execute & Measure", "[specific action 1]", "[specific action 2]"]
+  },
+  "questions": [
+    "[Most diagnostic question — flag it as ask first]",
+    "[Question about hiring manager style or priorities]",
+    "[Question about PMO/team maturity]",
+    "[Question about success metrics]",
+    "[Question about biggest current challenge]"
+  ],
+  "closeStrong": [
+    "[Question that confirms alignment with hiring manager]",
+    "[Question about next step and timeline]",
+    "[Reinforcing statement that lands the candidate frame — not a question]"
+  ],
+  "positioningFrame": [
+    "Not [wrong label] — [correct frame]",
+    "Not [wrong label] — [correct frame]",
+    "Not [wrong label] — [correct frame]"
+  ],
+  "reminder": "[One sentence. The mindset to hold. Usually starts: You are evaluating them too.]"
+}
 
-Be specific to this candidate's background. No generic advice.`;
+RULES:
+- competencyGrid columns are the JD top three skill clusters — not generic categories
+- All proof points reference candidate companies or metrics — no placeholders
+- Phrases only — no full sentences except objection.sayThis, watchThese last item, reminder
+- No em dashes anywhere — use pipe or hyphen
+- questions[0] is the one to ask first
+- Return ONLY the JSON object, nothing else\`;
   },
 
   storyExtract: (profile) =>
@@ -563,6 +638,27 @@ function storageSet(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
 
+// ─── Ephemeral Fit Check session (wiped on new JD paste) ────────────────────
+const _emptySession = { jd: "", jdUrl: "", company: "", role: "", resumeText: "", resumeType: "", coverLetterText: "", prepText: "" };
+let _fitSession = { ..._emptySession };
+const _fitListeners = new Set();
+function getFitSession() { return _fitSession; }
+function setFitSession(updates) {
+  _fitSession = { ..._fitSession, ...updates };
+  _fitListeners.forEach(cb => cb({ ..._fitSession }));
+}
+function wipeFitSession() { _fitSession = { ..._emptySession }; _fitListeners.forEach(cb => cb({ ..._fitSession })); }
+function useFitSession() {
+  const [s, setS] = useState({ ..._fitSession });
+  useEffect(() => { _fitListeners.add(setS); return () => _fitListeners.delete(setS); }, []);
+  return s;
+}
+
+function detectUrl(text) {
+  const m = text.match(/https?:\/\/[^\s"'<>)]+/);
+  return m ? m[0] : "";
+}
+
 function getActiveResume(profile) {
   if (!profile.resumeVariants?.length) return profile.resumeText || "";
   const active = profile.resumeVariants.find(v => v.id === profile.activeResumeId)
@@ -697,12 +793,19 @@ function getDriveToken(userKey) {
     : localStorage.getItem("cf:google_token:drive");
 }
 
+function clearDriveToken(userKey) {
+  if (userKey) localStorage.removeItem(`${userKey}:google_token:drive`);
+  localStorage.removeItem("cf:google_token:drive");
+}
+
 async function getOrCreateDriveFolder(token) {
   const searchRes = await fetch(
     `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id,name)`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
+  if (searchRes.status === 401 || searchRes.status === 400) throw new Error("OAUTH_EXPIRED");
   const searchData = await searchRes.json();
+  if (searchData.error) throw new Error("OAUTH_EXPIRED");
   if (searchData.files?.length > 0) return searchData.files[0].id;
   const createRes = await fetch("https://www.googleapis.com/drive/v3/files", {
     method: "POST",
@@ -723,17 +826,84 @@ async function saveToDrive(blob, filename, token) {
     "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink",
     { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form }
   );
-  return await res.json();
+  const data = await res.json();
+  if (res.status === 401 || res.status === 400 || data.error) throw new Error("OAUTH_EXPIRED");
+  return data;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 6. DOCX GENERATION
+// 6. DOCX / PDF / XLSX GENERATION
 // ─────────────────────────────────────────────────────────────────────────────
+
+async function exportTrackerXlsx(cards) {
+  const rows = cards
+    .filter(c => c.stage !== "Considering")
+    .sort((a, b) => (a.company || "").localeCompare(b.company || ""));
+  const header = ["Company","Title","Stage","Link","Date Added","Resume Type","Resume Generated","Cover Letter Generated"];
+  const data = rows.map(c => [
+    c.company || "",
+    c.title || "",
+    c.stage || "",
+    c.jdUrl || "",
+    c.createdAt || "",
+    c.resumeType || "",
+    c.resumeText ? "Yes" : "No",
+    c.coverLetterText ? "Yes" : "No",
+  ]);
+  // Build CSV as fallback (no XLSX lib needed)
+  const escape = v => `"${String(v).replace(/"/g, '""')}"`;
+  const csv = [header, ...data].map(r => r.map(escape).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `NarrativeOS_Tracker_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
 
 let _docxLib = null;
 async function getDocxLib() {
   if (!_docxLib) _docxLib = await import("https://esm.sh/docx@8.5.0");
   return _docxLib;
+}
+
+let _mammoth = null;
+async function getMammoth() {
+  if (!_mammoth) _mammoth = await import("https://esm.sh/mammoth@1.8.0");
+  return _mammoth;
+}
+
+let _jspdf = null;
+async function getJsPDF() {
+  if (!_jspdf) {
+    const mod = await import("https://esm.sh/jspdf@2.5.1");
+    _jspdf = mod.jsPDF || mod.default?.jsPDF || mod.default;
+  }
+  return _jspdf;
+}
+
+async function extractDocxText(arrayBuffer) {
+  const mammoth = await getMammoth();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value || "";
+}
+
+async function buildPdfBlob(text) {
+  const JsPDF = await getJsPDF();
+  const doc = new JsPDF({ unit: "pt", format: "letter" });
+  const margin = 60;
+  const pageW = doc.internal.pageSize.getWidth();
+  const maxW = pageW - margin * 2;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10.5);
+  const lines = doc.splitTextToSize(text, maxW);
+  let y = margin;
+  const lineH = 14;
+  const pageH = doc.internal.pageSize.getHeight();
+  lines.forEach(line => {
+    if (y + lineH > pageH - margin) { doc.addPage(); y = margin; }
+    doc.text(line, margin, y);
+    y += lineH;
+  });
+  return doc.output("blob");
 }
 
 async function buildResumeDocxBlob(finalResumeText, company, profile) {
@@ -811,8 +981,182 @@ async function buildFinalResumeText(baseResume, strategy, jd, resumeType = "chro
   );
 }
 
+async function buildPrepCockpitDocx(prepData, profile) {
+  const lib = await getDocxLib();
+  const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType } = lib;
+
+  const BORDER    = { style: "single", size: 4, color: "CCCCCC" };
+  const ALL_B     = { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER };
+  const CELL_PAD  = { top: 80, bottom: 80, left: 100, right: 100 };
+
+  function hdr(text, color = "1A237E") {
+    return new Paragraph({
+      children: [new TextRun({ text: text.toUpperCase(), size: 17, bold: true, color, font: "Calibri" })],
+      spacing: { before: 60, after: 50 },
+    });
+  }
+  function txt(text, size = 17, color = "222222", bold = false) {
+    return new Paragraph({
+      children: [new TextRun({ text, size, bold, color, font: "Calibri" })],
+      spacing: { after: 40 },
+    });
+  }
+  function blt(text, color = "333333") {
+    return new Paragraph({
+      children: [new TextRun({ text, size: 16, color, font: "Calibri" })],
+      bullet: { level: 0 },
+      spacing: { after: 36 },
+    });
+  }
+  function gap() { return new Paragraph({ text: "", spacing: { after: 40 } }); }
+
+  function mkCell(children, span, fill) {
+    const shading = fill ? { type: "clear", color: "auto", fill } : undefined;
+    return new TableCell({
+      children,
+      columnSpan: span,
+      width: { size: 1500 * span, type: WidthType.DXA },
+      borders: ALL_B,
+      margins: CELL_PAD,
+      ...(shading ? { shading } : {}),
+    });
+  }
+
+  function mkRow(...cells) { return new TableRow({ children: cells }); }
+
+  const d    = prepData;
+  const name = d.header?.name || profile.name || "";
+  const co   = d.header?.company || "";
+  const role = d.header?.role || "";
+
+  const rows = [];
+
+  // ROW 1 — Header bar full width
+  rows.push(mkRow(mkCell([
+    new Paragraph({ children: [new TextRun({ text: [name, co, role, d.header?.round || ""].filter(Boolean).join("   \u00b7   "), size: 20, bold: true, color: "FFFFFF", font: "Calibri" })], spacing: { after: 20 } }),
+    new Paragraph({ children: [new TextRun({ text: d.header?.logistics || "", size: 16, color: "DDDDFF", font: "Calibri" })], spacing: { after: 0 } }),
+  ], 6, "1A237E")));
+
+  // ROW 2 — Core Story | Fit at a Glance
+  const strengths = (d.fitAtGlance?.strengths || []).map(s => blt("\u2705  " + s, "1B5E20"));
+  const gaps      = (d.fitAtGlance?.gaps || []).map(g => blt("\u26a0\ufe0f  " + g, "7B3F00"));
+  rows.push(mkRow(
+    mkCell([hdr("CORE STORY"), ...(d.coreStory || []).map(s => txt(s))], 3),
+    mkCell([hdr("FIT AT A GLANCE"), ...strengths, ...gaps], 3),
+  ));
+
+  // ROW 3 — Objection (if present)
+  if (d.objection?.concern) {
+    rows.push(mkRow(
+      mkCell([
+        hdr(d.objection.concern, "8B0000"),
+        txt("Answer like someone who has already decided — not debating, not enduring.", 15, "666666"),
+        ...(d.objection.doNotSay || []).map(s => blt("\u274c  " + s, "8B0000")),
+      ], 3),
+      mkCell([
+        hdr("SAY THIS", "1A5276"),
+        txt(d.objection.sayThis || "", 17, "111111"),
+      ], 3),
+    ));
+  }
+
+  // ROW 4 — Competency grid (3 x 2 cols each)
+  const grid = d.competencyGrid || [];
+  if (grid.length > 0) {
+    rows.push(mkRow(...grid.slice(0, 3).map(col =>
+      mkCell([hdr(col.label || ""), ...(col.bullets || []).map(b => blt(b))], 2)
+    )));
+  }
+
+  // ROW 5 — Opener Left | Opener Right
+  const ol = d.openerLeft || {};
+  const or_ = d.openerRight || {};
+  rows.push(mkRow(
+    mkCell([
+      hdr("TELL ME ABOUT YOURSELF"), txt(ol.tellMeAboutYourself || ""),
+      hdr("WHY " + (co || "THIS COMPANY").toUpperCase()), txt(ol.whyCompany || ""),
+      hdr("PARTNERSHIP ANGLE"), txt(ol.partnershipAngle || ""),
+    ], 3),
+    mkCell([
+      hdr("GOVERNANCE PHILOSOPHY"), txt(or_.governancePhilosophy || ""),
+      hdr("KEY EXPERIENCE"), txt(or_.keyExperience || ""),
+      hdr("YOUR SEARCH"), txt(or_.frameYourSearch || ""),
+    ], 3),
+  ));
+
+  // PAGE 2 HEADER
+  rows.push(mkRow(mkCell([
+    new Paragraph({ children: [new TextRun({ text: "PAGE 2   \u00b7   " + name + "   \u00b7   " + co.toUpperCase() + " SCREEN", size: 18, bold: true, color: "FFFFFF", font: "Calibri" })], spacing: { after: 0 } }),
+  ], 6, "1A237E")));
+
+  // ROW 6 — Domain Gap + Watch | 30/60/90
+  const ttt = d.thirtysixtynety || {};
+  rows.push(mkRow(
+    mkCell([
+      hdr(d.domainGap?.label || "DOMAIN GAP"),
+      ...(d.domainGap?.bullets || []).map(b => blt(b)),
+      gap(),
+      hdr("WATCH THESE"),
+      ...(d.watchThese || []).map(w => blt((w.toLowerCase().startsWith("do not") ? "\u274c  " : "") + w, "8B0000")),
+    ], 3),
+    mkCell([
+      hdr("30 / 60 / 90"),
+      hdr("30 \u2014 " + (ttt.thirty?.[0] || "Listen & Map"), "1A5276"),
+      ...(ttt.thirty?.slice(1) || []).map(b => blt(b)),
+      hdr("60 \u2014 " + (ttt.sixty?.[0] || "Structure & Align"), "1A5276"),
+      ...(ttt.sixty?.slice(1) || []).map(b => blt(b)),
+      hdr("90 \u2014 " + (ttt.ninety?.[0] || "Execute & Measure"), "1A5276"),
+      ...(ttt.ninety?.slice(1) || []).map(b => blt(b)),
+    ], 3),
+  ));
+
+  // ROW 7 — Questions | Close Strong | Positioning + Reminder
+  rows.push(mkRow(
+    mkCell([hdr("TOP QUESTIONS TO ASK"), ...(d.questions || []).map(q => blt(q))], 2),
+    mkCell([hdr("CLOSE STRONG"), ...(d.closeStrong || []).map(c => blt(c))], 2),
+    mkCell([
+      hdr("POSITIONING \u2014 HOLD THIS FRAME"),
+      ...(d.positioningFrame || []).map(p => blt(p)),
+      gap(),
+      hdr("THE REMINDER"),
+      txt(d.reminder || "", 17, "111111", true),
+    ], 2),
+  ));
+
+  const doc = new Document({
+    sections: [{
+      properties: { page: { margin: { top: 360, bottom: 360, left: 360, right: 360 } } },
+      children: [new Table({ width: { size: 9000, type: WidthType.DXA }, rows })],
+    }],
+  });
+  return await Packer.toBlob(doc);
+}
+
+// Keep legacy text-based builder as fallback
+async function buildPrepDocxBlob(prepText, company, role, profile) {
+  // If prepText is a JSON object already, route to cockpit builder
+  if (typeof prepText === "object" && prepText !== null) {
+    return buildPrepCockpitDocx(prepText, profile);
+  }
+  const { Document, Packer, Paragraph, TextRun } = await getDocxLib();
+  const children = [
+    new Paragraph({ children: [new TextRun({ text: `${role || "Role"}  \u00b7  ${company || "Company"}`, size: 24, bold: true, color: "1A237E", font: "Calibri" })], spacing: { after: 120 } }),
+    new Paragraph({ children: [new TextRun({ text: `${profile.name || ""}  \u00b7  Prepared ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long" })}`, size: 18, color: "888888", font: "Calibri" })], spacing: { after: 240 } }),
+    ...prepText.split("\n").map(line => {
+      const t = line.trim();
+      if (!t) return new Paragraph({ text: "", spacing: { after: 60 } });
+      if (/^[A-Z][A-Z\s\/&:]{4,}$/.test(t)) return new Paragraph({ children: [new TextRun({ text: t, size: 20, bold: true, color: "1A237E", font: "Calibri" })], spacing: { before: 160, after: 60 } });
+      if (/^[-\u2022]\s/.test(t)) return new Paragraph({ children: [new TextRun({ text: t.slice(2), size: 18, font: "Calibri" })], bullet: { level: 0 }, spacing: { after: 40 } });
+      return new Paragraph({ children: [new TextRun({ text: t, size: 18, font: "Calibri", color: "333333" })], spacing: { after: 60 } });
+    }),
+  ];
+  const doc = new Document({ sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 900, right: 900 } } }, children }] });
+  return await Packer.toBlob(doc);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 7. SHARED STYLES
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 const S = {
@@ -874,22 +1218,35 @@ function StagePill({ stage, onClick, small }) {
   );
 }
 
-function SaveToDriveBtn({ blob, filename, onSaved, disabled }) {
+function SaveToDriveBtn({ blob, filename, onSaved, disabled, userEmail }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState(null);
+  const [expired, setExpired] = useState(false);
+
   const handle = async () => {
-    setSaving(true); setErr(null);
+    setSaving(true); setErr(null); setExpired(false);
     try {
-      const token = await getDriveToken();
+      const token = getDriveToken(userEmail);
       if (!token) { setErr("Connect Google Drive in Profile first"); setSaving(false); return; }
       const result = await saveToDrive(blob, filename, token);
       if (result.webViewLink) { setSaved(true); onSaved?.(result); }
       else setErr("Upload failed");
-    } catch (e) { setErr(e.message); }
+    } catch (e) {
+      if (e.message === "OAUTH_EXPIRED") {
+        clearDriveToken(userEmail);
+        setExpired(true);
+      } else { setErr(e.message); }
+    }
     finally { setSaving(false); }
   };
+
   if (saved) return <span style={{ fontSize: "12px", color: "#4ade80", fontFamily: "'DM Sans', system-ui, sans-serif" }}>✓ Saved to Drive</span>;
+  if (expired) return (
+    <div style={{ fontSize: "11px", color: "#c9a84c", background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: "6px", padding: "6px 10px" }}>
+      Drive token expired — reconnect in Profile, then retry.
+    </div>
+  );
   return (
     <div>
       <button onClick={handle} disabled={disabled || saving} style={{ ...S.btnGhost, fontSize: "12px", padding: "6px 14px", display: "flex", alignItems: "center", gap: "6px", opacity: disabled || saving ? 0.5 : 1 }}>
@@ -961,43 +1318,51 @@ function JDInput({ jd, setJd }) {
   );
 }
 
-function AnalysisModal({ score, rationale, gaps, onBuildResume, onResumeOnly, onCorrect, onNewJD, onDismiss }) {
+function AnalysisModal({ score, rationale, gaps, onTrackBuildResume, onInterviewPrep, onCoverLetter, onTrackOnly, onCorrect, onNewJD, onDismiss }) {
   const verdict =
-    score >= 8 ? { label: "Excellent Match! 🎯", color: "#4ade80", rec: "This role was made for you. Your background aligns strongly.", cta: "Build tailored resume + cover letter" } :
-    score >= 6 ? { label: "Strong Contender ✅", color: "#fbbf24", rec: "You have the core experience. Let's sharpen your materials.", cta: "Build tailored resume + cover letter" } :
-    score >= 4 ? { label: "Possible Fit 🤔", color: "#fb923c", rec: "There are gaps here, but your background has transferable strengths.", cta: "Build tailored resume anyway" } :
-                 { label: "Tough Road Ahead 💪", color: "#f87171", rec: "Significant gaps. Check if the AI missed anything before deciding.", cta: "Apply with base resume" };
+    score >= 8 ? { label: "Excellent Match 🎯", color: "#4ade80", rec: "Strong alignment. Your background fits the core mandate." } :
+    score >= 6 ? { label: "Strong Contender ✅", color: "#fbbf24", rec: "Solid fit with room to sharpen your materials." } :
+    score >= 4 ? { label: "Possible Fit 🤔",    color: "#fb923c", rec: "Transferable strengths. Review gaps before applying." } :
+                 { label: "Tough Road Ahead 💪", color: "#f87171", rec: "Significant gaps. Correct any AI errors below." };
   return (
     <div onClick={onDismiss} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px" }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#181a2e", border: `1px solid rgba(100,100,200,0.25)`, borderRadius: "14px", width: "100%", maxWidth: "620px", maxHeight: "88vh", overflowY: "auto", padding: "36px", boxShadow: "0 24px 80px rgba(0,0,0,0.7)", position: "relative" }}>
-        <button onClick={onDismiss} style={{ position: "absolute", top: "16px", right: "16px", background: "rgba(255,255,255,0.06)", border: "none", borderRadius: "50%", width: "32px", height: "32px", cursor: "pointer", color: "#a0a0c0", fontSize: "16px" }}>✕</button>
-        <div style={{ textAlign: "center", marginBottom: "28px" }}>
-          <div style={{ fontSize: "80px", fontWeight: "800", lineHeight: 1, color: verdict.color, fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: "-2px" }}>{score}<span style={{ fontSize: "32px", color: "#6060a0", fontWeight: "400" }}>/10</span></div>
-          <div style={{ fontSize: "20px", fontWeight: "700", color: verdict.color, fontFamily: "'DM Sans', system-ui, sans-serif", marginTop: "10px" }}>{verdict.label}</div>
-          <div style={{ fontSize: "15px", color: "#c8c4e8", fontFamily: "'DM Sans', system-ui, sans-serif", marginTop: "12px", lineHeight: "1.65", maxWidth: "480px", margin: "12px auto 0" }}>{verdict.rec}</div>
-          <div style={{ fontSize: "13px", color: "#7870a0", fontFamily: "'DM Sans', system-ui, sans-serif", marginTop: "8px", fontStyle: "italic" }}>{rationale}</div>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#181a2e", border: "1px solid rgba(100,100,200,0.25)", borderRadius: "14px", width: "100%", maxWidth: "600px", maxHeight: "90vh", overflowY: "auto", padding: "32px", boxShadow: "0 24px 80px rgba(0,0,0,0.7)", position: "relative" }}>
+        <button onClick={onDismiss} style={{ position: "absolute", top: "14px", right: "14px", background: "rgba(255,255,255,0.06)", border: "none", borderRadius: "50%", width: "30px", height: "30px", cursor: "pointer", color: "#a0a0c0", fontSize: "15px" }}>✕</button>
+
+        {/* Score */}
+        <div style={{ textAlign: "center", marginBottom: "24px" }}>
+          <div style={{ fontSize: "76px", fontWeight: 800, lineHeight: 1, color: verdict.color, letterSpacing: "-2px" }}>{score}<span style={{ fontSize: "28px", color: "#6060a0", fontWeight: 400 }}>/10</span></div>
+          <div style={{ fontSize: "18px", fontWeight: 700, color: verdict.color, marginTop: "8px" }}>{verdict.label}</div>
+          <div style={{ fontSize: "13px", color: "#9890b8", marginTop: "6px", fontStyle: "italic" }}>{rationale}</div>
+          <div style={{ fontSize: "13px", color: "#c8c4e8", marginTop: "8px", lineHeight: 1.6 }}>{verdict.rec}</div>
         </div>
+
+        {/* Gaps */}
         {gaps.length > 0 && (
-          <div style={{ marginBottom: "24px" }}>
-            <div style={{ fontSize: "11px", letterSpacing: "1.5px", textTransform: "uppercase", color: "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: "600", marginBottom: "12px" }}>Gaps to Review ({gaps.length})</div>
+          <div style={{ marginBottom: "20px" }}>
+            <div style={{ fontSize: "10px", letterSpacing: "1.5px", textTransform: "uppercase", color: "#8880b8", fontWeight: 600, marginBottom: "10px" }}>Gaps to Review ({gaps.length})</div>
             {gaps.map((gap, i) => (
-              <div key={i} style={{ background: "#1e2035", border: "1px solid #2e3050", borderRadius: "8px", padding: "12px 16px", marginBottom: "8px" }}>
-                <div style={{ fontSize: "14px", fontWeight: "600", color: "#e8e4f8", fontFamily: "'DM Sans', system-ui, sans-serif", marginBottom: "4px" }}>{gap.title}</div>
-                <div style={{ fontSize: "13px", color: "#9890b8", fontFamily: "'DM Sans', system-ui, sans-serif", lineHeight: "1.6" }}>{gap.assessment}</div>
+              <div key={i} style={{ background: "#1e2035", border: "1px solid #2e3050", borderRadius: "7px", padding: "10px 14px", marginBottom: "7px" }}>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: "#e8e4f8", marginBottom: "3px" }}>{gap.title}</div>
+                <div style={{ fontSize: "12px", color: "#9890b8", lineHeight: 1.55 }}>{gap.assessment}</div>
               </div>
             ))}
           </div>
         )}
+
+        {/* Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          <button onClick={onBuildResume} style={{ background: "#4f6ef7", color: "#ffffff", border: "none", borderRadius: "8px", padding: "15px 20px", fontSize: "15px", fontWeight: "600", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>{verdict.cta}</span><span style={{ fontSize: "13px", opacity: 0.8 }}>→ Resume tab</span>
+          <button onClick={onTrackBuildResume} style={{ background: "#4f6ef7", color: "#fff", border: "none", borderRadius: "8px", padding: "14px 18px", fontSize: "14px", fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>Track + Build Resume</span><span style={{ fontSize: "12px", opacity: 0.75 }}>Saves to card →</span>
           </button>
-          <button onClick={onResumeOnly} style={{ background: "rgba(160,140,220,0.12)", color: "#e8e4f8", border: "1px solid rgba(160,140,220,0.3)", borderRadius: "8px", padding: "13px 20px", fontSize: "13px", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer" }}>
-            Apply with source-of-truth resume — no tailoring
-          </button>
-          <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-            <button onClick={onCorrect} style={{ background: "rgba(251,191,36,0.1)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)", borderRadius: "8px", padding: "11px 16px", fontSize: "13px", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer", flex: 1 }}>Correct a gap → re-score</button>
-            <button onClick={onNewJD} style={{ background: "rgba(74,222,128,0.08)", color: "#6ab8a8", border: "1px solid rgba(74,222,128,0.2)", borderRadius: "8px", padding: "11px 16px", fontSize: "13px", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer", flex: 1 }}>Try a different role</button>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button onClick={onInterviewPrep} style={{ flex: 1, background: "rgba(168,85,247,0.12)", color: "#c084fc", border: "1px solid rgba(168,85,247,0.3)", borderRadius: "8px", padding: "11px 14px", fontSize: "13px", cursor: "pointer" }}>Interview Prep</button>
+            <button onClick={onCoverLetter}   style={{ flex: 1, background: "rgba(20,184,166,0.10)", color: "#2dd4bf", border: "1px solid rgba(20,184,166,0.3)", borderRadius: "8px", padding: "11px 14px", fontSize: "13px", cursor: "pointer" }}>Cover Letter</button>
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button onClick={onTrackOnly}  style={{ flex: 1, background: "rgba(251,191,36,0.08)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.25)", borderRadius: "8px", padding: "10px 14px", fontSize: "12px", cursor: "pointer" }}>Track Only</button>
+            <button onClick={onCorrect}    style={{ flex: 1, background: "rgba(74,222,128,0.06)", color: "#6ab8a8", border: "1px solid rgba(74,222,128,0.2)",  borderRadius: "8px", padding: "10px 14px", fontSize: "12px", cursor: "pointer" }}>Correct a Gap</button>
+            <button onClick={onNewJD}      style={{ flex: 1, background: "transparent",            color: "#6a6880", border: "1px solid #2a2840",                borderRadius: "8px", padding: "10px 14px", fontSize: "12px", cursor: "pointer" }}>New JD</button>
           </div>
         </div>
       </div>
@@ -1042,13 +1407,14 @@ function GapCorrectionPanel({ gaps, corrections, onSave, onDone }) {
   );
 }
 
-// AnalyzeTab — returns { company, role } via onBuildResume/onResumeOnly/onAddToTracker for card auto-population
-function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuildResume, onResumeOnly, onNewJD, profile, onAddToTracker }) {
+// AnalyzeTab — ephemeral session: new JD paste wipes artifacts; track to persist
+function AnalyzeTab({ stories, corrections, onSaveCorrections, onTrackBuildResume, onTrackOnly, onNewJD, profile, onAddToTracker, onGoToInterviewPrep, onGoToCoverLetter }) {
+  const session = useFitSession();
+  const jd = session.jd;
+
   const [parsedScore, setParsedScore]         = useState(null);
   const [parsedRationale, setParsedRationale] = useState("");
   const [parsedGaps, setParsedGaps]           = useState([]);
-  const [parsedCompany, setParsedCompany]     = useState("");
-  const [parsedRole, setParsedRole]           = useState("");
   const [fullResult, setFullResult]           = useState("");
   const [loading, setLoading]                 = useState(false);
   const [reScoring, setReScoring]             = useState(false);
@@ -1057,6 +1423,15 @@ function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuil
   const [showCorrections, setShowCorrections] = useState(false);
   const [showFull, setShowFull]               = useState(false);
   const apiLocked = useApiLock();
+
+  function handleJdChange(val) {
+    if (val !== jd) {
+      wipeFitSession();
+      setParsedScore(null); setParsedRationale(""); setParsedGaps([]); setFullResult(""); setShowModal(false); setShowFull(false);
+    }
+    const url = detectUrl(val);
+    setFitSession({ jd: val, jdUrl: url });
+  }
 
   const formatFull = (p) => [
     `FIT SCORE: ${p.score}/10\n${p.rationale}\n`,
@@ -1069,14 +1444,14 @@ function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuil
 
   const runWithCorrections = async (activeCorrections) => {
     if (!jd.trim()) return;
-    const storyList = stories.length > 0 ? stories.map((s, i) => `${i + 1}. "${s.title}" — ${s.competencies.join(", ")} | Result: ${s.result}`).join("\n") : "";
+    const storyList = stories.length > 0 ? stories.map((s, i) => `${i + 1}. "${s.title}" — ${s.competencies?.join(", ")} | Result: ${s.result}`).join("\n") : "";
     const userCtx = stories.length > 0 ? `INTERVIEW STORIES:\n${storyList}\n\n` : "";
     const text = await callClaude(PROMPTS.jdAnalyzer(profile, stories, activeCorrections), `${userCtx}Job Description:\n${jd}`, 3000);
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) throw new Error("Could not parse analysis response");
     const p = JSON.parse(m[0]);
     setParsedScore(p.score); setParsedRationale(p.rationale); setParsedGaps(p.gaps || []);
-    setParsedCompany(p.company || ""); setParsedRole(p.role || "");
+    setFitSession({ company: p.company || "", role: p.role || "" });
     setFullResult(formatFull(p));
     return p;
   };
@@ -1096,61 +1471,65 @@ function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuil
     finally { setReScoring(false); }
   };
 
-  const payload = () => ({ company: parsedCompany, role: parsedRole });
-
   return (
-    <div>
+    <div style={S.tab}>
       {showModal && (
-        <AnalysisModal score={parsedScore} rationale={parsedRationale} gaps={parsedGaps}
-          onBuildResume={() => { setShowModal(false); setShowFull(true); onBuildResume(payload()); }}
-          onResumeOnly={() => { setShowModal(false); onResumeOnly(payload()); }}
+        <AnalysisModal
+          score={parsedScore} rationale={parsedRationale} gaps={parsedGaps}
+          onTrackBuildResume={() => { setShowModal(false); setShowFull(true); onTrackBuildResume(session); }}
+          onInterviewPrep={() => { setShowModal(false); onGoToInterviewPrep(); }}
+          onCoverLetter={() => { setShowModal(false); onGoToCoverLetter(); }}
+          onTrackOnly={() => { setShowModal(false); onTrackOnly(session); }}
           onCorrect={() => { setShowModal(false); setShowCorrections(true); }}
-          onNewJD={() => { setShowModal(false); onNewJD(); }}
+          onNewJD={() => { setShowModal(false); wipeFitSession(); setParsedScore(null); }}
           onDismiss={() => setShowModal(false)}
         />
       )}
 
       {!showModal && parsedScore !== null && !showCorrections && (
-        <div onClick={() => setShowModal(true)} style={{ background: parsedScore >= 8 ? "rgba(74,222,128,0.08)" : parsedScore >= 6 ? "rgba(251,191,36,0.08)" : "rgba(248,113,113,0.08)", border: "1px solid rgba(100,100,200,0.25)", borderRadius: "8px", padding: "12px 18px", marginBottom: "20px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-            <span style={{ fontSize: "26px", fontWeight: "800", color: parsedScore >= 8 ? "#4ade80" : parsedScore >= 6 ? "#fbbf24" : "#f87171", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{parsedScore}/10</span>
-            <span style={{ fontSize: "14px", color: "#c8c4e8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>{parsedRationale}</span>
+        <div onClick={() => setShowModal(true)} style={{ background: parsedScore >= 8 ? "rgba(74,222,128,0.08)" : parsedScore >= 6 ? "rgba(251,191,36,0.08)" : "rgba(248,113,113,0.08)", border: "1px solid rgba(100,100,200,0.2)", borderRadius: "8px", padding: "12px 16px", marginBottom: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <span style={{ fontSize: "24px", fontWeight: 800, color: parsedScore >= 8 ? "#4ade80" : parsedScore >= 6 ? "#fbbf24" : "#f87171" }}>{parsedScore}/10</span>
+            <span style={{ fontSize: "13px", color: "#c8c4e8" }}>{parsedRationale}</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {onAddToTracker && (
-              <button onClick={e => { e.stopPropagation(); onAddToTracker(payload()); }} style={{ ...S.btn, fontSize: "11px", padding: "5px 12px", background: "rgba(79,110,247,0.2)", color: "#8aacff", border: "1px solid #4f6ef7" }}>＋ Add to Tracker</button>
-            )}
-            <span style={{ fontSize: "12px", color: "#8880b8", fontFamily: "'DM Sans', system-ui, sans-serif" }}>View details →</span>
-          </div>
+          <span style={{ fontSize: "11px", color: "#6a6880" }}>View →</span>
         </div>
       )}
 
       {reScoring && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div style={{ background: "#181a2e", borderRadius: "10px", padding: "32px 40px", textAlign: "center", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-            <div style={{ marginBottom: "16px" }}><Spinner size={24} /></div>
-            <div style={{ fontSize: "16px", fontWeight: "600", color: "#e8e4f8" }}>Re-scoring with corrections…</div>
+          <div style={{ background: "#181a2e", borderRadius: "10px", padding: "32px 40px", textAlign: "center" }}>
+            <Spinner size={24} /><div style={{ fontSize: "15px", fontWeight: 600, color: "#e8e4f8", marginTop: "12px" }}>Re-scoring…</div>
           </div>
         </div>
       )}
 
-      <JDInput jd={jd} setJd={setJd} />
+      {/* JD input */}
+      <div style={{ marginBottom: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+          <label style={S.label}>Job Description</label>
+          {session.jdUrl && <a href={session.jdUrl} target="_blank" rel="noreferrer" style={{ fontSize: "11px", color: "#c9a84c", textDecoration: "none" }}>🔗 View Post ↗</a>}
+        </div>
+        <textarea value={jd} onChange={e => handleJdChange(e.target.value)} rows={8} placeholder="Paste the full job description here…" style={S.textarea} />
+      </div>
+
       {Object.keys(corrections).length > 0 && (
-        <div style={{ background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: "4px", padding: "10px 14px", marginBottom: "16px", fontFamily: "'DM Sans', system-ui, sans-serif", fontSize: "12px", color: "#8a7040", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: "4px", padding: "10px 14px", marginBottom: "12px", fontSize: "12px", color: "#8a7040", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>✓ {Object.keys(corrections).length} gap correction{Object.keys(corrections).length > 1 ? "s" : ""} active</span>
           <button onClick={() => setShowCorrections(true)} style={{ background: "none", border: "none", color: "#c9a84c", cursor: "pointer", fontSize: "12px" }}>View / edit</button>
         </div>
       )}
 
       <button onClick={run} disabled={!jd.trim() || loading || reScoring || apiLocked}
-        style={{ ...S.btn, opacity: !jd.trim() || loading || reScoring || apiLocked ? 0.5 : 1, display: "flex", alignItems: "center", gap: "8px", marginBottom: "24px" }}>
-        {loading ? <><Spinner /> Analyzing…</> : reScoring ? <><Spinner /> Re-scoring…</> : "Run Gap Analysis"}
+        style={{ ...S.btn, opacity: !jd.trim() || loading || reScoring || apiLocked ? 0.5 : 1, display: "flex", alignItems: "center", gap: "8px", marginBottom: "20px", width: "100%" }}>
+        {loading ? <><Spinner /> Analyzing…</> : "Run Fit Check"}
       </button>
+
       {error && <div style={{ color: "#c06060", fontSize: "13px", marginBottom: "16px" }}>{error}</div>}
       {showCorrections && parsedGaps.length > 0 && <GapCorrectionPanel gaps={parsedGaps} corrections={corrections} onSave={handleSaveCorrections} onDone={() => setShowCorrections(false)} />}
       {showFull && fullResult && (
         <div style={S.section}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
             <div style={{ ...S.label, margin: 0 }}>Full Analysis</div>
             <div style={{ display: "flex", gap: "8px" }}>
               <CopyBtn text={fullResult} />
@@ -1168,45 +1547,62 @@ function AnalyzeTab({ jd, setJd, stories, corrections, onSaveCorrections, onBuil
 // BOARD COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function RoleCard({ card, onClick, onStageChange }) {
-  const sc = STAGE_COLORS[card.stage] || STAGE_COLORS.Radar;
+function RoleCard({ card, onClick }) {
+  const sc = STAGE_COLORS[card.stage] || STAGE_COLORS.Considering;
   return (
     <div onClick={() => onClick(card)} style={{ background: "rgba(20,20,35,0.7)", border: `1px solid ${sc.border}`, borderRadius: "8px", padding: "14px 16px", marginBottom: "10px", cursor: "pointer", transition: "border-color 0.2s" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
         <div style={{ fontWeight: 600, fontSize: "14px", color: "#e8e6f0", lineHeight: 1.3, flex: 1, paddingRight: "8px" }}>{card.company || "New Role"}</div>
-        <StagePill stage={card.stage} small onClick={e => { e.stopPropagation(); }} />
+        <StagePill stage={card.stage} small />
       </div>
       <div style={{ fontSize: "12px", color: "#8a85a0", marginBottom: "8px" }}>{card.title || "Title TBD"}</div>
-      {card.tags && card.tags.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
-          {card.tags.slice(0, 3).map(t => <Tag key={t} label={t} />)}
-        </div>
-      )}
+      <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+        {card.jdUrl && <a href={card.jdUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ fontSize: "10px", color: "#c9a84c", textDecoration: "none" }}>🔗 Post</a>}
+        {card.resumeText && <span style={{ fontSize: "10px", color: "#4ade80", background: "rgba(74,222,128,0.08)", borderRadius: "3px", padding: "1px 5px" }}>Resume ✓</span>}
+        {card.coverLetterText && <span style={{ fontSize: "10px", color: "#2dd4bf", background: "rgba(20,184,166,0.08)", borderRadius: "3px", padding: "1px 5px" }}>Cover ✓</span>}
+      </div>
     </div>
   );
 }
 
-function Board({ cards, onCardClick, onAddCard }) {
+function Board({ cards, onCardClick, onAddCard, onExport }) {
   const grouped = STAGES.reduce((acc, s) => { acc[s] = cards.filter(c => c.stage === s); return acc; }, {});
+  const hasCards = cards.length > 0;
   return (
-    <div style={{ overflowX: "auto", paddingBottom: "16px" }}>
-      <div style={{ display: "flex", gap: "12px", minWidth: `${STAGES.length * 200}px` }}>
-        {STAGES.map(stage => {
-          const sc = STAGE_COLORS[stage];
-          return (
-            <div key={stage} style={{ flex: "0 0 190px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                <span style={{ fontSize: "11px", fontWeight: 700, color: sc.text, letterSpacing: "0.08em", textTransform: "uppercase" }}>{stage}</span>
-                <span style={{ fontSize: "11px", color: "#4a4860", background: "rgba(255,255,255,0.05)", borderRadius: "10px", padding: "1px 7px" }}>{grouped[stage].length}</span>
-              </div>
-              {grouped[stage].map(card => <RoleCard key={card.id} card={card} onClick={onCardClick} />)}
-              {stage === "Radar" && (
-                <button onClick={onAddCard} style={{ width: "100%", background: "rgba(99,140,255,0.06)", border: "1px dashed #3a3d6a", borderRadius: "8px", padding: "10px", color: "#6060a0", fontSize: "12px", cursor: "pointer" }}>+ Add Role</button>
-              )}
-            </div>
-          );
-        })}
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+        <div style={{ fontSize: "11px", color: "#3a3860" }}>{cards.length} role{cards.length !== 1 ? "s" : ""} tracked</div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          {hasCards && <button onClick={onExport} style={{ ...S.btnGhost, fontSize: "11px", padding: "5px 12px" }}>⬇ Export CSV</button>}
+          <button onClick={onAddCard} style={{ ...S.btn, fontSize: "12px", padding: "6px 14px" }}>+ Add Role</button>
+        </div>
       </div>
+      {!hasCards && (
+        <div style={{ textAlign: "center", padding: "60px 20px", color: "#3a3860" }}>
+          <div style={{ fontSize: "32px", marginBottom: "12px" }}>⬡</div>
+          <div style={{ fontSize: "15px", fontWeight: 600, color: "#4a4880", marginBottom: "8px" }}>No roles tracked yet</div>
+          <div style={{ fontSize: "13px", marginBottom: "20px" }}>Paste a JD in Fit Check to analyze a role, or add one manually.</div>
+          <button onClick={onAddCard} style={S.btn}>+ Add Role</button>
+        </div>
+      )}
+      {hasCards && (
+        <div style={{ overflowX: "auto", paddingBottom: "16px" }}>
+          <div style={{ display: "flex", gap: "12px", minWidth: `${STAGES.length * 190}px` }}>
+            {STAGES.map(stage => {
+              const sc = STAGE_COLORS[stage];
+              return (
+                <div key={stage} style={{ flex: "0 0 180px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                    <span style={{ fontSize: "10px", fontWeight: 700, color: sc.text, letterSpacing: "0.08em", textTransform: "uppercase" }}>{stage}</span>
+                    <span style={{ fontSize: "10px", color: "#4a4860", background: "rgba(255,255,255,0.05)", borderRadius: "10px", padding: "1px 6px" }}>{grouped[stage].length}</span>
+                  </div>
+                  {grouped[stage].map(card => <RoleCard key={card.id} card={card} onClick={onCardClick} />)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1231,6 +1627,29 @@ async function scoreJobsAgainstProfile(jobs, profile) {
 function JobResultCard({ job, onAnalyze, onAddToTracker }) {
   const score = job.fitScore;
   const scoreColor = score >= 75 ? "#4ade80" : score >= 50 ? "#fbbf24" : score !== null ? "#f87171" : "#4a4860";
+  const [fetching, setFetching] = useState(false);
+  const [fetchErr, setFetchErr] = useState("");
+
+  async function handleAnalyze() {
+    setFetching(true); setFetchErr("");
+    let fullJd = job.snippet || "";
+    if (job.url) {
+      try {
+        const fetched = await callClaudeSearch(
+          job.company,
+          `Retrieve the full job description text from this URL: ${job.url}\nReturn only the raw job description text, no commentary.`
+        );
+        if (fetched && fetched.length > fullJd.length) fullJd = fetched;
+      } catch { /* fall back to snippet */ }
+    }
+    if (!fullJd) {
+      setFetchErr("Couldn't fetch full JD — paste it manually in Analyze Fit.");
+      setFetching(false); return;
+    }
+    setFetching(false);
+    onAnalyze({ ...job, fullJd });
+  }
+
   return (
     <div style={{ background: "rgba(20,20,35,0.7)", border: "1px solid #2a2840", borderRadius: "8px", padding: "14px 16px", marginBottom: "10px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
@@ -1242,22 +1661,22 @@ function JobResultCard({ job, onAnalyze, onAddToTracker }) {
           <div style={{ fontSize: "12px", fontWeight: 700, color: scoreColor, background: `${scoreColor}18`, border: `1px solid ${scoreColor}40`, borderRadius: "6px", padding: "3px 8px", flexShrink: 0 }}>{score}%</div>
         )}
       </div>
-      {job.snippet && <div style={{ fontSize: "12px", color: "#6a6880", marginBottom: "10px", lineHeight: 1.5 }}>{job.snippet.slice(0, 180)}…</div>}
+      {job.snippet && <div style={{ fontSize: "12px", color: "#6a6880", marginBottom: "8px", lineHeight: 1.5 }}>{job.snippet.slice(0, 180)}…</div>}
+      {fetchErr && <div style={{ fontSize: "11px", color: "#c9a84c", marginBottom: "8px" }}>{fetchErr}</div>}
       <div style={{ display: "flex", gap: "8px" }}>
-        <button onClick={() => onAnalyze(job)} style={{ ...S.btnSmall }}>Analyze Fit</button>
+        <button onClick={handleAnalyze} disabled={fetching} style={{ ...S.btnSmall, opacity: fetching ? 0.6 : 1, display: "flex", gap: "4px", alignItems: "center" }}>
+          {fetching ? <><Spinner size={11} /> Fetching JD…</> : "Analyze Fit"}
+        </button>
         <button onClick={() => onAddToTracker(job)} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px" }}>+ Tracker</button>
-        {job.url && <a href={job.url} target="_blank" rel="noreferrer" title="Opens job posting — paste the JD into Analyze Fit for full analysis" style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px", textDecoration: "none" }}>View ↗</a>}
+        {job.url && <a href={job.url} target="_blank" rel="noreferrer" style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px", textDecoration: "none" }}>View ↗</a>}
       </div>
     </div>
   );
 }
 
-function JobSearchTab({ profile, onAnalyzeJob, onAddToTracker }) {
-  const [query, setQuery] = useState("");
-  const [location, setLocation] = useState("Remote");
-  const [jobs, setJobs] = useState([]);
+function JobSearchTab({ profile, onAnalyzeJob, onAddToTracker, jobs, setJobs, query, setQuery, location, setLocation }) {
   const [loading, setLoading] = useState(false);
-  const [scored, setScored] = useState(false);
+  const [scored, setScored] = useState(jobs.length > 0);
   const [error, setError] = useState("");
 
   async function search() {
@@ -1301,15 +1720,18 @@ function JobSearchTab({ profile, onAnalyzeJob, onAddToTracker }) {
 // RESUME TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ResumeTab({ profile, card, jd }) {
-  const [resumeType, setResumeType] = useState("chronological");
+function ResumeTab({ profile, card, jd, onSaveToCard }) {
+  const [resumeType, setResumeType] = useState(card?.resumeType || "chronological");
   const [strategy, setStrategy] = useState("");
-  const [finalResume, setFinalResume] = useState("");
+  const [finalResume, setFinalResume] = useState(card?.resumeText || "");
   const [loading, setLoading] = useState(false);
   const [phase, setPhase] = useState("");
   const [error, setError] = useState("");
   const [blob, setBlob] = useState(null);
+  const [pdfBlob, setPdfBlob] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [refining, setRefining] = useState(false);
 
   const baseResume = getActiveResume(profile);
   const company = card?.company || "";
@@ -1318,23 +1740,42 @@ function ResumeTab({ profile, card, jd }) {
 
   async function run() {
     if (!baseResume) { setError("Upload a resume in Profile first."); return; }
-    setLoading(true); setError(""); setStrategy(""); setFinalResume(""); setBlob(null);
+    setLoading(true); setError(""); setStrategy(""); setFinalResume(""); setBlob(null); setPdfBlob(null); setFeedback("");
     try {
       setPhase("Building strategy…");
-      const strat = await callClaude(
-        PROMPTS.resumeStrategy(profile, resumeType),
-        `JD:\n${jd || "(none provided)"}\n\nBase resume:\n${baseResume}`,
-        1200
-      );
+      const strat = await callClaude(PROMPTS.resumeStrategy(profile, resumeType), `JD:\n${jd || "(none)"}\n\nBase resume:\n${baseResume}`, 1200);
       setStrategy(strat);
       setPhase("Rendering resume…");
       const final = await buildFinalResumeText(baseResume, strat, jd, resumeType);
       setFinalResume(final);
+      if (onSaveToCard) onSaveToCard(final, resumeType);
       setPhase("Building DOCX…");
       const b = await buildResumeDocxBlob(final, company, profile);
       setBlob(b);
+      const pb = await buildPdfBlob(final);
+      setPdfBlob(pb);
     } catch (e) { setError(String(e)); }
     setLoading(false); setPhase("");
+  }
+
+  async function refine() {
+    if (!feedback.trim() || !finalResume) return;
+    setRefining(true);
+    try {
+      const refined = await callClaude(
+        `You are refining a resume. Apply the user's feedback precisely. Maintain all formatting rules, Hankel language, and ${resumeType} structure. Return only the revised resume text.`,
+        `CURRENT RESUME:\n${finalResume}\n\nFEEDBACK TO APPLY:\n${feedback}`,
+        2000
+      );
+      setFinalResume(refined);
+      if (onSaveToCard) onSaveToCard(refined, resumeType);
+      setFeedback("");
+      const b = await buildResumeDocxBlob(refined, company, profile);
+      setBlob(b);
+      const pb = await buildPdfBlob(refined);
+      setPdfBlob(pb);
+    } catch (e) { setError(String(e)); }
+    setRefining(false);
   }
 
   return (
@@ -1384,10 +1825,30 @@ function ResumeTab({ profile, card, jd }) {
               {blob && (
                 <button onClick={() => { const u = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = u; a.download = `Resume_${company || "Draft"}_${resumeType}.docx`; a.click(); }} style={S.btnGhost}>↓ DOCX</button>
               )}
+              {pdfBlob && (
+                <button onClick={() => { const u = URL.createObjectURL(pdfBlob); const a = document.createElement("a"); a.href = u; a.download = `Resume_${company || "Draft"}_${resumeType}.pdf`; a.click(); }} style={S.btnGhost}>↓ PDF</button>
+              )}
             </div>
           </div>
           <div style={S.resultBox}>{finalResume}</div>
           {saved && <div style={{ fontSize: "11px", color: "#4ade80", marginTop: "8px" }}>✓ Saved to Google Drive</div>}
+
+          {/* Refinement input */}
+          <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid #2a2840" }}>
+            <div style={{ fontSize: "10px", color: "#4a4860", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Refine</div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input
+                value={feedback}
+                onChange={e => setFeedback(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && refine()}
+                placeholder="e.g. Make the opener more direct, add the $28M EBITDA number…"
+                style={{ ...S.input, flex: 1, fontSize: "12px" }}
+              />
+              <button onClick={refine} disabled={refining || !feedback.trim()} style={{ ...S.btn, fontSize: "12px", padding: "8px 14px", opacity: refining || !feedback.trim() ? 0.5 : 1 }}>
+                {refining ? <Spinner size={12} /> : "Apply"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1398,57 +1859,99 @@ function ResumeTab({ profile, card, jd }) {
 // COVER LETTER TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CoverLetterTab({ profile, card, jd }) {
-  const [letter, setLetter] = useState("");
+function CoverLetterTab({ profile, card, jd, onSaveToCard }) {
+  const [letter, setLetter] = useState(card?.coverLetterText || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [blob, setBlob] = useState(null);
-
+  const [pdfBlob, setPdfBlob] = useState(null);
+  const [addedToCard, setAddedToCard] = useState(!!card?.coverLetterText);
+  const [feedback, setFeedback] = useState("");
+  const [refining, setRefining] = useState(false);
+  const driveToken = getDriveToken(profile.email);
   const company = card?.company || "";
   const role = card?.title || "";
-  const driveToken = getDriveToken(profile.email);
 
   async function run() {
     const base = getActiveResume(profile);
     if (!base) { setError("Upload a resume in Profile first."); return; }
-    setLoading(true); setError(""); setLetter(""); setBlob(null);
+    setLoading(true); setError(""); setLetter(""); setBlob(null); setPdfBlob(null); setFeedback(""); setAddedToCard(false);
     try {
       const result = await callClaude(
         PROMPTS.coverLetter(profile, company, role, jd || ""),
-        `Base resume:\n${base}\n\nJD:\n${jd || "(none provided)"}`,
+        `Base resume:\n${base}\n\nJD:\n${jd || "(none)"}`,
         1000
       );
       setLetter(result);
       const b = await buildCoverLetterDocxBlob(result, company, role, profile);
       setBlob(b);
+      const pb = await buildPdfBlob(result);
+      setPdfBlob(pb);
     } catch (e) { setError(String(e)); }
     setLoading(false);
+  }
+
+  async function refine() {
+    if (!feedback.trim() || !letter) return;
+    setRefining(true);
+    try {
+      const refined = await callClaude(
+        "You are refining a cover letter. Apply the user feedback precisely. Maintain high commitment signal, Hankel agreeableness language, and earned specificity. Return only the revised body paragraphs — no letterhead, no signature.",
+        `CURRENT LETTER:\n${letter}\n\nFEEDBACK:\n${feedback}`,
+        800
+      );
+      setLetter(refined);
+      setFeedback("");
+      if (addedToCard && onSaveToCard) onSaveToCard(refined);
+      const b = await buildCoverLetterDocxBlob(refined, company, role, profile);
+      setBlob(b);
+      const pb = await buildPdfBlob(refined);
+      setPdfBlob(pb);
+    } catch (e) { setError(String(e)); }
+    setRefining(false);
+  }
+
+  function addToCard() {
+    if (onSaveToCard && letter) { onSaveToCard(letter); setAddedToCard(true); }
   }
 
   return (
     <div style={S.tab}>
       <div style={S.label}>Cover Letter</div>
-      {company && <div style={{ fontSize: "12px", color: "#4a4860", marginBottom: "12px" }}>Target: <span style={{ color: "#8a85a0" }}>{role} @ {company}</span></div>}
-      <div style={{ fontSize: "12px", color: "#6a6880", marginBottom: "16px", lineHeight: 1.5 }}>
-        High commitment signal — this cover letter frames this role as the destination, not a stepping stone.
+      {company && <div style={{ fontSize: "12px", color: "#4a4860", marginBottom: "10px" }}>Target: <span style={{ color: "#8a85a0" }}>{role} @ {company}</span></div>}
+      <div style={{ fontSize: "12px", color: "#6a6880", marginBottom: "14px", lineHeight: 1.5 }}>
+        High commitment signal — frames this role as the destination, not a stepping stone.
       </div>
-      <button onClick={run} disabled={loading} style={{ ...S.btn, marginBottom: "20px", opacity: loading ? 0.5 : 1, display: "flex", gap: "8px", alignItems: "center" }}>
-        {loading ? <><Spinner /> Writing…</> : "Generate Cover Letter"}
+      <button onClick={run} disabled={loading} style={{ ...S.btn, marginBottom: "16px", opacity: loading ? 0.5 : 1, display: "flex", gap: "8px", alignItems: "center" }}>
+        {loading ? <><Spinner /> Writing…</> : letter ? "Regenerate" : "Generate Cover Letter"}
       </button>
       {error && <div style={{ color: "#c06060", fontSize: "13px", marginBottom: "12px" }}>{error}</div>}
       {letter && (
         <div style={S.section}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-            <div style={S.label}>Cover Letter</div>
-            <div style={{ display: "flex", gap: "8px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", flexWrap: "wrap", gap: "6px" }}>
+            <div style={S.label}>Output</div>
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
               <CopyBtn text={letter} />
-              {blob && <SaveToDriveBtn blob={blob} filename={`CoverLetter_${company || "Draft"}.docx`} onSaved={() => {}} disabled={!driveToken} />}
-              {blob && (
-                <button onClick={() => { const u = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = u; a.download = `CoverLetter_${company || "Draft"}.docx`; a.click(); }} style={S.btnGhost}>↓ DOCX</button>
+              {onSaveToCard && (
+                <button onClick={addToCard} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px", color: addedToCard ? "#4ade80" : "#8880b8", borderColor: addedToCard ? "#4ade80" : undefined }}>
+                  {addedToCard ? "✓ On Card" : "+ Add to Card"}
+                </button>
               )}
+              {blob && <SaveToDriveBtn blob={blob} filename={`CoverLetter_${company || "Draft"}.docx`} onSaved={() => {}} disabled={!driveToken} />}
+              {blob && <button onClick={() => { const u = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = u; a.download = `CoverLetter_${company || "Draft"}.docx`; a.click(); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px" }}>↓ DOCX</button>}
+              {pdfBlob && <button onClick={() => { const u = URL.createObjectURL(pdfBlob); const a = document.createElement("a"); a.href = u; a.download = `CoverLetter_${company || "Draft"}.pdf`; a.click(); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 10px" }}>↓ PDF</button>}
             </div>
           </div>
           <div style={S.resultBox}>{letter}</div>
+          <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid #2a2840" }}>
+            <div style={{ fontSize: "10px", color: "#4a4860", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Refine</div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <input value={feedback} onChange={e => setFeedback(e.target.value)} onKeyDown={e => e.key === "Enter" && refine()} placeholder="e.g. Strengthen the second paragraph, reference their Series B…" style={{ ...S.input, flex: 1, fontSize: "12px" }} />
+              <button onClick={refine} disabled={refining || !feedback.trim()} style={{ ...S.btn, fontSize: "12px", padding: "8px 14px", opacity: refining || !feedback.trim() ? 0.5 : 1 }}>
+                {refining ? <Spinner size={12} /> : "Apply"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1459,55 +1962,306 @@ function CoverLetterTab({ profile, card, jd }) {
 // INTERVIEW PREP TAB
 // ─────────────────────────────────────────────────────────────────────────────
 
-function InterviewPrepTab({ profile, card, jd, stories }) {
-  const [questions, setQuestions] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [depth, setDepth] = useState("recruiter");
+function CockpitView({ data }) {
+  if (!data) return null;
+  const d = data;
+  const co = d.header?.company || "";
 
-  const company = card?.company || "";
-  const role = card?.title || "";
+  function Section({ title, color = "#c9a84c", children }) {
+    return (
+      <div style={{ marginBottom: "4px" }}>
+        <div style={{ fontSize: "9px", fontWeight: 700, color, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: "5px", paddingBottom: "3px", borderBottom: `1px solid ${color}30` }}>{title}</div>
+        {children}
+      </div>
+    );
+  }
 
-  async function run() {
-    const base = getActiveResume(profile);
-    if (!base && !jd) { setError("Add a resume or JD first."); return; }
-    setLoading(true); setError(""); setQuestions("");
-    const tc = tierContext(profile);
-    const sys = `${PROMPTS.storyInterview}\n\nTIER CONTEXT:\n${tc.voice}\n${tc.questions}`;
-    const user = `Company: ${company}\nRole: ${role}\nDepth: ${depth}\nJD:\n${jd || "(none)"}\nResume:\n${(base || "").slice(0, 1200)}\nStory bank:\n${stories.map(s => s.hook + " — " + s.situation).join("\n").slice(0, 600)}`;
-    try {
-      const r = await callClaude(sys, user, 1800);
-      setQuestions(r);
-    } catch (e) { setError(String(e)); }
-    setLoading(false);
+  function Phrase({ text, color = "#c8c4e8" }) {
+    return <div style={{ fontSize: "12px", color, lineHeight: 1.5, marginBottom: "3px" }}>{text}</div>;
+  }
+
+  function Bullet({ text, color = "#a0a0c0" }) {
+    return <div style={{ fontSize: "11px", color, lineHeight: 1.5, marginBottom: "2px", paddingLeft: "10px" }}>{text}</div>;
+  }
+
+  function Cell({ children, style = {} }) {
+    return (
+      <div style={{ background: "rgba(20,20,38,0.8)", border: "1px solid #2a2850", borderRadius: "6px", padding: "12px 14px", ...style }}>
+        {children}
+      </div>
+    );
+  }
+
+  function grid2(left, right) {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
+        {left}{right}
+      </div>
+    );
+  }
+
+  function grid3(a, b, c) {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "8px" }}>
+        {a}{b}{c}
+      </div>
+    );
   }
 
   return (
-    <div style={S.tab}>
-      <div style={S.label}>Interview Prep</div>
-      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-        {[["recruiter", "Recruiter Screen"], ["behavioral", "Behavioral"], ["technical", "Technical/Deep"], ["executive", "Executive"]].map(([v, l]) => (
-          <button key={v} onClick={() => setDepth(v)} style={{ padding: "6px 12px", borderRadius: "6px", fontSize: "11px", cursor: "pointer", border: "1px solid", borderColor: depth === v ? "#c9a84c" : "#2a2840", background: depth === v ? "rgba(201,168,76,0.1)" : "transparent", color: depth === v ? "#c9a84c" : "#6a6880" }}>{l}</button>
-        ))}
-      </div>
-      {company && <div style={{ fontSize: "12px", color: "#4a4860", marginBottom: "12px" }}>Target: <span style={{ color: "#8a85a0" }}>{role} @ {company}</span></div>}
-      <button onClick={run} disabled={loading} style={{ ...S.btn, marginBottom: "20px", opacity: loading ? 0.5 : 1, display: "flex", gap: "8px", alignItems: "center" }}>
-        {loading ? <><Spinner /> Building prep…</> : "Generate Interview Prep"}
-      </button>
-      {error && <div style={{ color: "#c06060", fontSize: "13px", marginBottom: "12px" }}>{error}</div>}
-      {questions && (
-        <div style={S.section}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-            <div style={S.label}>Prep Document</div>
-            <CopyBtn text={questions} />
-          </div>
-          <div style={{ ...S.resultBox, whiteSpace: "pre-wrap" }}>{questions}</div>
+    <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+
+      {/* Header bar */}
+      <div style={{ background: "#1a237e", borderRadius: "6px", padding: "10px 14px", marginBottom: "8px" }}>
+        <div style={{ fontSize: "13px", fontWeight: 700, color: "#fff" }}>
+          {[d.header?.name, co, d.header?.role, d.header?.round].filter(Boolean).join("  ·  ")}
         </div>
+        {d.header?.logistics && <div style={{ fontSize: "11px", color: "#c5cae9", marginTop: "3px" }}>{d.header.logistics}</div>}
+      </div>
+
+      {/* Core Story | Fit at a Glance */}
+      {grid2(
+        <Cell>
+          <Section title="Core Story">
+            {(d.coreStory || []).map((s, i) => <Phrase key={i} text={s} color={i === 0 ? "#e8e6f0" : "#a0a0c0"} />)}
+          </Section>
+        </Cell>,
+        <Cell>
+          <Section title="Fit at a Glance">
+            {(d.fitAtGlance?.strengths || []).map((s, i) => <Bullet key={i} text={"✅  " + s} color="#4ade80" />)}
+            {(d.fitAtGlance?.gaps || []).map((g, i) => <Bullet key={i} text={"⚠️  " + g} color="#fbbf24" />)}
+          </Section>
+        </Cell>
+      )}
+
+      {/* Objection */}
+      {d.objection?.concern && grid2(
+        <Cell>
+          <Section title={d.objection.concern} color="#f87171">
+            <Phrase text="Answer like someone who has already decided — not debating." color="#888" />
+            {(d.objection.doNotSay || []).map((s, i) => <Bullet key={i} text={"❌  " + s} color="#f87171" />)}
+          </Section>
+        </Cell>,
+        <Cell>
+          <Section title="Say This" color="#60a5fa">
+            <Phrase text={d.objection.sayThis || ""} color="#e8e6f0" />
+          </Section>
+        </Cell>
+      )}
+
+      {/* Competency grid */}
+      {(d.competencyGrid || []).length > 0 && grid3(
+        ...(d.competencyGrid || []).slice(0, 3).map((col, i) => (
+          <Cell key={i}>
+            <Section title={col.label || ""} color="#c084fc">
+              {(col.bullets || []).map((b, j) => <Bullet key={j} text={b} />)}
+            </Section>
+          </Cell>
+        ))
+      )}
+
+      {/* Opener Left | Opener Right */}
+      {grid2(
+        <Cell>
+          <Section title="Tell Me About Yourself"><Phrase text={d.openerLeft?.tellMeAboutYourself || ""} /></Section>
+          <Section title={"Why " + (co || "This Company")}><Phrase text={d.openerLeft?.whyCompany || ""} /></Section>
+          <Section title="Partnership Angle"><Phrase text={d.openerLeft?.partnershipAngle || ""} /></Section>
+        </Cell>,
+        <Cell>
+          <Section title="Governance Philosophy"><Phrase text={d.openerRight?.governancePhilosophy || ""} /></Section>
+          <Section title="Key Experience"><Phrase text={d.openerRight?.keyExperience || ""} /></Section>
+          <Section title="Your Search"><Phrase text={d.openerRight?.frameYourSearch || ""} /></Section>
+        </Cell>
+      )}
+
+      {/* Page 2 divider */}
+      <div style={{ background: "#1a237e", borderRadius: "4px", padding: "6px 14px", marginBottom: "8px" }}>
+        <span style={{ fontSize: "11px", fontWeight: 700, color: "#c5cae9", letterSpacing: "0.1em" }}>
+          PAGE 2  ·  {(d.header?.name || "").toUpperCase()}  ·  {co.toUpperCase()} SCREEN
+        </span>
+      </div>
+
+      {/* Domain Gap + Watch | 30/60/90 */}
+      {grid2(
+        <Cell>
+          <Section title={d.domainGap?.label || "Domain Gap"} color="#fb923c">
+            {(d.domainGap?.bullets || []).map((b, i) => <Bullet key={i} text={b} color="#fb923c" />)}
+          </Section>
+          <div style={{ marginTop: "8px" }}>
+            <Section title="Watch These" color="#f87171">
+              {(d.watchThese || []).map((w, i) => <Bullet key={i} text={(w.toLowerCase().startsWith("do not") ? "❌  " : "") + w} color="#f87171" />)}
+            </Section>
+          </div>
+        </Cell>,
+        <Cell>
+          <Section title="30 / 60 / 90" color="#4ade80">
+            {d.thirtysixtynety?.thirty && <>
+              <Phrase text={"30 — " + (d.thirtysixtynety.thirty[0] || "")} color="#4ade80" />
+              {(d.thirtysixtynety.thirty.slice(1) || []).map((b, i) => <Bullet key={i} text={b} />)}
+            </>}
+            {d.thirtysixtynety?.sixty && <>
+              <Phrase text={"60 — " + (d.thirtysixtynety.sixty[0] || "")} color="#34d399" />
+              {(d.thirtysixtynety.sixty.slice(1) || []).map((b, i) => <Bullet key={i} text={b} />)}
+            </>}
+            {d.thirtysixtynety?.ninety && <>
+              <Phrase text={"90 — " + (d.thirtysixtynety.ninety[0] || "")} color="#2dd4bf" />
+              {(d.thirtysixtynety.ninety.slice(1) || []).map((b, i) => <Bullet key={i} text={b} />)}
+            </>}
+          </Section>
+        </Cell>
+      )}
+
+      {/* Questions | Close Strong | Positioning + Reminder */}
+      {grid3(
+        <Cell>
+          <Section title="Top Questions to Ask" color="#60a5fa">
+            {(d.questions || []).map((q, i) => <Bullet key={i} text={q} color="#93c5fd" />)}
+          </Section>
+        </Cell>,
+        <Cell>
+          <Section title="Close Strong" color="#4ade80">
+            {(d.closeStrong || []).map((c, i) => <Bullet key={i} text={c} color="#86efac" />)}
+          </Section>
+        </Cell>,
+        <Cell>
+          <Section title="Positioning — Hold This Frame" color="#c084fc">
+            {(d.positioningFrame || []).map((p, i) => <Bullet key={i} text={p} color="#d8b4fe" />)}
+          </Section>
+          <div style={{ marginTop: "8px", padding: "8px 10px", background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: "4px" }}>
+            <div style={{ fontSize: "9px", fontWeight: 700, color: "#c9a84c", letterSpacing: "0.1em", marginBottom: "4px" }}>THE REMINDER</div>
+            <div style={{ fontSize: "11px", color: "#fbbf24", fontWeight: 600, lineHeight: 1.5 }}>{d.reminder || ""}</div>
+          </div>
+        </Cell>
       )}
     </div>
   );
 }
 
+function InterviewPrepTab({ profile, card, jd, stories }) {
+  const [prepData, setPrepData] = useState(null);
+  const [rawText, setRawText]   = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+  const [depth, setDepth]       = useState("recruiter");
+  const [blob, setBlob]         = useState(null);
+  const [pdfBlob, setPdfBlob]   = useState(null);
+  const driveToken = getDriveToken(profile.email);
+
+  const company = card?.company || "";
+  const role    = card?.title   || "";
+
+  function prepToText(d) {
+    if (!d) return "";
+    const lines = [];
+    lines.push([d.header?.name, d.header?.company, d.header?.role, d.header?.round].filter(Boolean).join("  |  "));
+    if (d.header?.logistics) lines.push(d.header.logistics);
+    lines.push("\nCORE STORY");
+    (d.coreStory || []).forEach(s => lines.push("  " + s));
+    lines.push("\nFIT AT A GLANCE");
+    (d.fitAtGlance?.strengths || []).forEach(s => lines.push("  ✅  " + s));
+    (d.fitAtGlance?.gaps || []).forEach(g => lines.push("  ⚠️  " + g));
+    if (d.objection?.concern) {
+      lines.push("\n" + d.objection.concern);
+      (d.objection.doNotSay || []).forEach(s => lines.push("  ❌  " + s));
+      lines.push("  SAY: " + (d.objection.sayThis || ""));
+    }
+    lines.push("\nCOMPETENCY GRID");
+    (d.competencyGrid || []).forEach(col => { lines.push("  " + col.label); (col.bullets || []).forEach(b => lines.push("    - " + b)); });
+    lines.push("\nTELL ME ABOUT YOURSELF: " + (d.openerLeft?.tellMeAboutYourself || ""));
+    lines.push("WHY " + (d.header?.company || "COMPANY") + ": " + (d.openerLeft?.whyCompany || ""));
+    lines.push("\nGOVERNANCE PHILOSOPHY: " + (d.openerRight?.governancePhilosophy || ""));
+    lines.push("KEY EXPERIENCE: " + (d.openerRight?.keyExperience || ""));
+    lines.push("YOUR SEARCH: " + (d.openerRight?.frameYourSearch || ""));
+    lines.push("\n--- PAGE 2 ---");
+    lines.push("\n" + (d.domainGap?.label || "DOMAIN GAP"));
+    (d.domainGap?.bullets || []).forEach(b => lines.push("  - " + b));
+    lines.push("\nWATCH THESE");
+    (d.watchThese || []).forEach(w => lines.push("  ❌  " + w));
+    lines.push("\n30 / 60 / 90");
+    const ttt = d.thirtysixtynety || {};
+    ["thirty", "sixty", "ninety"].forEach(k => (ttt[k] || []).forEach((b, i) => lines.push("  " + (i === 0 ? (k === "thirty" ? "30" : k === "sixty" ? "60" : "90") + " — " : "    ") + b)));
+    lines.push("\nTOP QUESTIONS TO ASK");
+    (d.questions || []).forEach(q => lines.push("  - " + q));
+    lines.push("\nCLOSE STRONG");
+    (d.closeStrong || []).forEach(c => lines.push("  - " + c));
+    lines.push("\nPOSITIONING — HOLD THIS FRAME");
+    (d.positioningFrame || []).forEach(p => lines.push("  - " + p));
+    lines.push("\nTHE REMINDER\n" + (d.reminder || ""));
+    return lines.join("\n");
+  }
+
+  async function run() {
+    const base = getActiveResume(profile);
+    if (!base && !jd) { setError("Add a resume or JD first."); return; }
+    setLoading(true); setError(""); setPrepData(null); setRawText(""); setBlob(null); setPdfBlob(null);
+    try {
+      const raw = await callClaude(
+        PROMPTS.interviewPrep(profile, stories, depth),
+        `Company: ${company}\nRole: ${role}\nJD:\n${jd || "(none)"}\nResume:\n${(base || "").slice(0, 1400)}`,
+        2400
+      );
+      // Parse JSON — strip any accidental markdown fences
+      const cleaned = raw.replace(/^```[a-z]*\n?/m, "").replace(/\n?```$/m, "").trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Response was not valid JSON. Try again.");
+      const parsed = JSON.parse(jsonMatch[0]);
+      setPrepData(parsed);
+      const txt = prepToText(parsed);
+      setRawText(txt);
+      const db = await buildPrepCockpitDocx(parsed, profile);
+      setBlob(db);
+      const pb = await buildPdfBlob(txt);
+      setPdfBlob(pb);
+    } catch (e) { setError(String(e)); }
+    setLoading(false);
+  }
+
+  const depthLabels = { recruiter: "Recruiter Screen", behavioral: "Behavioral", technical: "Technical/Deep", executive: "Executive" };
+  const filename = `PrepDoc_${company || "Draft"}_${depthLabels[depth] || depth}`;
+
+  return (
+    <div style={S.tab}>
+      <div style={S.label}>Interview Prep</div>
+
+      <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
+        {Object.entries(depthLabels).map(([v, l]) => (
+          <button key={v} onClick={() => setDepth(v)} style={{ padding: "6px 14px", borderRadius: "6px", fontSize: "12px", cursor: "pointer", border: "1px solid", fontWeight: depth === v ? 700 : 400, borderColor: depth === v ? "#c9a84c" : "#2a2840", background: depth === v ? "rgba(201,168,76,0.1)" : "transparent", color: depth === v ? "#c9a84c" : "#6a6880" }}>{l}</button>
+        ))}
+      </div>
+
+      {company && <div style={{ fontSize: "12px", color: "#4a4860", marginBottom: "14px" }}>Target: <span style={{ color: "#8a85a0" }}>{role} @ {company}</span></div>}
+
+      <button onClick={run} disabled={loading} style={{ ...S.btn, marginBottom: "20px", opacity: loading ? 0.5 : 1, display: "flex", gap: "8px", alignItems: "center" }}>
+        {loading ? <><Spinner /> Building cockpit…</> : `Generate ${depthLabels[depth]} Cockpit`}
+      </button>
+
+      {error && <div style={{ color: "#c06060", fontSize: "13px", marginBottom: "12px" }}>{error}</div>}
+
+      {prepData && (
+        <>
+          {/* Download bar */}
+          <div style={{ display: "flex", gap: "8px", marginBottom: "16px", padding: "10px 14px", background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: "6px", alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ fontSize: "11px", color: "#c9a84c", fontWeight: 600 }}>↓ Download for the call</span>
+            {blob && <button onClick={() => { const u = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = u; a.download = `${filename}.docx`; a.click(); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 12px" }}>DOCX</button>}
+            {pdfBlob && <button onClick={() => { const u = URL.createObjectURL(pdfBlob); const a = document.createElement("a"); a.href = u; a.download = `${filename}.pdf`; a.click(); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 12px" }}>PDF</button>}
+            {blob && <SaveToDriveBtn blob={blob} filename={`${filename}.docx`} onSaved={() => {}} disabled={!driveToken} />}
+            <div style={{ marginLeft: "auto" }}><CopyBtn text={rawText} /></div>
+          </div>
+
+          {/* Cockpit view */}
+          <CockpitView data={prepData} />
+        </>
+      )}
+
+      {!prepData && !loading && (
+        <div style={{ textAlign: "center", color: "#3a3860", fontSize: "13px", paddingTop: "30px" }}>
+          Select your interview round above, then generate your cockpit.
+          <div style={{ fontSize: "11px", color: "#2a2850", marginTop: "6px" }}>Structured for scanning during live calls. Downloads as a 2-page Word table.</div>
+        </div>
+      )}
+    </div>
+  );
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // RESEARCH TAB
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1633,7 +2387,7 @@ function MyStoriesTab({ profile, stories, setStories }) {
     if (!base) return;
     setExtracting(true);
     try {
-      const raw = await callClaude(PROMPTS.storyExtract, `Resume:\n${base}`, 2000);
+      const raw = await callClaude(PROMPTS.storyExtract(profile), `Resume:\n${base}`, 2000);
       let parsed = [];
       try { parsed = JSON.parse(raw.match(/\[.*\]/s)?.[0] || "[]"); } catch {}
       const newStories = parsed.map(s => ({ ...s, id: s.id || generateId() }));
@@ -1672,7 +2426,7 @@ function ResumeVariantManager({ profile, setProfile }) {
 
   function addVariant() {
     if (!name.trim()) return;
-    const v = { id: generateId(), name: name.trim(), resumeText: profile.resumeText, createdAt: getToday() };
+    const v = { id: generateId(), name: name.trim(), text: profile.resumeText, createdAt: getToday() };
     setProfile(p => ({ ...p, resumeVariants: [...(p.resumeVariants || []), v], activeResumeId: v.id }));
     setName("");
   }
@@ -1707,12 +2461,18 @@ function ProfileTab({ profile, setProfile }) {
   const [extracting, setExtracting] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  function handleFile(e) {
+  async function handleFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => setResumeText(ev.target.result);
-    reader.readAsText(file);
+    if (file.name.endsWith(".docx")) {
+      const buf = await file.arrayBuffer();
+      const text = await extractDocxText(buf);
+      setResumeText(text);
+    } else {
+      const reader = new FileReader();
+      reader.onload = ev => setResumeText(ev.target.result);
+      reader.readAsText(file);
+    }
   }
 
   async function saveProfile() {
@@ -1761,8 +2521,8 @@ function ProfileTab({ profile, setProfile }) {
       <div style={{ marginBottom: "16px" }}>
         <div style={{ fontSize: "11px", color: "#4a4860", marginBottom: "8px" }}>Resume Text</div>
         <textarea value={resumeText} onChange={e => setResumeText(e.target.value)} rows={8} style={{ ...S.input, width: "100%", resize: "vertical", fontSize: "11px" }} placeholder="Paste resume text here, or upload a .txt file below…" />
-        <input type="file" accept=".txt,.md" onChange={handleFile} style={{ marginTop: "8px", fontSize: "11px", color: "#6a6880" }} />
-        <div style={{ fontSize: "10px", color: "#3a3860", marginTop: "4px" }}>Pre-Intel roles (Proudcloud, Bookmans) are automatically stripped.</div>
+        <input type="file" accept=".txt,.md,.docx" onChange={handleFile} style={{ marginTop: "8px", fontSize: "11px", color: "#6a6880" }} />
+        <div style={{ fontSize: "10px", color: "#3a3860", marginTop: "4px" }}>Accepts .docx, .txt, or .md. Pre-Intel roles (Proudcloud, Bookmans) are automatically stripped.</div>
       </div>
 
       <button onClick={saveProfile} disabled={extracting} style={{ ...S.btn, display: "flex", gap: "8px", alignItems: "center", opacity: extracting ? 0.5 : 1 }}>
@@ -1779,20 +2539,52 @@ function ProfileTab({ profile, setProfile }) {
 // ROLE WORKSPACE
 // ─────────────────────────────────────────────────────────────────────────────
 
+function WhatYouSent({ card, onClose }) {
+  const [view, setView] = useState(card.resumeText ? "resume" : "cover");
+  if (!card.resumeText && !card.coverLetterText) return null;
+  return (
+    <div style={{ background: "rgba(10,10,24,0.98)", borderBottom: "1px solid #1a1830", padding: "12px 20px", flexShrink: 0 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+        <div style={{ fontSize: "10px", fontWeight: 700, color: "#c9a84c", letterSpacing: "0.1em", textTransform: "uppercase" }}>What You Sent</div>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "#4a4860", fontSize: "12px", cursor: "pointer" }}>hide ↑</button>
+      </div>
+      <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
+        {card.resumeText && <button onClick={() => setView("resume")} style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "4px", border: "1px solid", borderColor: view === "resume" ? "#4ade80" : "#2a2840", background: view === "resume" ? "rgba(74,222,128,0.1)" : "transparent", color: view === "resume" ? "#4ade80" : "#6a6880", cursor: "pointer" }}>Resume{card.resumeType ? ` (${card.resumeType})` : ""}</button>}
+        {card.coverLetterText && <button onClick={() => setView("cover")} style={{ fontSize: "11px", padding: "3px 10px", borderRadius: "4px", border: "1px solid", borderColor: view === "cover" ? "#2dd4bf" : "#2a2840", background: view === "cover" ? "rgba(20,184,166,0.1)" : "transparent", color: view === "cover" ? "#2dd4bf" : "#6a6880", cursor: "pointer" }}>Cover Letter</button>}
+        <CopyBtn text={view === "resume" ? card.resumeText : card.coverLetterText} />
+      </div>
+      <div style={{ fontSize: "11px", color: "#8a85a0", whiteSpace: "pre-wrap", maxHeight: "140px", overflowY: "auto", lineHeight: 1.6, background: "rgba(20,20,35,0.5)", borderRadius: "6px", padding: "10px 12px" }}>
+        {view === "resume" ? card.resumeText : card.coverLetterText}
+      </div>
+    </div>
+  );
+}
+
 function RoleWorkspace({ card, cards, setCards, profile, stories, onClose }) {
   const [activeTab, setActiveTab] = useState("resume");
   const [jd, setJd] = useState(card.jd || "");
+  const [showSent, setShowSent] = useState(true);
 
-  // Persist JD to card
-  useEffect(() => {
-    setCards(prev => prev.map(c => c.id === card.id ? { ...c, jd } : c));
-  }, [jd]);
+  const liveCard = cards.find(c => c.id === card.id) || card;
+  const hasSent = liveCard.resumeText || liveCard.coverLetterText;
 
   function updateCard(updates) {
     setCards(prev => prev.map(c => c.id === card.id ? { ...c, ...updates } : c));
   }
 
-  const liveCard = cards.find(c => c.id === card.id) || card;
+  // Persist JD + auto-detect URL
+  useEffect(() => {
+    const url = detectUrl(jd);
+    updateCard({ jd, ...(url ? { jdUrl: url } : {}) });
+  }, [jd]);
+
+  // Callbacks passed to child tabs to save artifacts back to card
+  function onSaveResume(resumeText, resumeType) {
+    updateCard({ resumeText, resumeType });
+  }
+  function onSaveCoverLetter(coverLetterText) {
+    updateCard({ coverLetterText });
+  }
 
   const TABS = [
     { id: "resume", label: "Resume" },
@@ -1802,41 +2594,51 @@ function RoleWorkspace({ card, cards, setCards, profile, stories, onClose }) {
   ];
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(8,8,20,0.96)", zIndex: 200, display: "flex", flexDirection: "column" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(8,8,20,0.98)", zIndex: 200, display: "flex", flexDirection: "column" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", borderBottom: "1px solid #1a1830", flexShrink: 0 }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: "15px", color: "#e8e6f0" }}>
-            <input value={liveCard.company || ""} onChange={e => updateCard({ company: e.target.value })} placeholder="Company" style={{ background: "transparent", border: "none", color: "#e8e6f0", fontSize: "15px", fontWeight: 700, outline: "none", width: "160px" }} />
-            <span style={{ color: "#3a3860" }}> · </span>
-            <input value={liveCard.title || ""} onChange={e => updateCard({ title: e.target.value })} placeholder="Title" style={{ background: "transparent", border: "none", color: "#8a85a0", fontSize: "13px", fontWeight: 400, outline: "none", width: "200px" }} />
+      <div style={{ padding: "12px 20px 10px", borderBottom: "1px solid #1a1830", flexShrink: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+              <input value={liveCard.company || ""} onChange={e => updateCard({ company: e.target.value })} placeholder="Company" style={{ background: "transparent", border: "none", color: "#e8e6f0", fontSize: "15px", fontWeight: 700, outline: "none", minWidth: "80px", maxWidth: "160px" }} />
+              <span style={{ color: "#3a3860" }}>·</span>
+              <input value={liveCard.title || ""} onChange={e => updateCard({ title: e.target.value })} placeholder="Title" style={{ background: "transparent", border: "none", color: "#8a85a0", fontSize: "13px", outline: "none", minWidth: "80px", maxWidth: "200px" }} />
+              {liveCard.jdUrl && <a href={liveCard.jdUrl} target="_blank" rel="noreferrer" style={{ fontSize: "11px", color: "#c9a84c", textDecoration: "none", flexShrink: 0 }}>🔗 Post ↗</a>}
+            </div>
+            {/* Stage pills — scrollable on mobile */}
+            <div style={{ display: "flex", gap: "4px", marginTop: "8px", overflowX: "auto", paddingBottom: "2px" }}>
+              {STAGES.map(s => (
+                <button key={s} onClick={() => updateCard({ stage: s })} style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "10px", border: "1px solid", cursor: "pointer", flexShrink: 0, borderColor: liveCard.stage === s ? STAGE_COLORS[s].border : "#2a2840", background: liveCard.stage === s ? STAGE_COLORS[s].bg : "transparent", color: liveCard.stage === s ? STAGE_COLORS[s].text : "#3a3860" }}>{s}</button>
+              ))}
+            </div>
           </div>
-          <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
-            {STAGES.map(s => (
-              <button key={s} onClick={() => updateCard({ stage: s })} style={{ fontSize: "10px", padding: "2px 8px", borderRadius: "10px", border: "1px solid", cursor: "pointer", borderColor: liveCard.stage === s ? STAGE_COLORS[s].border : "#2a2840", background: liveCard.stage === s ? STAGE_COLORS[s].bg : "transparent", color: liveCard.stage === s ? STAGE_COLORS[s].text : "#3a3860" }}>{s}</button>
-            ))}
+          <div style={{ display: "flex", gap: "10px", alignItems: "center", marginLeft: "12px" }}>
+            {hasSent && <button onClick={() => setShowSent(v => !v)} style={{ fontSize: "10px", color: "#c9a84c", background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: "4px", padding: "3px 8px", cursor: "pointer" }}>What I Sent</button>}
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "#6a6880", fontSize: "20px", cursor: "pointer", lineHeight: 1 }}>✕</button>
           </div>
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#6a6880", fontSize: "20px", cursor: "pointer", lineHeight: 1 }}>✕</button>
       </div>
 
+      {/* What You Sent panel */}
+      {hasSent && showSent && <WhatYouSent card={liveCard} onClose={() => setShowSent(false)} />}
+
       {/* JD strip */}
-      <div style={{ padding: "10px 20px", borderBottom: "1px solid #1a1830", flexShrink: 0 }}>
-        <textarea value={jd} onChange={e => setJd(e.target.value)} rows={2} placeholder="Paste job description here…" style={{ ...S.input, width: "100%", fontSize: "11px", resize: "vertical" }} />
+      <div style={{ padding: "8px 20px", borderBottom: "1px solid #1a1830", flexShrink: 0 }}>
+        <textarea value={jd} onChange={e => setJd(e.target.value)} rows={2} placeholder="Paste job description here… (URL auto-detected)" style={{ ...S.input, width: "100%", fontSize: "11px", resize: "vertical" }} />
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: "0", borderBottom: "1px solid #1a1830", flexShrink: 0 }}>
+      <div style={{ display: "flex", borderBottom: "1px solid #1a1830", flexShrink: 0 }}>
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ flex: 1, padding: "10px", background: "none", border: "none", borderBottom: activeTab === t.id ? "2px solid #c9a84c" : "2px solid transparent", color: activeTab === t.id ? "#c9a84c" : "#4a4860", fontSize: "12px", cursor: "pointer", fontWeight: activeTab === t.id ? 600 : 400 }}>{t.label}</button>
+          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ flex: 1, padding: "10px 4px", background: "none", border: "none", borderBottom: activeTab === t.id ? "2px solid #c9a84c" : "2px solid transparent", color: activeTab === t.id ? "#c9a84c" : "#4a4860", fontSize: "11px", cursor: "pointer", fontWeight: activeTab === t.id ? 700 : 400 }}>{t.label}</button>
         ))}
       </div>
 
       {/* Tab content */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {activeTab === "resume" && <ResumeTab profile={profile} card={liveCard} jd={jd} />}
-        {activeTab === "cover" && <CoverLetterTab profile={profile} card={liveCard} jd={jd} />}
-        {activeTab === "prep" && <InterviewPrepTab profile={profile} card={liveCard} jd={jd} stories={stories} />}
+        {activeTab === "resume"   && <ResumeTab profile={profile} card={liveCard} jd={jd} onSaveToCard={onSaveResume} />}
+        {activeTab === "cover"    && <CoverLetterTab profile={profile} card={liveCard} jd={jd} onSaveToCard={onSaveCoverLetter} />}
+        {activeTab === "prep"     && <InterviewPrepTab profile={profile} card={liveCard} jd={jd} stories={stories} />}
         {activeTab === "research" && <ResearchTab profile={profile} card={liveCard} />}
       </div>
     </div>
@@ -1875,54 +2677,69 @@ export default function NarrativeOS() {
   const { user, loading: authLoading } = useNetlifyAuth();
   const [activeTab, setActiveTab] = useState("board");
   const [profile, setProfile] = useState(() => {
-    try { return { ...DEFAULT_PROFILE, ...(JSON.parse(storageGet("nos_profile") || "{}")) }; } catch { return DEFAULT_PROFILE; }
+    try { const s = storageGet("nos_profile"); return s ? { ...DEFAULT_PROFILE, ...s } : DEFAULT_PROFILE; } catch { return DEFAULT_PROFILE; }
   });
   const [cards, setCards] = useState(() => {
-    try { return JSON.parse(storageGet("nos_cards") || "[]"); } catch { return []; }
+    try { return storageGet("nos_cards") || []; } catch { return []; }
   });
   const [stories, setStories] = useState(() => {
-    try { return JSON.parse(storageGet("nos_stories") || "[]"); } catch { return []; }
+    try { return storageGet("nos_stories") || []; } catch { return []; }
   });
   const [openCard, setOpenCard] = useState(null);
-  const [jd, setJd] = useState("");
   const cost = useSessionCost();
   const apiLocked = useApiLock();
 
   // Persist
-  useEffect(() => { storageSet("nos_profile", JSON.stringify(profile)); }, [profile]);
-  useEffect(() => { storageSet("nos_cards", JSON.stringify(cards)); }, [cards]);
-  useEffect(() => { storageSet("nos_stories", JSON.stringify(stories)); }, [stories]);
+  useEffect(() => { storageSet("nos_profile", profile); }, [profile]);
+  useEffect(() => { storageSet("nos_cards", cards); }, [cards]);
+  useEffect(() => { storageSet("nos_stories", stories); }, [stories]);
+
+  function makeCard(overrides = {}) {
+    return { id: generateId(), company: "", title: "", stage: "Considering", jd: "", jdUrl: "", tags: [], notes: "", resumeText: "", coverLetterText: "", resumeType: "", createdAt: getToday(), ...overrides };
+  }
 
   function addCard() {
-    const c = { id: generateId(), company: "", title: "", stage: "Radar", jd: "", tags: [], notes: "" };
+    const c = makeCard();
     setCards(prev => [c, ...prev]);
     setOpenCard(c);
   }
 
-  // Called from AnalyzeTab when build resume is triggered — auto-populates card fields
-  function handleBuildResume({ company, role }) {
-    let target = cards.find(c => c.company === company && c.stage !== "Pass");
-    if (!target) {
-      target = { id: generateId(), company: company || "", title: role || "", stage: "Applied", jd, tags: [], notes: "" };
-      setCards(prev => [target, ...prev]);
+  // Track + Build Resume — from Fit Check modal
+  function handleTrackBuildResume(session) {
+    const existing = cards.find(c => c.company === session.company && c.stage !== "Rejected");
+    if (existing) {
+      setOpenCard({ ...existing, stage: existing.stage === "Considering" ? "Applied" : existing.stage });
     } else {
-      setCards(prev => prev.map(c => c.id === target.id ? {
-        ...c,
-        company: c.company || company || "",
-        title: c.title || role || "",
-      } : c));
+      const c = makeCard({ company: session.company || "", title: session.role || "", stage: "Applied", jd: session.jd, jdUrl: session.jdUrl });
+      setCards(prev => [c, ...prev]);
+      setOpenCard(c);
     }
-    setOpenCard(target);
   }
 
-  function handleAddToTracker(job) {
-    const exists = cards.find(c => c.company === job.company && c.title === job.title);
-    if (!exists) {
-      const c = { id: generateId(), company: job.company || "", title: job.title || "", stage: "Radar", jd: "", tags: [], notes: job.snippet || "" };
+  // Track Only — from Fit Check modal
+  function handleTrackOnly(session) {
+    const existing = cards.find(c => c.company === session.company && c.stage !== "Rejected");
+    if (!existing) {
+      const c = makeCard({ company: session.company || "", title: session.role || "", stage: "Applied", jd: session.jd, jdUrl: session.jdUrl });
       setCards(prev => [c, ...prev]);
     }
     setActiveTab("board");
   }
+
+  // Add from job search
+  function handleAddToTracker(job) {
+    const exists = cards.find(c => c.company === job.company && c.title === job.title);
+    if (!exists) {
+      const c = makeCard({ company: job.company || "", title: job.title || "", stage: "Considering", notes: job.snippet || "", jdUrl: job.url || "" });
+      setCards(prev => [c, ...prev]);
+    }
+    setActiveTab("board");
+  }
+
+  // Interview Prep from Fit Check — switch tab (session already has JD)
+  function handleGoToInterviewPrep() { setActiveTab("board"); }
+  // Cover Letter from Fit Check — switch tab
+  function handleGoToCoverLetter() { setActiveTab("board"); }
 
   if (authLoading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "#080814", color: "#3a3860" }}><Spinner size={24} /></div>;
   if (!user) return <LoginGate />;
@@ -1943,11 +2760,24 @@ export default function NarrativeOS() {
       <div style={{ paddingBottom: "80px" }}>
         {activeTab === "board" && (
           <div style={{ padding: "16px 16px 0" }}>
-            <Board cards={cards} onCardClick={c => setOpenCard(c)} onAddCard={addCard} />
+            <Board cards={cards} onCardClick={c => setOpenCard(c)} onAddCard={addCard} onExport={() => exportTrackerXlsx(cards)} />
           </div>
         )}
-        {activeTab === "search" && <JobSearchTab profile={profile} onAnalyzeJob={job => { setJd(job.snippet || ""); setActiveTab("analyze"); }} onAddToTracker={handleAddToTracker} />}
-        {activeTab === "analyze" && <AnalyzeTab jd={jd} setJd={setJd} stories={stories} corrections={{}} onSaveCorrections={() => {}} onBuildResume={handleBuildResume} onResumeOnly={handleBuildResume} onNewJD={() => setJd("")} profile={profile} onAddToTracker={handleAddToTracker} />}
+        {activeTab === "search" && <JobSearchTab profile={profile} onAnalyzeJob={job => { setFitSession({ jd: job.snippet || "", jdUrl: job.url || "" }); setActiveTab("analyze"); }} onAddToTracker={handleAddToTracker} />}
+        {activeTab === "analyze" && (
+          <AnalyzeTab
+            stories={stories}
+            corrections={{}}
+            onSaveCorrections={() => {}}
+            onTrackBuildResume={handleTrackBuildResume}
+            onTrackOnly={handleTrackOnly}
+            onNewJD={() => wipeFitSession()}
+            profile={profile}
+            onAddToTracker={handleAddToTracker}
+            onGoToInterviewPrep={handleGoToInterviewPrep}
+            onGoToCoverLetter={handleGoToCoverLetter}
+          />
+        )}
         {activeTab === "stories" && <MyStoriesTab profile={profile} stories={stories} setStories={setStories} />}
         {activeTab === "profile" && <ProfileTab profile={profile} setProfile={setProfile} />}
       </div>
