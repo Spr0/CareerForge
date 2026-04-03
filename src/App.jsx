@@ -1,12 +1,13 @@
-// NarrativeOS v21 — Hybrid Resume Mode + Hankel Language Framework
-// Key changes from v20:
-//   - Resume type selector: Chronological / Hybrid / Functional (each with distinct render prompts)
-//   - Hankel language framework baked into all three resume prompts
-//   - Story hooks updated with proof→potential bridge format
-//   - Cover letter gets high-commitment framing
-//   - RoleWorkspace: auto-extracts company+title from JD analysis; fixes onBuildResume
-//   - BottomNav: "Analyze" renamed to "Fit Check"
-//   - AnalyzeTab: returns role+company via onBuildResume callback
+// NarrativeOS v22 — Dashboard Landing + Hamburger/Drawer Nav
+// Key changes from v21:
+//   - Dashboard replaces Board as landing view
+//   - Hamburger/drawer nav replaces bottom nav
+//   - Board renamed to Tracker
+//   - Pipeline stats widget on dashboard (clickable → Tracker)
+//   - AI coaching nudge on dashboard
+//   - Quick actions panel with warnings for neglected areas
+//   - Interview Prep added as top-level nav destination (routes to card)
+//   - JobSearchTab state internalized (no longer passed as props)
 
 import { useState, useEffect, useRef, useCallback } from "react";
 
@@ -74,7 +75,7 @@ function tierContext(profile) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HANKEL FRAMEWORK — shared language constants for all resume prompts
+// HANKEL FRAMEWORK
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _HANKEL_BANNED = `BANNED outdated phrases — never use:
@@ -309,7 +310,6 @@ ${_HANKEL_AGREE}
 ${_HANKEL_VOCAB}`;
     }
 
-    // Default: Chronological with Hankel upgrades
     return `You are an expert resume writer producing a CHRONOLOGICAL resume with Hankel language upgrades.
 Apply ALL approved edits from the strategy. Produce clean resume text only.
 
@@ -479,7 +479,7 @@ RULES:
 - Phrases only — no full sentences except objection.sayThis, watchThese last item, reminder
 - No em dashes anywhere — use pipe or hyphen
 - questions[0] is the one to ask first
-- Return ONLY the JSON object, nothing else\`;
+- Return ONLY the JSON object, nothing else`;
   },
 
   storyExtract: (profile) =>
@@ -638,7 +638,7 @@ function storageSet(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
 
-// ─── Ephemeral Fit Check session (wiped on new JD paste) ────────────────────
+// ─── Ephemeral Fit Check session ────────────────────────────────────────────
 const _emptySession = { jd: "", jdUrl: "", company: "", role: "", resumeText: "", resumeType: "", coverLetterText: "", prepText: "" };
 let _fitSession = { ..._emptySession };
 const _fitListeners = new Set();
@@ -850,7 +850,6 @@ async function exportTrackerXlsx(cards) {
     c.resumeText ? "Yes" : "No",
     c.coverLetterText ? "Yes" : "No",
   ]);
-  // Build CSV as fallback (no XLSX lib needed)
   const escape = v => `"${String(v).replace(/"/g, '""')}"`;
   const csv = [header, ...data].map(r => r.map(escape).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
@@ -972,7 +971,6 @@ async function buildCoverLetterDocxBlob(letterText, company, role, profile) {
   return await Packer.toBlob(doc);
 }
 
-// resumeType flows from ResumeTab → here → resumeRender prompt
 async function buildFinalResumeText(baseResume, strategy, jd, resumeType = "chronological") {
   return callClaude(
     PROMPTS.resumeRender(resumeType),
@@ -1031,13 +1029,11 @@ async function buildPrepCockpitDocx(prepData, profile) {
 
   const rows = [];
 
-  // ROW 1 — Header bar full width
   rows.push(mkRow(mkCell([
     new Paragraph({ children: [new TextRun({ text: [name, co, role, d.header?.round || ""].filter(Boolean).join("   \u00b7   "), size: 20, bold: true, color: "FFFFFF", font: "Calibri" })], spacing: { after: 20 } }),
     new Paragraph({ children: [new TextRun({ text: d.header?.logistics || "", size: 16, color: "DDDDFF", font: "Calibri" })], spacing: { after: 0 } }),
   ], 6, "1A237E")));
 
-  // ROW 2 — Core Story | Fit at a Glance
   const strengths = (d.fitAtGlance?.strengths || []).map(s => blt("\u2705  " + s, "1B5E20"));
   const gaps      = (d.fitAtGlance?.gaps || []).map(g => blt("\u26a0\ufe0f  " + g, "7B3F00"));
   rows.push(mkRow(
@@ -1045,7 +1041,6 @@ async function buildPrepCockpitDocx(prepData, profile) {
     mkCell([hdr("FIT AT A GLANCE"), ...strengths, ...gaps], 3),
   ));
 
-  // ROW 3 — Objection (if present)
   if (d.objection?.concern) {
     rows.push(mkRow(
       mkCell([
@@ -1060,7 +1055,6 @@ async function buildPrepCockpitDocx(prepData, profile) {
     ));
   }
 
-  // ROW 4 — Competency grid (3 x 2 cols each)
   const grid = d.competencyGrid || [];
   if (grid.length > 0) {
     rows.push(mkRow(...grid.slice(0, 3).map(col =>
@@ -1068,7 +1062,6 @@ async function buildPrepCockpitDocx(prepData, profile) {
     )));
   }
 
-  // ROW 5 — Opener Left | Opener Right
   const ol = d.openerLeft || {};
   const or_ = d.openerRight || {};
   rows.push(mkRow(
@@ -1084,12 +1077,10 @@ async function buildPrepCockpitDocx(prepData, profile) {
     ], 3),
   ));
 
-  // PAGE 2 HEADER
   rows.push(mkRow(mkCell([
     new Paragraph({ children: [new TextRun({ text: "PAGE 2   \u00b7   " + name + "   \u00b7   " + co.toUpperCase() + " SCREEN", size: 18, bold: true, color: "FFFFFF", font: "Calibri" })], spacing: { after: 0 } }),
   ], 6, "1A237E")));
 
-  // ROW 6 — Domain Gap + Watch | 30/60/90
   const ttt = d.thirtysixtynety || {};
   rows.push(mkRow(
     mkCell([
@@ -1110,7 +1101,6 @@ async function buildPrepCockpitDocx(prepData, profile) {
     ], 3),
   ));
 
-  // ROW 7 — Questions | Close Strong | Positioning + Reminder
   rows.push(mkRow(
     mkCell([hdr("TOP QUESTIONS TO ASK"), ...(d.questions || []).map(q => blt(q))], 2),
     mkCell([hdr("CLOSE STRONG"), ...(d.closeStrong || []).map(c => blt(c))], 2),
@@ -1132,9 +1122,7 @@ async function buildPrepCockpitDocx(prepData, profile) {
   return await Packer.toBlob(doc);
 }
 
-// Keep legacy text-based builder as fallback
 async function buildPrepDocxBlob(prepText, company, role, profile) {
-  // If prepText is a JSON object already, route to cockpit builder
   if (typeof prepText === "object" && prepText !== null) {
     return buildPrepCockpitDocx(prepText, profile);
   }
@@ -1156,7 +1144,6 @@ async function buildPrepDocxBlob(prepText, company, role, profile) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 7. SHARED STYLES
-
 // ─────────────────────────────────────────────────────────────────────────────
 
 const S = {
@@ -1304,19 +1291,9 @@ function LoginGate() {
   );
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
-// 12. JD ANALYSIS
+// 10. JD ANALYSIS
 // ─────────────────────────────────────────────────────────────────────────────
-
-function JDInput({ jd, setJd }) {
-  return (
-    <div style={{ marginBottom: "24px" }}>
-      <label style={S.label}>Job Description</label>
-      <textarea value={jd} onChange={e => setJd(e.target.value)} rows={8} placeholder="Paste the full job description here…" style={S.textarea} onFocus={e => e.target.style.borderColor = "#4a4abf"} onBlur={e => e.target.style.borderColor = "#3a3d5c"} />
-    </div>
-  );
-}
 
 function AnalysisModal({ score, rationale, gaps, onTrackBuildResume, onInterviewPrep, onCoverLetter, onTrackOnly, onCorrect, onNewJD, onDismiss }) {
   const verdict =
@@ -1328,16 +1305,12 @@ function AnalysisModal({ score, rationale, gaps, onTrackBuildResume, onInterview
     <div onClick={onDismiss} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#181a2e", border: "1px solid rgba(100,100,200,0.25)", borderRadius: "14px", width: "100%", maxWidth: "600px", maxHeight: "90vh", overflowY: "auto", padding: "32px", boxShadow: "0 24px 80px rgba(0,0,0,0.7)", position: "relative" }}>
         <button onClick={onDismiss} style={{ position: "absolute", top: "14px", right: "14px", background: "rgba(255,255,255,0.06)", border: "none", borderRadius: "50%", width: "30px", height: "30px", cursor: "pointer", color: "#a0a0c0", fontSize: "15px" }}>✕</button>
-
-        {/* Score */}
         <div style={{ textAlign: "center", marginBottom: "24px" }}>
           <div style={{ fontSize: "76px", fontWeight: 800, lineHeight: 1, color: verdict.color, letterSpacing: "-2px" }}>{score}<span style={{ fontSize: "28px", color: "#6060a0", fontWeight: 400 }}>/10</span></div>
           <div style={{ fontSize: "18px", fontWeight: 700, color: verdict.color, marginTop: "8px" }}>{verdict.label}</div>
           <div style={{ fontSize: "13px", color: "#9890b8", marginTop: "6px", fontStyle: "italic" }}>{rationale}</div>
           <div style={{ fontSize: "13px", color: "#c8c4e8", marginTop: "8px", lineHeight: 1.6 }}>{verdict.rec}</div>
         </div>
-
-        {/* Gaps */}
         {gaps.length > 0 && (
           <div style={{ marginBottom: "20px" }}>
             <div style={{ fontSize: "10px", letterSpacing: "1.5px", textTransform: "uppercase", color: "#8880b8", fontWeight: 600, marginBottom: "10px" }}>Gaps to Review ({gaps.length})</div>
@@ -1349,8 +1322,6 @@ function AnalysisModal({ score, rationale, gaps, onTrackBuildResume, onInterview
             ))}
           </div>
         )}
-
-        {/* Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           <button onClick={onTrackBuildResume} style={{ background: "#4f6ef7", color: "#fff", border: "none", borderRadius: "8px", padding: "14px 18px", fontSize: "14px", fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>Track + Build Resume</span><span style={{ fontSize: "12px", opacity: 0.75 }}>Saves to card →</span>
@@ -1407,7 +1378,6 @@ function GapCorrectionPanel({ gaps, corrections, onSave, onDone }) {
   );
 }
 
-// AnalyzeTab — ephemeral session: new JD paste wipes artifacts; track to persist
 function AnalyzeTab({ stories, corrections, onSaveCorrections, onTrackBuildResume, onTrackOnly, onNewJD, profile, onAddToTracker, onGoToInterviewPrep, onGoToCoverLetter }) {
   const session = useFitSession();
   const jd = session.jd;
@@ -1504,7 +1474,6 @@ function AnalyzeTab({ stories, corrections, onSaveCorrections, onTrackBuildResum
         </div>
       )}
 
-      {/* JD input */}
       <div style={{ marginBottom: "16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
           <label style={S.label}>Job Description</label>
@@ -1544,7 +1513,7 @@ function AnalyzeTab({ stories, corrections, onSaveCorrections, onTrackBuildResum
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BOARD COMPONENTS
+// BOARD / TRACKER COMPONENTS
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RoleCard({ card, onClick }) {
@@ -1565,11 +1534,30 @@ function RoleCard({ card, onClick }) {
   );
 }
 
+function PipelineStatsStrip({ cards }) {
+  const stageCount = STAGES.reduce((acc, s) => { acc[s] = cards.filter(c => c.stage === s).length; return acc; }, {});
+  return (
+    <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "4px", marginBottom: "14px" }}>
+      {STAGES.map(stage => {
+        const count = stageCount[stage] || 0;
+        const sc = STAGE_COLORS[stage];
+        return (
+          <div key={stage} style={{ flexShrink: 0, textAlign: "center", minWidth: "58px", background: count > 0 ? sc.bg : "rgba(255,255,255,0.02)", border: `1px solid ${count > 0 ? sc.border : "#1a1830"}`, borderRadius: "6px", padding: "7px 6px" }}>
+            <div style={{ fontSize: "18px", fontWeight: 700, color: count > 0 ? sc.text : "#2a2840", lineHeight: 1 }}>{count}</div>
+            <div style={{ fontSize: "8px", color: count > 0 ? sc.text : "#2a2840", marginTop: "4px", letterSpacing: "0.03em", lineHeight: 1.2 }}>{stage}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Board({ cards, onCardClick, onAddCard, onExport }) {
   const grouped = STAGES.reduce((acc, s) => { acc[s] = cards.filter(c => c.stage === s); return acc; }, {});
   const hasCards = cards.length > 0;
   return (
     <div>
+      <PipelineStatsStrip cards={cards} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
         <div style={{ fontSize: "11px", color: "#3a3860" }}>{cards.length} role{cards.length !== 1 ? "s" : ""} tracked</div>
         <div style={{ display: "flex", gap: "8px" }}>
@@ -1640,10 +1628,10 @@ function JobResultCard({ job, onAnalyze, onAddToTracker }) {
           `Retrieve the full job description text from this URL: ${job.url}\nReturn only the raw job description text, no commentary.`
         );
         if (fetched && fetched.length > fullJd.length) fullJd = fetched;
-      } catch { /* fall back to snippet */ }
+      } catch { }
     }
     if (!fullJd) {
-      setFetchErr("Couldn't fetch full JD — paste it manually in Analyze Fit.");
+      setFetchErr("Couldn't fetch full JD — paste it manually in Fit Check.");
       setFetching(false); return;
     }
     setFetching(false);
@@ -1674,9 +1662,13 @@ function JobResultCard({ job, onAnalyze, onAddToTracker }) {
   );
 }
 
-function JobSearchTab({ profile, onAnalyzeJob, onAddToTracker, jobs, setJobs, query, setQuery, location, setLocation }) {
+// State internalized — no longer passed as props
+function JobSearchTab({ profile, onAnalyzeJob, onAddToTracker }) {
+  const [jobs, setJobs] = useState([]);
+  const [query, setQuery] = useState("");
+  const [location, setLocation] = useState("");
   const [loading, setLoading] = useState(false);
-  const [scored, setScored] = useState(jobs.length > 0);
+  const [scored, setScored] = useState(false);
   const [error, setError] = useState("");
 
   async function search() {
@@ -1796,15 +1788,11 @@ function ResumeTab({ profile, card, jd, onSaveToCard }) {
       <div style={{ fontSize: "12px", color: "#6a6880", marginBottom: "20px", lineHeight: 1.5, padding: "10px 14px", background: "rgba(201,168,76,0.05)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: "6px" }}>
         {RESUME_TYPES.find(r => r.id === resumeType)?.desc}
       </div>
-
       {company && <div style={{ fontSize: "12px", color: "#4a4860", marginBottom: "12px" }}>Target: <span style={{ color: "#8a85a0" }}>{role} @ {company}</span></div>}
-
       <button onClick={run} disabled={loading || !baseResume} style={{ ...S.btn, marginBottom: "20px", opacity: loading || !baseResume ? 0.5 : 1, display: "flex", alignItems: "center", gap: "8px" }}>
         {loading ? <><Spinner /> {phase}</> : `Build ${RESUME_TYPES.find(r => r.id === resumeType)?.label} Resume`}
       </button>
-
       {error && <div style={{ color: "#c06060", fontSize: "13px", marginBottom: "12px" }}>{error}</div>}
-
       {strategy && (
         <div style={{ ...S.section, marginBottom: "16px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
@@ -1814,7 +1802,6 @@ function ResumeTab({ profile, card, jd, onSaveToCard }) {
           <div style={{ ...S.resultBox, maxHeight: "200px", overflowY: "auto" }}>{strategy}</div>
         </div>
       )}
-
       {finalResume && (
         <div style={S.section}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
@@ -1832,18 +1819,10 @@ function ResumeTab({ profile, card, jd, onSaveToCard }) {
           </div>
           <div style={S.resultBox}>{finalResume}</div>
           {saved && <div style={{ fontSize: "11px", color: "#4ade80", marginTop: "8px" }}>✓ Saved to Google Drive</div>}
-
-          {/* Refinement input */}
           <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid #2a2840" }}>
             <div style={{ fontSize: "10px", color: "#4a4860", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>Refine</div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <input
-                value={feedback}
-                onChange={e => setFeedback(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && refine()}
-                placeholder="e.g. Make the opener more direct, add the $28M EBITDA number…"
-                style={{ ...S.input, flex: 1, fontSize: "12px" }}
-              />
+              <input value={feedback} onChange={e => setFeedback(e.target.value)} onKeyDown={e => e.key === "Enter" && refine()} placeholder="e.g. Make the opener more direct, add the $28M EBITDA number…" style={{ ...S.input, flex: 1, fontSize: "12px" }} />
               <button onClick={refine} disabled={refining || !feedback.trim()} style={{ ...S.btn, fontSize: "12px", padding: "8px 14px", opacity: refining || !feedback.trim() ? 0.5 : 1 }}>
                 {refining ? <Spinner size={12} /> : "Apply"}
               </button>
@@ -1975,15 +1954,12 @@ function CockpitView({ data }) {
       </div>
     );
   }
-
   function Phrase({ text, color = "#c8c4e8" }) {
     return <div style={{ fontSize: "12px", color, lineHeight: 1.5, marginBottom: "3px" }}>{text}</div>;
   }
-
   function Bullet({ text, color = "#a0a0c0" }) {
     return <div style={{ fontSize: "11px", color, lineHeight: 1.5, marginBottom: "2px", paddingLeft: "10px" }}>{text}</div>;
   }
-
   function Cell({ children, style = {} }) {
     return (
       <div style={{ background: "rgba(20,20,38,0.8)", border: "1px solid #2a2850", borderRadius: "6px", padding: "12px 14px", ...style }}>
@@ -1991,7 +1967,6 @@ function CockpitView({ data }) {
       </div>
     );
   }
-
   function grid2(left, right) {
     return (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
@@ -1999,7 +1974,6 @@ function CockpitView({ data }) {
       </div>
     );
   }
-
   function grid3(a, b, c) {
     return (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "8px" }}>
@@ -2010,16 +1984,12 @@ function CockpitView({ data }) {
 
   return (
     <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-
-      {/* Header bar */}
       <div style={{ background: "#1a237e", borderRadius: "6px", padding: "10px 14px", marginBottom: "8px" }}>
         <div style={{ fontSize: "13px", fontWeight: 700, color: "#fff" }}>
           {[d.header?.name, co, d.header?.role, d.header?.round].filter(Boolean).join("  ·  ")}
         </div>
         {d.header?.logistics && <div style={{ fontSize: "11px", color: "#c5cae9", marginTop: "3px" }}>{d.header.logistics}</div>}
       </div>
-
-      {/* Core Story | Fit at a Glance */}
       {grid2(
         <Cell>
           <Section title="Core Story">
@@ -2033,8 +2003,6 @@ function CockpitView({ data }) {
           </Section>
         </Cell>
       )}
-
-      {/* Objection */}
       {d.objection?.concern && grid2(
         <Cell>
           <Section title={d.objection.concern} color="#f87171">
@@ -2048,8 +2016,6 @@ function CockpitView({ data }) {
           </Section>
         </Cell>
       )}
-
-      {/* Competency grid */}
       {(d.competencyGrid || []).length > 0 && grid3(
         ...(d.competencyGrid || []).slice(0, 3).map((col, i) => (
           <Cell key={i}>
@@ -2059,8 +2025,6 @@ function CockpitView({ data }) {
           </Cell>
         ))
       )}
-
-      {/* Opener Left | Opener Right */}
       {grid2(
         <Cell>
           <Section title="Tell Me About Yourself"><Phrase text={d.openerLeft?.tellMeAboutYourself || ""} /></Section>
@@ -2073,15 +2037,11 @@ function CockpitView({ data }) {
           <Section title="Your Search"><Phrase text={d.openerRight?.frameYourSearch || ""} /></Section>
         </Cell>
       )}
-
-      {/* Page 2 divider */}
       <div style={{ background: "#1a237e", borderRadius: "4px", padding: "6px 14px", marginBottom: "8px" }}>
         <span style={{ fontSize: "11px", fontWeight: 700, color: "#c5cae9", letterSpacing: "0.1em" }}>
           PAGE 2  ·  {(d.header?.name || "").toUpperCase()}  ·  {co.toUpperCase()} SCREEN
         </span>
       </div>
-
-      {/* Domain Gap + Watch | 30/60/90 */}
       {grid2(
         <Cell>
           <Section title={d.domainGap?.label || "Domain Gap"} color="#fb923c">
@@ -2110,8 +2070,6 @@ function CockpitView({ data }) {
           </Section>
         </Cell>
       )}
-
-      {/* Questions | Close Strong | Positioning + Reminder */}
       {grid3(
         <Cell>
           <Section title="Top Questions to Ask" color="#60a5fa">
@@ -2200,7 +2158,6 @@ function InterviewPrepTab({ profile, card, jd, stories }) {
         `Company: ${company}\nRole: ${role}\nJD:\n${jd || "(none)"}\nResume:\n${(base || "").slice(0, 1400)}`,
         2400
       );
-      // Parse JSON — strip any accidental markdown fences
       const cleaned = raw.replace(/^```[a-z]*\n?/m, "").replace(/\n?```$/m, "").trim();
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error("Response was not valid JSON. Try again.");
@@ -2222,24 +2179,18 @@ function InterviewPrepTab({ profile, card, jd, stories }) {
   return (
     <div style={S.tab}>
       <div style={S.label}>Interview Prep</div>
-
       <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
         {Object.entries(depthLabels).map(([v, l]) => (
           <button key={v} onClick={() => setDepth(v)} style={{ padding: "6px 14px", borderRadius: "6px", fontSize: "12px", cursor: "pointer", border: "1px solid", fontWeight: depth === v ? 700 : 400, borderColor: depth === v ? "#c9a84c" : "#2a2840", background: depth === v ? "rgba(201,168,76,0.1)" : "transparent", color: depth === v ? "#c9a84c" : "#6a6880" }}>{l}</button>
         ))}
       </div>
-
       {company && <div style={{ fontSize: "12px", color: "#4a4860", marginBottom: "14px" }}>Target: <span style={{ color: "#8a85a0" }}>{role} @ {company}</span></div>}
-
       <button onClick={run} disabled={loading} style={{ ...S.btn, marginBottom: "20px", opacity: loading ? 0.5 : 1, display: "flex", gap: "8px", alignItems: "center" }}>
         {loading ? <><Spinner /> Building cockpit…</> : `Generate ${depthLabels[depth]} Cockpit`}
       </button>
-
       {error && <div style={{ color: "#c06060", fontSize: "13px", marginBottom: "12px" }}>{error}</div>}
-
       {prepData && (
         <>
-          {/* Download bar */}
           <div style={{ display: "flex", gap: "8px", marginBottom: "16px", padding: "10px 14px", background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: "6px", alignItems: "center", flexWrap: "wrap" }}>
             <span style={{ fontSize: "11px", color: "#c9a84c", fontWeight: 600 }}>↓ Download for the call</span>
             {blob && <button onClick={() => { const u = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = u; a.download = `${filename}.docx`; a.click(); }} style={{ ...S.btnGhost, fontSize: "11px", padding: "4px 12px" }}>DOCX</button>}
@@ -2247,12 +2198,9 @@ function InterviewPrepTab({ profile, card, jd, stories }) {
             {blob && <SaveToDriveBtn blob={blob} filename={`${filename}.docx`} onSaved={() => {}} disabled={!driveToken} />}
             <div style={{ marginLeft: "auto" }}><CopyBtn text={rawText} /></div>
           </div>
-
-          {/* Cockpit view */}
           <CockpitView data={prepData} />
         </>
       )}
-
       {!prepData && !loading && (
         <div style={{ textAlign: "center", color: "#3a3860", fontSize: "13px", paddingTop: "30px" }}>
           Select your interview round above, then generate your cockpit.
@@ -2262,6 +2210,7 @@ function InterviewPrepTab({ profile, card, jd, stories }) {
     </div>
   );
 }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // RESEARCH TAB
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2379,7 +2328,6 @@ function MyStoriesTab({ profile, stories, setStories }) {
     setStories(prev => prev.find(s => s.id === story.id) ? prev.map(s => s.id === story.id ? story : s) : [...prev, story]);
     setEditing(null); setAdding(false);
   }
-
   function remove(id) { setStories(prev => prev.filter(s => s.id !== id)); }
 
   async function extract() {
@@ -2430,7 +2378,6 @@ function ResumeVariantManager({ profile, setProfile }) {
     setProfile(p => ({ ...p, resumeVariants: [...(p.resumeVariants || []), v], activeResumeId: v.id }));
     setName("");
   }
-
   function activate(id) { setProfile(p => ({ ...p, activeResumeId: id })); }
   function remove(id) {
     setProfile(p => ({ ...p, resumeVariants: p.resumeVariants.filter(v => v.id !== id), activeResumeId: p.activeResumeId === id ? null : p.activeResumeId }));
@@ -2465,9 +2412,13 @@ function ProfileTab({ profile, setProfile }) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.name.endsWith(".docx")) {
-      const buf = await file.arrayBuffer();
-      const text = await extractDocxText(buf);
-      setResumeText(text);
+      try {
+        const buf = await file.arrayBuffer();
+        const text = await extractDocxText(buf);
+        setResumeText(text);
+      } catch (err) {
+        console.error("DOCX parse error:", err);
+      }
     } else {
       const reader = new FileReader();
       reader.onload = ev => setResumeText(ev.target.result);
@@ -2496,7 +2447,6 @@ function ProfileTab({ profile, setProfile }) {
   return (
     <div style={S.tab}>
       <div style={S.label}>Profile</div>
-
       <div style={{ marginBottom: "20px" }}>
         <div style={{ fontSize: "12px", color: "#6a6880", marginBottom: "8px" }}>Career Tier</div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -2505,31 +2455,26 @@ function ProfileTab({ profile, setProfile }) {
           ))}
         </div>
       </div>
-
       {fields.map(([k, l]) => (
         <div key={k} style={{ marginBottom: "12px" }}>
           <div style={{ fontSize: "11px", color: "#4a4860", marginBottom: "4px" }}>{l}</div>
           <input value={profile[k] || ""} onChange={e => setProfile(p => ({ ...p, [k]: e.target.value }))} style={{ ...S.input, width: "100%" }} />
         </div>
       ))}
-
       <div style={{ marginBottom: "12px" }}>
         <div style={{ fontSize: "11px", color: "#4a4860", marginBottom: "4px" }}>Professional Summary (optional)</div>
         <textarea value={profile.background || ""} onChange={e => setProfile(p => ({ ...p, background: e.target.value }))} rows={4} style={{ ...S.input, width: "100%", resize: "vertical" }} placeholder="Additional context for AI (achievements, target roles, constraints)…" />
       </div>
-
       <div style={{ marginBottom: "16px" }}>
         <div style={{ fontSize: "11px", color: "#4a4860", marginBottom: "8px" }}>Resume Text</div>
-        <textarea value={resumeText} onChange={e => setResumeText(e.target.value)} rows={8} style={{ ...S.input, width: "100%", resize: "vertical", fontSize: "11px" }} placeholder="Paste resume text here, or upload a .txt file below…" />
-        <input type="file" accept=".txt,.md,.docx" onChange={handleFile} style={{ marginTop: "8px", fontSize: "11px", color: "#6a6880" }} />
-        <div style={{ fontSize: "10px", color: "#3a3860", marginTop: "4px" }}>Accepts .docx, .txt, or .md. Pre-Intel roles (Proudcloud, Bookmans) are automatically stripped.</div>
+        <textarea value={resumeText} onChange={e => setResumeText(e.target.value)} rows={8} style={{ ...S.input, width: "100%", resize: "vertical", fontSize: "11px" }} placeholder="Paste resume text here, or upload a file below…" />
+        <input type="file" accept=".txt,.md,.docx,.pdf" onChange={handleFile} style={{ marginTop: "8px", fontSize: "11px", color: "#6a6880" }} />
+        <div style={{ fontSize: "10px", color: "#3a3860", marginTop: "4px" }}>Accepts .docx, .txt, .md, or .pdf. Pre-Intel roles (Proudcloud, Bookmans) are automatically stripped.</div>
       </div>
-
       <button onClick={saveProfile} disabled={extracting} style={{ ...S.btn, display: "flex", gap: "8px", alignItems: "center", opacity: extracting ? 0.5 : 1 }}>
         {extracting ? <><Spinner /> Extracting contact…</> : "Save Profile"}
       </button>
       {saved && <div style={{ fontSize: "11px", color: "#4ade80", marginTop: "8px" }}>✓ Profile saved</div>}
-
       <ResumeVariantManager profile={profile} setProfile={setProfile} />
     </div>
   );
@@ -2572,30 +2517,23 @@ function RoleWorkspace({ card, cards, setCards, profile, stories, onClose }) {
     setCards(prev => prev.map(c => c.id === card.id ? { ...c, ...updates } : c));
   }
 
-  // Persist JD + auto-detect URL
   useEffect(() => {
     const url = detectUrl(jd);
     updateCard({ jd, ...(url ? { jdUrl: url } : {}) });
   }, [jd]);
 
-  // Callbacks passed to child tabs to save artifacts back to card
-  function onSaveResume(resumeText, resumeType) {
-    updateCard({ resumeText, resumeType });
-  }
-  function onSaveCoverLetter(coverLetterText) {
-    updateCard({ coverLetterText });
-  }
+  function onSaveResume(resumeText, resumeType) { updateCard({ resumeText, resumeType }); }
+  function onSaveCoverLetter(coverLetterText) { updateCard({ coverLetterText }); }
 
   const TABS = [
-    { id: "resume", label: "Resume" },
-    { id: "cover", label: "Cover Letter" },
-    { id: "prep", label: "Interview Prep" },
+    { id: "resume",   label: "Resume" },
+    { id: "cover",    label: "Cover Letter" },
+    { id: "prep",     label: "Interview Prep" },
     { id: "research", label: "Research" },
   ];
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(8,8,20,0.98)", zIndex: 200, display: "flex", flexDirection: "column" }}>
-      {/* Header */}
       <div style={{ padding: "12px 20px 10px", borderBottom: "1px solid #1a1830", flexShrink: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ flex: 1 }}>
@@ -2605,7 +2543,6 @@ function RoleWorkspace({ card, cards, setCards, profile, stories, onClose }) {
               <input value={liveCard.title || ""} onChange={e => updateCard({ title: e.target.value })} placeholder="Title" style={{ background: "transparent", border: "none", color: "#8a85a0", fontSize: "13px", outline: "none", minWidth: "80px", maxWidth: "200px" }} />
               {liveCard.jdUrl && <a href={liveCard.jdUrl} target="_blank" rel="noreferrer" style={{ fontSize: "11px", color: "#c9a84c", textDecoration: "none", flexShrink: 0 }}>🔗 Post ↗</a>}
             </div>
-            {/* Stage pills — scrollable on mobile */}
             <div style={{ display: "flex", gap: "4px", marginTop: "8px", overflowX: "auto", paddingBottom: "2px" }}>
               {STAGES.map(s => (
                 <button key={s} onClick={() => updateCard({ stage: s })} style={{ fontSize: "9px", padding: "2px 7px", borderRadius: "10px", border: "1px solid", cursor: "pointer", flexShrink: 0, borderColor: liveCard.stage === s ? STAGE_COLORS[s].border : "#2a2840", background: liveCard.stage === s ? STAGE_COLORS[s].bg : "transparent", color: liveCard.stage === s ? STAGE_COLORS[s].text : "#3a3860" }}>{s}</button>
@@ -2618,23 +2555,15 @@ function RoleWorkspace({ card, cards, setCards, profile, stories, onClose }) {
           </div>
         </div>
       </div>
-
-      {/* What You Sent panel */}
       {hasSent && showSent && <WhatYouSent card={liveCard} onClose={() => setShowSent(false)} />}
-
-      {/* JD strip */}
       <div style={{ padding: "8px 20px", borderBottom: "1px solid #1a1830", flexShrink: 0 }}>
         <textarea value={jd} onChange={e => setJd(e.target.value)} rows={2} placeholder="Paste job description here… (URL auto-detected)" style={{ ...S.input, width: "100%", fontSize: "11px", resize: "vertical" }} />
       </div>
-
-      {/* Tab bar */}
       <div style={{ display: "flex", borderBottom: "1px solid #1a1830", flexShrink: 0 }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ flex: 1, padding: "10px 4px", background: "none", border: "none", borderBottom: activeTab === t.id ? "2px solid #c9a84c" : "2px solid transparent", color: activeTab === t.id ? "#c9a84c" : "#4a4860", fontSize: "11px", cursor: "pointer", fontWeight: activeTab === t.id ? 700 : 400 }}>{t.label}</button>
         ))}
       </div>
-
-      {/* Tab content */}
       <div style={{ flex: 1, overflowY: "auto" }}>
         {activeTab === "resume"   && <ResumeTab profile={profile} card={liveCard} jd={jd} onSaveToCard={onSaveResume} />}
         {activeTab === "cover"    && <CoverLetterTab profile={profile} card={liveCard} jd={jd} onSaveToCard={onSaveCoverLetter} />}
@@ -2646,26 +2575,207 @@ function RoleWorkspace({ card, cards, setCards, profile, stories, onClose }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// APP SHELL
+// DRAWER NAV
 // ─────────────────────────────────────────────────────────────────────────────
 
-function BottomNav({ active, onChange }) {
-  const tabs = [
-    { id: "board",    icon: "⬡", label: "Board" },
-    { id: "search",   icon: "⌕", label: "Search" },
-    { id: "analyze",  icon: "✦", label: "Fit Check" },
-    { id: "stories",  icon: "◈", label: "Stories" },
-    { id: "profile",  icon: "◉", label: "Profile" },
+function DrawerNav({ active, onChange, onClose, user }) {
+  const items = [
+    { id: "dashboard", icon: "⊞", label: "Dashboard" },
+    { id: "tracker",   icon: "⬡", label: "Tracker" },
+    { id: "search",    icon: "⌕", label: "Search" },
+    { id: "analyze",   icon: "✦", label: "Fit Check" },
+    { id: "stories",   icon: "◈", label: "Stories" },
+    { id: "prep",      icon: "◎", label: "Interview Prep" },
+    { id: "profile",   icon: "◉", label: "Profile" },
   ];
   return (
-    <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "rgba(10,10,22,0.97)", borderTop: "1px solid #1a1830", display: "flex", zIndex: 100, paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-      {tabs.map(t => (
-        <button key={t.id} onClick={() => onChange(t.id)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "10px 0 8px", background: "none", border: "none", cursor: "pointer", color: active === t.id ? "#c9a84c" : "#3a3860", transition: "color 0.15s" }}>
-          <span style={{ fontSize: "18px", lineHeight: 1 }}>{t.icon}</span>
-          <span style={{ fontSize: "9px", letterSpacing: "0.06em", textTransform: "uppercase", fontWeight: active === t.id ? 700 : 400 }}>{t.label}</span>
-        </button>
-      ))}
-    </nav>
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 150 }} />
+      <div style={{ position: "fixed", top: 0, left: 0, bottom: 0, width: "260px", background: "#0c0e1e", borderRight: "1px solid #1a1830", zIndex: 151, display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: "18px 20px 16px", borderBottom: "1px solid #1a1830", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontWeight: 800, fontSize: "15px", letterSpacing: "0.06em", color: "#c9a84c" }}>NARRATIVE<span style={{ color: "#4a4860" }}>OS</span></div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#4a4860", fontSize: "16px", cursor: "pointer", lineHeight: 1 }}>✕</button>
+        </div>
+        <div style={{ flex: 1, paddingTop: "8px", overflowY: "auto" }}>
+          {items.map(item => (
+            <button key={item.id} onClick={() => { onChange(item.id); onClose(); }} style={{
+              width: "100%", display: "flex", alignItems: "center", gap: "14px", padding: "13px 20px",
+              background: active === item.id ? "rgba(201,168,76,0.08)" : "none", border: "none",
+              borderLeft: `3px solid ${active === item.id ? "#c9a84c" : "transparent"}`,
+              color: active === item.id ? "#c9a84c" : "#6a6880",
+              fontSize: "14px", fontFamily: "'DM Sans', system-ui, sans-serif", cursor: "pointer", textAlign: "left",
+            }}>
+              <span style={{ fontSize: "16px", width: "22px", textAlign: "center" }}>{item.icon}</span>
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ padding: "16px 20px", borderTop: "1px solid #1a1830" }}>
+          <div style={{ fontSize: "11px", color: "#3a3860", marginBottom: "6px" }}>{user?.email}</div>
+          <button onClick={() => window.netlifyIdentity?.logout()} style={{ fontSize: "11px", color: "#4a4060", background: "none", border: "none", cursor: "pointer", padding: 0 }}>Sign out</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COACHING NUDGE
+// ─────────────────────────────────────────────────────────────────────────────
+
+function CoachingNudge({ cards, stories, profile }) {
+  const [nudge, setNudge] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const fetched = useRef(false);
+
+  useEffect(() => {
+    if (fetched.current || !ANTHROPIC_API_KEY) return;
+    fetched.current = true;
+    const t = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const stageSummary = STAGES.map(s => `${s}: ${cards.filter(c => c.stage === s).length}`).join(", ");
+        const ctx = `Active applications: ${cards.filter(c => c.stage !== "Rejected").length}. Stages: ${stageSummary}. Stories written: ${stories.length}. Resume uploaded: ${profile.resumeUploaded ? "yes" : "no"}. Profile complete: ${profile.name && profile.resumeText ? "yes" : "no"}.`;
+        const raw = await callClaude(
+          "You are a concise job search coach. Give ONE specific actionable nudge in 1-2 sentences based on this candidate's activity data. Be direct and specific. No generic advice. Address them as 'You'.",
+          ctx, 120
+        );
+        setNudge(raw.trim());
+      } catch { setNudge(null); }
+      setLoading(false);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  if (!loading && !nudge) return null;
+  return (
+    <div style={{ display: "flex", gap: "10px", alignItems: "flex-start", background: "rgba(201,168,76,0.05)", border: "1px solid rgba(201,168,76,0.15)", borderRadius: "8px", padding: "12px 14px" }}>
+      <span style={{ fontSize: "13px", flexShrink: 0, marginTop: "1px" }}>💡</span>
+      {loading
+        ? <span style={{ fontSize: "12px", color: "#4a4060", fontStyle: "italic" }}>Reading your pipeline…</span>
+        : <span style={{ fontSize: "12px", color: "#c9a84c", lineHeight: 1.6 }}>{nudge}</span>
+      }
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DASHBOARD TAB
+// ─────────────────────────────────────────────────────────────────────────────
+
+function DashboardTab({ cards, stories, profile, onNavigate }) {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const firstName = profile.displayName || profile.name?.split(" ")[0] || "";
+  const stageCount = STAGES.reduce((acc, s) => { acc[s] = cards.filter(c => c.stage === s).length; return acc; }, {});
+  const appliedCount = cards.filter(c => !["Considering","Rejected"].includes(c.stage)).length;
+  const inProgressCount = cards.filter(c => ["Screening","Hiring Manager","Panel","Exec"].includes(c.stage)).length;
+  const hasResume = !!profile.resumeUploaded || !!profile.resumeText;
+  const activeVariant = profile.resumeVariants?.find(v => v.id === profile.activeResumeId);
+
+  return (
+    <div style={{ padding: "20px 16px 8px", maxWidth: "540px", margin: "0 auto" }}>
+
+      <div style={{ marginBottom: "20px" }}>
+        <div style={{ fontSize: "20px", fontWeight: 700, color: "#e8e6f0", lineHeight: 1.2 }}>
+          {greeting}{firstName ? `, ${firstName}` : ""}.
+        </div>
+        <div style={{ fontSize: "12px", color: "#3a3860", marginTop: "4px" }}>
+          {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: "18px" }}>
+        <CoachingNudge cards={cards} stories={stories} profile={profile} />
+      </div>
+
+      {/* Pipeline widget */}
+      <div onClick={() => onNavigate("tracker")}
+        style={{ background: "#181a2e", border: "1px solid #2e3050", borderRadius: "10px", padding: "14px 16px", marginBottom: "12px", cursor: "pointer" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+          <span style={{ fontSize: "10px", fontWeight: 700, color: "#4f6ef7", letterSpacing: "0.1em", textTransform: "uppercase" }}>Pipeline</span>
+          <span style={{ fontSize: "10px", color: "#3a3860" }}>Open Tracker →</span>
+        </div>
+        <div style={{ display: "flex", gap: "6px", overflowX: "auto", paddingBottom: "2px" }}>
+          {STAGES.map(stage => {
+            const count = stageCount[stage] || 0;
+            const sc = STAGE_COLORS[stage];
+            return (
+              <div key={stage} style={{ flexShrink: 0, textAlign: "center", minWidth: "52px", background: count > 0 ? sc.bg : "rgba(255,255,255,0.02)", border: `1px solid ${count > 0 ? sc.border : "#1a1830"}`, borderRadius: "6px", padding: "7px 6px" }}>
+                <div style={{ fontSize: "17px", fontWeight: 700, color: count > 0 ? sc.text : "#2a2840", lineHeight: 1 }}>{count}</div>
+                <div style={{ fontSize: "8px", color: count > 0 ? sc.text : "#2a2840", marginTop: "4px", letterSpacing: "0.03em", lineHeight: 1.2 }}>{stage}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px", marginBottom: "12px" }}>
+        {[
+          { label: "Applied",  value: appliedCount,    color: "#fbbf24" },
+          { label: "Active",   value: inProgressCount, color: "#4ade80" },
+          { label: "Stories",  value: stories.length,  color: "#c084fc" },
+        ].map(stat => (
+          <div key={stat.label} style={{ background: "#181a2e", border: "1px solid #2e3050", borderRadius: "8px", padding: "12px 8px", textAlign: "center" }}>
+            <div style={{ fontSize: "22px", fontWeight: 700, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
+            <div style={{ fontSize: "9px", color: "#3a3860", marginTop: "5px", textTransform: "uppercase", letterSpacing: "0.08em" }}>{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick actions */}
+      <div style={{ background: "#181a2e", border: "1px solid #2e3050", borderRadius: "10px", padding: "14px 16px", marginBottom: "12px" }}>
+        <div style={{ fontSize: "10px", fontWeight: 700, color: "#4f6ef7", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "12px" }}>Quick Actions</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          {[
+            { label: "Search for Roles",  sub: "Find and score opportunities",                                         nav: "search",  icon: "⌕", warn: false },
+            { label: "Fit Check a JD",    sub: "Paste a JD and score your fit",                                        nav: "analyze", icon: "✦", warn: false },
+            { label: "Add a Story",       sub: `${stories.length} stor${stories.length === 1 ? "y" : "ies"} in library`, nav: "stories", icon: "◈", warn: stories.length === 0 },
+            { label: "Update Profile",    sub: hasResume ? "Resume on file" : "No resume yet — add one",               nav: "profile", icon: "◉", warn: !hasResume },
+          ].map(a => (
+            <button key={a.nav} onClick={() => onNavigate(a.nav)} style={{
+              display: "flex", alignItems: "center", gap: "12px", padding: "10px",
+              background: a.warn ? "rgba(201,168,76,0.06)" : "rgba(255,255,255,0.02)",
+              border: `1px solid ${a.warn ? "rgba(201,168,76,0.18)" : "#222040"}`,
+              borderRadius: "7px", cursor: "pointer", textAlign: "left", width: "100%",
+            }}>
+              <span style={{ fontSize: "15px", width: "20px", textAlign: "center", color: a.warn ? "#c9a84c" : "#4a4860" }}>{a.icon}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "13px", fontWeight: 600, color: a.warn ? "#c9a84c" : "#c0bce0" }}>{a.label}</div>
+                <div style={{ fontSize: "10px", color: a.warn ? "#7a6030" : "#3a3860", marginTop: "2px" }}>{a.sub}</div>
+              </div>
+              <span style={{ fontSize: "11px", color: "#2a2840" }}>›</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Active resume strip */}
+      <div style={{ background: "#181a2e", border: "1px solid #2e3050", borderRadius: "8px", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontSize: "9px", color: "#3a3860", textTransform: "uppercase", letterSpacing: "0.08em" }}>Active Resume</div>
+          <div style={{ fontSize: "12px", color: hasResume ? "#8a85a0" : "#4a4060", marginTop: "2px" }}>
+            {hasResume ? (activeVariant?.name || "Base Resume") : "None uploaded"}
+          </div>
+        </div>
+        <button onClick={() => onNavigate("profile")} style={{ ...S.btnGhost, fontSize: "10px", padding: "3px 10px" }}>Manage →</button>
+      </div>
+    </div>
+  );
+}
+
+// Interview Prep standalone — routes to Tracker to pick a card
+function InterviewPrepStandalone({ onNavigate }) {
+  return (
+    <div style={{ padding: "60px 20px", textAlign: "center" }}>
+      <div style={{ fontSize: "28px", marginBottom: "12px", color: "#3a3860" }}>◎</div>
+      <div style={{ fontSize: "16px", fontWeight: 600, color: "#c8c4e8", marginBottom: "8px" }}>Interview Prep</div>
+      <div style={{ fontSize: "13px", color: "#4a4860", lineHeight: 1.7, marginBottom: "24px" }}>
+        Prep is launched from a specific role card.<br />Open a card in the Tracker to start your cockpit.
+      </div>
+      <button onClick={() => onNavigate("tracker")} style={S.btn}>Go to Tracker →</button>
+    </div>
   );
 }
 
@@ -2675,7 +2785,8 @@ function BottomNav({ active, onChange }) {
 
 export default function NarrativeOS() {
   const { user, loading: authLoading } = useNetlifyAuth();
-  const [activeTab, setActiveTab] = useState("board");
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [profile, setProfile] = useState(() => {
     try { const s = storageGet("nos_profile"); return s ? { ...DEFAULT_PROFILE, ...s } : DEFAULT_PROFILE; } catch { return DEFAULT_PROFILE; }
   });
@@ -2689,7 +2800,6 @@ export default function NarrativeOS() {
   const cost = useSessionCost();
   const apiLocked = useApiLock();
 
-  // Persist
   useEffect(() => { storageSet("nos_profile", profile); }, [profile]);
   useEffect(() => { storageSet("nos_cards", cards); }, [cards]);
   useEffect(() => { storageSet("nos_stories", stories); }, [stories]);
@@ -2704,7 +2814,6 @@ export default function NarrativeOS() {
     setOpenCard(c);
   }
 
-  // Track + Build Resume — from Fit Check modal
   function handleTrackBuildResume(session) {
     const existing = cards.find(c => c.company === session.company && c.stage !== "Rejected");
     if (existing) {
@@ -2716,54 +2825,67 @@ export default function NarrativeOS() {
     }
   }
 
-  // Track Only — from Fit Check modal
   function handleTrackOnly(session) {
     const existing = cards.find(c => c.company === session.company && c.stage !== "Rejected");
     if (!existing) {
       const c = makeCard({ company: session.company || "", title: session.role || "", stage: "Applied", jd: session.jd, jdUrl: session.jdUrl });
       setCards(prev => [c, ...prev]);
     }
-    setActiveTab("board");
+    setActiveTab("tracker");
   }
 
-  // Add from job search
   function handleAddToTracker(job) {
     const exists = cards.find(c => c.company === job.company && c.title === job.title);
     if (!exists) {
       const c = makeCard({ company: job.company || "", title: job.title || "", stage: "Considering", notes: job.snippet || "", jdUrl: job.url || "" });
       setCards(prev => [c, ...prev]);
     }
-    setActiveTab("board");
+    setActiveTab("tracker");
   }
 
-  // Interview Prep from Fit Check — switch tab (session already has JD)
-  function handleGoToInterviewPrep() { setActiveTab("board"); }
-  // Cover Letter from Fit Check — switch tab
-  function handleGoToCoverLetter() { setActiveTab("board"); }
+  function handleGoToInterviewPrep() { setActiveTab("tracker"); }
+  function handleGoToCoverLetter() { setActiveTab("tracker"); }
 
   if (authLoading) return <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "#080814", color: "#3a3860" }}><Spinner size={24} /></div>;
   if (!user) return <LoginGate />;
 
   return (
     <div style={{ background: "#080814", minHeight: "100vh", fontFamily: "'DM Sans', system-ui, sans-serif", color: "#e8e6f0" }}>
+
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px 10px", borderBottom: "1px solid #1a1830", position: "sticky", top: 0, background: "rgba(8,8,20,0.95)", zIndex: 50, backdropFilter: "blur(8px)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px 10px", borderBottom: "1px solid #1a1830", position: "sticky", top: 0, background: "rgba(8,8,20,0.95)", zIndex: 50, backdropFilter: "blur(8px)" }}>
+        <button onClick={() => setDrawerOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: "4px 6px", display: "flex", flexDirection: "column", gap: "4px" }}>
+          <span style={{ display: "block", width: "18px", height: "2px", background: "#6a6880", borderRadius: "1px" }} />
+          <span style={{ display: "block", width: "18px", height: "2px", background: "#6a6880", borderRadius: "1px" }} />
+          <span style={{ display: "block", width: "13px", height: "2px", background: "#6a6880", borderRadius: "1px" }} />
+        </button>
         <div style={{ fontWeight: 800, fontSize: "15px", letterSpacing: "0.06em", color: "#c9a84c" }}>NARRATIVE<span style={{ color: "#4a4860" }}>OS</span></div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {apiLocked && <span style={{ fontSize: "10px", color: "#c9a84c", background: "rgba(201,168,76,0.1)", padding: "2px 8px", borderRadius: "10px" }}>⏳ Rate limit</span>}
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {apiLocked && <span style={{ fontSize: "10px", color: "#c9a84c", background: "rgba(201,168,76,0.1)", padding: "2px 8px", borderRadius: "10px" }}>⏳</span>}
           {cost > 0 && <span style={{ fontSize: "10px", color: "#3a3860" }}>${cost.toFixed(4)}</span>}
-          <div style={{ fontSize: "11px", color: "#3a3860" }}>{user.email?.split("@")[0]}</div>
         </div>
       </div>
 
+      {/* Drawer */}
+      {drawerOpen && <DrawerNav active={activeTab} onChange={setActiveTab} onClose={() => setDrawerOpen(false)} user={user} />}
+
       {/* Main content */}
-      <div style={{ paddingBottom: "80px" }}>
-        {activeTab === "board" && (
+      <div style={{ paddingBottom: "20px" }}>
+        {activeTab === "dashboard" && (
+          <DashboardTab cards={cards} stories={stories} profile={profile} onNavigate={setActiveTab} />
+        )}
+        {activeTab === "tracker" && (
           <div style={{ padding: "16px 16px 0" }}>
             <Board cards={cards} onCardClick={c => setOpenCard(c)} onAddCard={addCard} onExport={() => exportTrackerXlsx(cards)} />
           </div>
         )}
-        {activeTab === "search" && <JobSearchTab profile={profile} onAnalyzeJob={job => { setFitSession({ jd: job.snippet || "", jdUrl: job.url || "" }); setActiveTab("analyze"); }} onAddToTracker={handleAddToTracker} />}
+        {activeTab === "search" && (
+          <JobSearchTab
+            profile={profile}
+            onAnalyzeJob={job => { setFitSession({ jd: job.snippet || "", jdUrl: job.url || "" }); setActiveTab("analyze"); }}
+            onAddToTracker={handleAddToTracker}
+          />
+        )}
         {activeTab === "analyze" && (
           <AnalyzeTab
             stories={stories}
@@ -2780,9 +2902,8 @@ export default function NarrativeOS() {
         )}
         {activeTab === "stories" && <MyStoriesTab profile={profile} stories={stories} setStories={setStories} />}
         {activeTab === "profile" && <ProfileTab profile={profile} setProfile={setProfile} />}
+        {activeTab === "prep"    && <InterviewPrepStandalone onNavigate={setActiveTab} />}
       </div>
-
-      <BottomNav active={activeTab} onChange={setActiveTab} />
 
       {openCard && (
         <RoleWorkspace
