@@ -1,59 +1,79 @@
-exports.handler = async function (event) {
+// netlify/functions/claude.js
+// Proxies all Anthropic API calls server-side.
+// API key never reaches the browser.
+
+exports.handler = async function (event, context) {
+  if (event.httpMethod !== "POST") {
+    return { statusCode: 405, body: JSON.stringify({ error: "Method not allowed" }) };
+  }
+
+  // Auth — Netlify Identity populates context.clientContext.user
+  // when client sends Authorization: Bearer <netlify-identity-jwt>
+  const user = context.clientContext?.user;
+  if (!user) {
+    return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized" }) };
+  }
+
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+  if (!ANTHROPIC_API_KEY) {
+    return { statusCode: 500, body: JSON.stringify({ error: "API key not configured on server" }) };
+  }
+
+  let body;
   try {
-    const body = JSON.parse(event.body || "{}")
-    const system = body.system || ""
-    const user = body.user || ""
+    body = JSON.parse(event.body || "{}");
+  } catch {
+    return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON body" }) };
+  }
 
-    if (!system || !user) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          error: "Missing system or user input"
-        })
-      }
-    }
+  const { mode, system, userMessage, maxTokens = 2000 } = body;
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 25000) // 🔥 slightly longer
+  if (!userMessage || typeof userMessage !== "string") {
+    return { statusCode: 400, body: JSON.stringify({ error: "userMessage is required" }) };
+  }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  // Sanitize — truncate to reasonable limits
+  const sanitize = (str, limit = 60000) =>
+    typeof str === "string" ? str.slice(0, limit) : "";
+
+  const cappedTokens = Math.min(Math.max(maxTokens, 100), 4000);
+
+  const requestBody = {
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: cappedTokens,
+    messages: [{ role: "user", content: sanitize(userMessage) }],
+  };
+
+  if (system) requestBody.system = sanitize(system);
+
+  // Search mode attaches web_search tool
+  if (mode === "search") {
+    requestBody.tools = [{ type: "web_search_20250305", name: "web_search" }];
+  }
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user }
-        ],
-        max_tokens: 800, // 🔥 FIXED (was 300)
-        temperature: 0.2
-      })
-    })
+      body: JSON.stringify(requestBody),
+    });
 
-    clearTimeout(timeout)
-
-    const data = await response.json()
-
-    const text =
-      data?.choices?.[0]?.message?.content ||
-      "No response from OpenAI"
+    const data = await res.json();
 
     return {
-      statusCode: 200,
-      body: JSON.stringify({ text })
-    }
-
-  } catch (e) {
+      statusCode: res.status,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    };
+  } catch (err) {
     return {
-      statusCode: 200,
-      body: JSON.stringify({
-        text: "LLM timeout or error",
-        error: e.message
-      })
-    }
+      statusCode: 502,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Upstream API error", detail: err.message }),
+    };
   }
-}
+};
