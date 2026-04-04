@@ -1,4 +1,4 @@
-// NarrativeOS v22 — Dashboard Landing + Hamburger/Drawer Nav
+// NarrativeOS v23 — API Proxy + Avatar + Resume Alert + Coaching Fix
 // Key changes from v21:
 //   - Dashboard replaces Board as landing view
 //   - Hamburger/drawer nav replaces bottom nav
@@ -703,27 +703,27 @@ function stripPreIntelRoles(text) {
 // 4. API
 // ─────────────────────────────────────────────────────────────────────────────
 
+// API key is now server-side only (netlify/functions/claude.js)
+// VITE_ANTHROPIC_API_KEY kept temporarily for CoachingNudge availability check only
 const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY || "";
 const APIFY_TOKEN       = import.meta.env.VITE_APIFY_TOKEN || "";
+const PROXY_URL         = "/.netlify/functions/claude";
+
+function getAuthToken() {
+  return window.netlifyIdentity?.currentUser()?.token?.access_token || "";
+}
 
 async function callClaude(system, user, maxTokens = 2000) {
-  if (!ANTHROPIC_API_KEY) throw new Error("API key not configured. Set VITE_ANTHROPIC_API_KEY.");
   setApiLock(true);
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const token = getAuthToken();
+    const res = await fetch(PROXY_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: maxTokens,
-        system,
-        messages: [{ role: "user", content: user }],
-      }),
+      body: JSON.stringify({ mode: "standard", system, userMessage: user, maxTokens }),
     });
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error?.message || `API ${res.status}`);
@@ -734,27 +734,20 @@ async function callClaude(system, user, maxTokens = 2000) {
 }
 
 async function callClaudeSearch(company, query) {
-  if (!ANTHROPIC_API_KEY) throw new Error("API key not configured.");
   setApiLock(true);
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const token = getAuthToken();
+    const system = `You are a research analyst preparing a pre-interview briefing about ${company}.
+Summarize findings in 3-5 factual sentences with specific numbers, names, and dates.
+After your summary, list 1-3 source URLs as: "Sources: url1, url2"
+Scope is limited to public information about the company.`;
+    const res = await fetch(PROXY_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "anthropic-dangerous-direct-browser-access": "true",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1500,
-        tools: [{ type: "web_search_20250305", name: "web_search" }],
-        system: `You are a research analyst preparing a pre-interview briefing about ${company}.
-Summarize findings in 3-5 factual sentences with specific numbers, names, and dates.
-After your summary, list 1-3 source URLs as: "Sources: url1, url2"
-Scope is limited to public information about the company.`,
-        messages: [{ role: "user", content: query }],
-      }),
+      body: JSON.stringify({ mode: "search", system, userMessage: query, maxTokens: 1500 }),
     });
     const data = await res.json();
     if (!res.ok || data.error) throw new Error(data.error?.message || `API ${res.status}`);
@@ -2642,7 +2635,7 @@ function CoachingNudge({ cards: cardsProp, stories: storiesProp, profile }) {
         const stageSummary = STAGES.map(s => `${s}: ${cards.filter(c => c.stage === s).length}`).join(", ");
         const ctx = `Active applications: ${cards.filter(c => c.stage !== "Rejected").length}. Stages: ${stageSummary}. Stories written: ${stories.length}. Resume uploaded: ${profile.resumeUploaded ? "yes" : "no"}. Profile complete: ${profile.name && profile.resumeText ? "yes" : "no"}.`;
         const raw = await callClaude(
-          "You are a concise job search coach. Give ONE specific actionable nudge in 1-2 sentences based on this candidate's activity data. Be direct and specific. No generic advice. Address them as 'You'.",
+          "You are a NarrativeOS guide. Based on the user's current app activity data, suggest ONE specific next action they should take inside NarrativeOS. Reference app features by name: Fit Check, Tracker, Stories, Profile, Search, Interview Prep. Focus on what is most useful right now. Never give generic job search advice — only NarrativeOS-specific guidance. 1-2 sentences maximum.",
           ctx, 120
         );
         setNudge(raw.trim());
@@ -2695,6 +2688,22 @@ function DashboardTab({ cards: cardsProp, stories: storiesProp, profile, onNavig
       <div style={{ marginBottom: "18px" }}>
         <CoachingNudge cards={cards} stories={stories} profile={profile} />
       </div>
+
+      {/* Amber alert: no resume on file */}
+      {!hasResume && (
+        <div style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.35)", borderRadius: "8px", padding: "12px 16px", marginBottom: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "16px", flexShrink: 0 }}>⚠️</span>
+            <div>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "#c9a84c" }}>No resume on file</div>
+              <div style={{ fontSize: "11px", color: "#7a6030", marginTop: "2px" }}>Resume is required for Fit Check, interview prep, and story extraction.</div>
+            </div>
+          </div>
+          <button onClick={(e) => { e.stopPropagation(); onNavigate("profile"); }} style={{ background: "#c9a84c", color: "#0f1117", border: "none", borderRadius: "6px", padding: "7px 14px", fontSize: "12px", fontWeight: 700, cursor: "pointer", flexShrink: 0, fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+            Upload
+          </button>
+        </div>
+      )}
 
       {/* Pipeline widget */}
       <div onClick={() => onNavigate("tracker")}
@@ -2870,6 +2879,11 @@ export default function NarrativeOS() {
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           {apiLocked && <span style={{ fontSize: "10px", color: "#c9a84c", background: "rgba(201,168,76,0.1)", padding: "2px 8px", borderRadius: "10px" }}>⏳</span>}
           {cost > 0 && <span style={{ fontSize: "10px", color: "#3a3860" }}>${cost.toFixed(4)}</span>}
+          {user && (
+            <div title={user.email} style={{ width: "28px", height: "28px", borderRadius: "50%", background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 700, color: "#c9a84c", flexShrink: 0, cursor: "default", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+              {(user.email || "?")[0].toUpperCase()}
+            </div>
+          )}
         </div>
       </div>
 
